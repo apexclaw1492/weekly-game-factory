@@ -80,16 +80,16 @@ function bLvl() {
 function setSpawns() {
   spawns=[];
   const waves=[
-    {tx:200,type:'sol',offX:50},{tx:350,type:'sol',offX:60},{tx:450,type:'fly',offX:40},
-    {tx:600,type:'tur',offX:70},{tx:700,type:'sol',offX:50},{tx:750,type:'sol',offX:60},
-    {tx:850,type:'fly',offX:40},{tx:950,type:'hev',offX:80},{tx:1000,type:'sol',offX:50},
-    {tx:1100,type:'sol',offX:60},{tx:1200,type:'fly',offX:40},{tx:1300,type:'tur',offX:70},
-    {tx:1400,type:'sol',offX:50},{tx:1500,type:'hev',offX:80},{tx:1600,type:'sol',offX:50},
-    {tx:1700,type:'fly',offX:40},{tx:1800,type:'sol',offX:60},{tx:1900,type:'sol',offX:50},
-    {tx:2000,type:'tur',offX:70},{tx:2100,type:'sol',offX:50},{tx:2200,type:'fly',offX:40},
-    {tx:2300,type:'hev',offX:80},{tx:2400,type:'sol',offX:50},{tx:2500,type:'sol',offX:60},
-    {tx:2600,type:'fly',offX:40},{tx:2700,type:'tur',offX:70},{tx:2800,type:'sol',offX:50},
-    {tx:2900,type:'hev',offX:80},{tx:3000,type:'sol',offX:50},{tx:3100,type:'fly',offX:40},
+    {tx:200,type:'sol',offX:10},{tx:350,type:'sol',offX:15},{tx:450,type:'fly',offX:5},
+    {tx:600,type:'tur',offX:20},{tx:700,type:'sol',offX:10},{tx:750,type:'sol',offX:15},
+    {tx:850,type:'fly',offX:5},{tx:950,type:'hev',offX:25},{tx:1000,type:'sol',offX:10},
+    {tx:1100,type:'sol',offX:15},{tx:1200,type:'fly',offX:5},{tx:1300,type:'tur',offX:20},
+    {tx:1400,type:'sol',offX:10},{tx:1500,type:'hev',offX:25},{tx:1600,type:'sol',offX:10},
+    {tx:1700,type:'fly',offX:5},{tx:1800,type:'sol',offX:15},{tx:1900,type:'sol',offX:10},
+    {tx:2000,type:'tur',offX:20},{tx:2100,type:'sol',offX:10},{tx:2200,type:'fly',offX:5},
+    {tx:2300,type:'hev',offX:25},{tx:2400,type:'sol',offX:10},{tx:2500,type:'sol',offX:15},
+    {tx:2600,type:'fly',offX:5},{tx:2700,type:'tur',offX:20},{tx:2800,type:'sol',offX:10},
+    {tx:2900,type:'hev',offX:25},{tx:3000,type:'sol',offX:10},{tx:3100,type:'fly',offX:5},
   ];
   for(const w of waves){w.triggered=false;spawns.push(w);}
 }
@@ -97,7 +97,7 @@ function setSpawns() {
 // ── Enemies ──
 const ET={SOL:0,FLY:1,TUR:2,HEV:3};
 function mkE(type,x,y) {
-  const e={type,x,y,w:14,h:16,alive:true,hp:1,vx:0,vy:0,fT:0,inv:30};
+  const e={type,x,y,w:14,h:16,alive:true,hp:1,vx:0,vy:0,fT:0,inv:90};
   switch(type){
     case ET.SOL:e.hp=1;e.w=14;e.h=16;e.vx=-1.2;e.fT=60+Math.random()*40;break;
     case ET.FLY:e.hp=1;e.w=14;e.h=14;e.vx=-2;e.fT=30+Math.random()*30;break;
@@ -210,7 +210,8 @@ function upd() {
   // Enemies
   for(let i=en.length-1;i>=0;i--){
     const e=en[i];if(!e.alive){en.splice(i,1);continue;}
-    if(e.inv>0)e.inv--;
+    if(e.inv>0){e.inv--;} // invulnerable - don't move
+    if(e.inv>0)continue;
     if(e.x<camX-60||e.x>camX+W/PX+60){en.splice(i,1);continue;}
     e.x+=e.vx;
     if(e.type===ET.FLY)e.y+=Math.sin(frm*.04+e.x*.01)*.3;
@@ -227,7 +228,7 @@ function upd() {
   for(let i=fx.length-1;i>=0;i--){fx[i].x+=fx[i].vx;fx[i].y+=fx[i].vy;fx[i].vy+=.12;fx[i].life--;if(fx[i].life<=0)fx.splice(i,1);}
   if(shake>0)shake--;
 }
-function fr(){if(!PL.alive)return;const n=PL.wpn==='spread'?5:1;for(let i=0;i<n;i++){const a=PL.aim*.5+(i-(n-1)/2)*.1;bl.push({x:PL.x+PL.face*9,y:PL.y+7,vx:Math.cos(a)*6*PL.face,vy:Math.sin(a)*6,life:40,w:4,h:3});}PL.fCD=7;SFX.shoot();em(PL.x+PL.face*9,PL.y+7,2,'#ffff44',1);}
+function fr(){if(!PL.alive)return;const n=PL.wpn==='spread'?5:1;for(let i=0;i<n;i++){const a=PL.aim*.5+(i-(n-1)/2)*.1;bl.push({x:PL.x+PL.face*9,y:PL.y+7,vx:Math.cos(a)*5*PL.face,vy:Math.sin(a)*5,life:24,w:4,h:3});}PL.fCD=9;SFX.shoot();em(PL.x+PL.face*9,PL.y+7,2,'#ffff44',1);}
 function kp(){if(!PL.alive)return;PL.alive=false;PL.dieT=0;SFX.die();em(PL.x+6,PL.y+10,18,'#ff2222',4);shake=6;}
 
 // ── Draw ──
@@ -264,7 +265,7 @@ function drw() {
     if(e.type===ET.TUR&&e.hp<3){X.fillStyle='#333';X.fillRect(sx,(e.y-3)*PX,e.w*PX,2);X.fillStyle='#44ff44';X.fillRect(sx,(e.y-3)*PX,e.w*PX*e.hp/3,2);}
     if(e.type===ET.HEV){X.fillStyle='#333';X.fillRect(sx,(e.y-4)*PX,e.w*PX,2);X.fillStyle='#ff4444';X.fillRect(sx,(e.y-4)*PX,e.w*PX*e.hp/5,2);}
     // Spawn flash
-    if(e.inv>20){const fl=e.inv%4<2;if(fl)continue;}}
+    if(e.inv>70){const fl=e.inv%6<3;if(fl)continue;}}
   // Boss
   if(ST.BOSS===state&&BOS.alive){const sx=BOS.x*PX-camX*PX;
     if(BOS.intro){X.fillStyle='rgba(255,0,0,'+(.15+Math.sin(frm*.15)*.15)+')';X.fillRect(0,0,W,H);
