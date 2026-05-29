@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Weekly Game Factory</title>
+  <link rel="stylesheet" href="assets/css/main.css">
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎮</text></svg>">
+</head>
+<body>
+  <div class="stars"></div>
+
+  <header class="hero">
+    <div class="hero-content">
+      <h1 class="game-logo">
+        <span class="logo-line">WEEKLY</span>
+        <span class="logo-line accent">GAME</span>
+        <span class="logo-line">FACTORY</span>
+      </h1>
+      <p class="subtitle">A new game every Friday</p>
+      <div class="badge">Game #0 — Coming May 30</div>
+    </div>
+  </header>
+
+  <main>
+    <section class="featured-game" id="featured">
+      <div class="container">
+        <h2 class="section-title">🎯 This Week's Game</h2>
+        <div class="featured-card" id="game-of-week">
+          <div class="featured-preview">
+            <div class="placeholder-game">
+              <span class="coming-soon">🚀</span>
+              <span class="coming-soon-text">Game #1 Drops Friday!</span>
+            </div>
+          </div>
+          <div class="featured-info">
+            <span class="week-badge">Week 1</span>
+            <h3 id="game-title">Cosmic Cargo</h3>
+            <p id="game-desc">A gravity-switching puzzle game. Pilot your cargo ship through asteroid fields — flip gravity to survive!</p>
+            <div class="game-meta">
+              <span class="tag">puzzle</span>
+              <span class="tag">physics</span>
+              <span class="tag">pixel-art</span>
+            </div>
+            <button class="play-btn disabled" disabled>Coming May 30</button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="game-grid-section">
+      <div class="container">
+        <h2 class="section-title">📚 Game Archive</h2>
+        <p class="section-sub">All games published so far. New one every week!</p>
+        <div class="game-grid" id="game-grid">
+          <!-- Games will be added here weekly -->
+          <div class="game-card empty">
+            <div class="card-preview">
+              <span class="empty-slot">?</span>
+            </div>
+            <div class="card-info">
+              <h4>Coming Soon</h4>
+              <p>Game #1 — May 30</p>
+            </div>
+          </div>
+          <div class="game-card empty">
+            <div class="card-preview">
+              <span class="empty-slot">?</span>
+            </div>
+            <div class="card-info">
+              <h4>Coming Soon</h4>
+              <p>Game #2 — Jun 6</p>
+            </div>
+          </div>
+          <div class="game-card empty">
+            <div class="card-preview">
+              <span class="empty-slot">?</span>
+            </div>
+            <div class="card-info">
+              <h4>Coming Soon</h4>
+              <p>Game #3 — Jun 13</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="stats-section">
+      <div class="container">
+        <h2 class="section-title">📊 Factory Stats</h2>
+        <div class="stats-grid">
+          <div class="stat-card">
+            <span class="stat-number" id="games-count">0</span>
+            <span class="stat-label">Games Published</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-number" id="week-count">0</span>
+            <span class="stat-label">Weeks Running</span>
+          </div>
+          <div class="stat-card">
+            <span class="stat-number">∞</span>
+            <span class="stat-label">Ideas Remaining</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="container">
+      <p>Built by <a href="https://github.com/apexclaw1492">David</a> + <a href="https://hermes-agent.nousresearch.com">Hermes Agent</a> 🤖</p>
+      <p class="footer-sub">One game. Every week. Forever.</p>
+    </div>
+  </footer>
+
+  <script src="assets/js/hub.js"></script>
+</body>
+</html>
