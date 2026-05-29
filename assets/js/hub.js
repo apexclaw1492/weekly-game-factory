@@ -13,13 +13,13 @@ const GAMES = [
     path: 'games/2026-05-23-f1-space-invaders/',
     released: true
   },
-  // Week 1 — Coming May 30
+  // Week 1 — May 30 (Building now!)
   {
     id: 'cosmic-cargo',
     week: 1,
     title: 'Cosmic Cargo',
     desc: 'A gravity-switching puzzle game. Pilot your cargo ship through asteroid fields — flip gravity to survive!',
-    tags: ['puzzle', 'physics', 'pixel-art'],
+    tags: ['puzzle', 'physics', 'gravity'],
     date: '2026-05-30',
     path: 'games/2026-05-30-cosmic-cargo/',
     released: false
