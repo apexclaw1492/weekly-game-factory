@@ -8,7 +8,7 @@
 <style>
 *{margin:0;padding:0;box-sizing:border-box;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
 html,body{background:#000;overflow:hidden;height:100%;width:100%;touch-action:none;position:fixed}
-canvas{display:block;position:absolute;top:0;left:0;width:100%;height:calc(100% - 28px)}
+canvas{display:block;position:absolute;top:0;left:0;width:100%;height:calc(100% - 28px);touch-action:none;-webkit-touch-callout:none}
 .game-header{position:fixed;top:0;left:0;right:0;height:28px;padding:4px 10px;display:flex;justify-content:space-between;align-items:center;z-index:20;background:rgba(0,0,0,0.9);font:11px/1 'Courier New',monospace;pointer-events:none}
 .game-header a{color:#ff4444;text-decoration:none;pointer-events:auto}
 .game-header .title{color:#888}
@@ -148,7 +148,7 @@ function tS(e){e.preventDefault();for(const t of e.changedTouches){const tx=Math
 function tM(e){e.preventDefault();for(const t of e.changedTouches){if(t.identifier===U._tl){const tx=Math.floor(t.clientX/PX),ty=Math.floor((t.clientY-28)/PX);
   if(tx<50&&ty>BN.dpY-14){const b=db(tx,ty);U.l=b==='l'?1:0;U.r=b==='r'?1:0;U.u=b==='u'?1:0;}else if(ty<Math.floor(H/PX)-40){U.u=tx>Math.floor(W/PX)*.5?1:0;U.l=tx<Math.floor(W/PX)*.3?1:0;U.r=(tx>=Math.floor(W/PX)*.3&&tx<=Math.floor(W/PX)*.5)?1:0;}else{U.l=0;U.r=0;U.u=0;}}}}
 function tE(e){e.preventDefault();for(const t of e.changedTouches){if(t.identifier===U._tl){U.l=0;U.r=0;U.u=0;U.d=0;U._tl=-1;}if(t.identifier===U._jl){U.jH=false;U._jl=-1;}if(t.identifier===U._sl){U.fH=false;U._sl=-1;}}}
-C.addEventListener('touchstart',tS,{passive:false});C.addEventListener('touchmove',tM,{passive:false});C.addEventListener('touchend',tE,{passive:false});C.addEventListener('touchcancel',tE,{passive:false});
+document.addEventListener('touchstart',tS,{passive:false});document.addEventListener('touchmove',tM,{passive:false});document.addEventListener('touchend',tE,{passive:false});document.addEventListener('touchcancel',tE,{passive:false});
 const K={};document.addEventListener('keydown',e=>{K[e.key]=true;if(' ArrowLeftArrowRightArrowUpArrowDown '.includes(' '+e.key+' '))e.preventDefault();if(e.key==='ArrowLeft')U.l=1;if(e.key==='ArrowRight')U.r=1;if(e.key==='ArrowUp')U.u=1;if(e.key==='ArrowDown')U.d=1;if(e.key===' '||e.key==='z')U.fire=true;if(e.key==='x'){U.jump=true;U.jH=true;}});
 document.addEventListener('keyup',e=>{K[e.key]=false;if(e.key==='ArrowLeft')U.l=0;if(e.key==='ArrowRight')U.r=0;if(e.key==='ArrowUp')U.u=0;if(e.key==='ArrowDown')U.d=0;if(e.key==='x')U.jH=false;});
 function ov(ax,ay,aw,ah,bx,by,bw,bh){return ax<bx+bw&&ax+aw>bx&&ay<by+bh&&ay+ah>by;}
