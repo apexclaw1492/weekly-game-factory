@@ -20,9 +20,9 @@ const GAMES = [
     title: 'Cosmic Cargo',
     desc: 'A gravity-switching puzzle game. Pilot your cargo ship through asteroid fields — flip gravity to survive!',
     tags: ['puzzle', 'physics', 'gravity'],
-    date: '2026-05-30',
+    date: '2026-05-29',
     path: 'games/2026-05-30-cosmic-cargo/',
-    released: false
+    released: true
   }
 ];
 
