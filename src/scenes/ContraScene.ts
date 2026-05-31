@@ -54,6 +54,7 @@ export class ContraScene extends Phaser.Scene {
   private stateText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
   private bossWarningText?: Phaser.GameObjects.Text;
+  private backBtn!: Phaser.GameObjects.Text;
 
   // Starfield/Scenery
   private starfield!: Phaser.GameObjects.Graphics;
@@ -208,22 +209,50 @@ export class ContraScene extends Phaser.Scene {
     }).setOrigin(0.5).setScrollFactor(0);
 
     // Back button floating UI
-    const backBtn = this.add.text(width - 20, height - 35, '← BACK TO HUB', {
+    this.backBtn = this.add.text(width - 20, height - 35, '← BACK TO HUB', {
       fontSize: '13px',
       fontFamily: 'monospace',
       color: '#ff4444',
       fontStyle: 'bold'
     }).setOrigin(1, 0.5).setScrollFactor(0).setInteractive({ useHandCursor: true });
 
-    backBtn.on('pointerdown', () => {
+    this.backBtn.on('pointerdown', () => {
       SoundSynth.playTone(400, 0.1, 'sine', 0.05);
       this.scene.start('HubScene');
     });
+
+    // Handle screen resizing
+    this.scale.on('resize', this.handleResize, this);
 
     this.input.on('pointerdown', () => {
       if (this.isWaitingToStart) this.startGame();
       else if (this.isGameOver || this.isVictory) this.scene.restart();
     });
+  }
+
+  private handleResize() {
+    const { width, height } = this.scale;
+
+    // Reposition HUD
+    this.livesText.setPosition(width / 2, 20);
+    this.stateText.setPosition(width / 2, height / 2 - 40);
+    this.hintText.setPosition(width / 2, height / 2 + 25);
+    this.backBtn.setPosition(width - 20, height - 35);
+    if (this.bossWarningText) {
+      this.bossWarningText.setPosition(width / 2, 100);
+    }
+
+    // Update starfield
+    this.starfield.clear();
+    this.stars.forEach(star => {
+      star.x = Math.random() * width;
+      star.y = Math.random() * (height - 200);
+    });
+
+    // Resize touch controls
+    if (this.touchControls) {
+      this.touchControls.resize();
+    }
   }
 
   update(time: number) {
@@ -334,6 +363,9 @@ export class ContraScene extends Phaser.Scene {
 
     // Update active enemies AI
     this.updateEnemies(time);
+
+    // Custom check player bullets vs boss
+    this.updateEnemiesCustom();
   }
 
   private createScenery() {
@@ -873,9 +905,3 @@ export class ContraScene extends Phaser.Scene {
   }
 }
 
-// Inline override hack to bind custom updates
-const contraSceneUpdate = ContraScene.prototype.update;
-ContraScene.prototype.update = function(time: number) {
-  contraSceneUpdate.call(this, time);
-  this.updateEnemiesCustom();
-};

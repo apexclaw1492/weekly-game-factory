@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { TextureGenerator } from '../utils/TextureGenerator';
+import { SoundSynth } from '../utils/SoundSynth';
 
 export class BootScene extends Phaser.Scene {
   constructor() {
@@ -15,6 +16,15 @@ export class BootScene extends Phaser.Scene {
   }
 
   create() {
+    // Unlock Audio Context on first user click or touch (iOS Safari restriction)
+    const unlockAudio = () => {
+      SoundSynth.playTone(440, 0.001, 'sine', 0);
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+    };
+    window.addEventListener('click', unlockAudio);
+    window.addEventListener('touchstart', unlockAudio);
+
     // Instantly transition to the preload scene for a progress bar
     this.scene.start('PreloadScene');
   }

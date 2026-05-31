@@ -29,6 +29,8 @@ export class SpaceInvadersScene extends Phaser.Scene {
   private comboText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
   private stateText!: Phaser.GameObjects.Text;
+  private hiScoreText!: Phaser.GameObjects.Text;
+  private backBtn!: Phaser.GameObjects.Text;
   
   private starfield!: Phaser.GameObjects.Graphics;
   private stars: Array<{ x: number; y: number; speed: number; alpha: number }> = [];
@@ -86,6 +88,31 @@ export class SpaceInvadersScene extends Phaser.Scene {
 
     this.powerUps = this.physics.add.group();
 
+    // Generate bullet and powerup textures once
+    if (!this.textures.exists('p-bullet')) {
+      const g = this.add.graphics();
+      g.fillStyle(0xff0000, 1);
+      g.fillRect(0, 0, 4, 12);
+      g.generateTexture('p-bullet', 4, 12);
+      g.destroy();
+    }
+    if (!this.textures.exists('e-bullet')) {
+      const g = this.add.graphics();
+      g.fillStyle(0x00ff00, 1);
+      g.fillRect(0, 0, 4, 12);
+      g.generateTexture('e-bullet', 4, 12);
+      g.destroy();
+    }
+    if (!this.textures.exists('pup-speed')) {
+      const g = this.add.graphics();
+      g.fillStyle(0x00ccff, 1);
+      g.fillRect(0, 0, 14, 14);
+      g.lineStyle(1.5, 0xffffff, 1);
+      g.strokeRect(0, 0, 14, 14);
+      g.generateTexture('pup-speed', 14, 14);
+      g.destroy();
+    }
+
     // 3. Player car setup
     this.player = this.physics.add.sprite(width / 2, height - 70, 'player-f1');
     this.player.setCollideWorldBounds(true);
@@ -134,24 +161,27 @@ export class SpaceInvadersScene extends Phaser.Scene {
 
     // Dynamic High Score display
     const hiScore = this.highScores.length > 0 ? this.highScores[0] : 0;
-    this.add.text(width / 2, height / 2 + 100, `🏆 HI SCORE: ${hiScore}`, {
+    this.hiScoreText = this.add.text(width / 2, height / 2 + 100, `🏆 HI SCORE: ${hiScore}`, {
       fontSize: '12px',
       fontFamily: 'monospace',
       color: '#ffd700'
     }).setOrigin(0.5);
 
     // Back to Hub Button (floating UI)
-    const backBtn = this.add.text(width - 20, height - 30, '← BACK TO HUB', {
+    this.backBtn = this.add.text(width - 20, height - 30, '← BACK TO HUB', {
       fontSize: '14px',
       fontFamily: 'monospace',
       color: '#ff4444',
       fontStyle: 'bold'
     }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
-    backBtn.on('pointerdown', () => {
+    this.backBtn.on('pointerdown', () => {
       SoundSynth.playTone(400, 0.1, 'sine', 0.05);
       this.scene.start('HubScene');
     });
+
+    // Handle screen resizing
+    this.scale.on('resize', this.handleResize, this);
 
     // Start trigger
     this.input.on('pointerdown', () => {
@@ -165,6 +195,34 @@ export class SpaceInvadersScene extends Phaser.Scene {
         this.firePlayerBullet();
       }
     });
+  }
+
+  private handleResize() {
+    const { width, height } = this.scale;
+
+    // Reposition UI
+    this.levelText.setPosition(width - 20, 20);
+    this.stateText.setPosition(width / 2, height / 2 - 50);
+    this.hintText.setPosition(width / 2, height / 2 + 20);
+    this.hiScoreText.setPosition(width / 2, height / 2 + 100);
+    this.backBtn.setPosition(width - 20, height - 30);
+
+    // Update starfield
+    this.starfield.clear();
+    this.stars.forEach(star => {
+      star.x = Math.random() * width;
+      star.y = Math.random() * height;
+    });
+
+    // Resize touch controls
+    if (this.touchControls) {
+      this.touchControls.resize();
+    }
+
+    // Reposition player
+    if (this.player) {
+      this.player.setY(height - 70);
+    }
   }
 
   update(time: number) {
@@ -299,14 +357,6 @@ export class SpaceInvadersScene extends Phaser.Scene {
     if (bullet) {
       bullet.setActive(true);
       bullet.setVisible(true);
-      
-      // Draw red laser
-      const g = this.add.graphics();
-      g.fillStyle(0xff0000, 1);
-      g.fillRect(0, 0, 4, 12);
-      g.generateTexture('p-bullet', 4, 12);
-      g.destroy();
-
       bullet.setTexture('p-bullet');
       bullet.body?.setSize(4, 12);
       bullet.setVelocityY(-400);
@@ -324,14 +374,6 @@ export class SpaceInvadersScene extends Phaser.Scene {
     if (bullet) {
       bullet.setActive(true);
       bullet.setVisible(true);
-
-      // Draw green laser
-      const g = this.add.graphics();
-      g.fillStyle(0x00ff00, 1);
-      g.fillRect(0, 0, 4, 12);
-      g.generateTexture('e-bullet', 4, 12);
-      g.destroy();
-
       bullet.setTexture('e-bullet');
       bullet.body?.setSize(4, 12);
       bullet.setVelocityY(200 + this.level * 10);
@@ -378,18 +420,6 @@ export class SpaceInvadersScene extends Phaser.Scene {
   }
 
   private spawnPowerUp(x: number, y: number) {
-    // Generate Blue Speed Powerup Texture if it doesn't exist
-    if (!this.textures.exists('pup-speed')) {
-      const g = this.add.graphics();
-      g.fillStyle(0x00ccff, 1);
-      g.fillRect(0, 0, 14, 14);
-      g.lineStyle(1.5, 0xffffff, 1);
-      g.strokeRect(0, 0, 14, 14);
-      
-      g.generateTexture('pup-speed', 14, 14);
-      g.destroy();
-    }
-
     const pup = this.powerUps.create(x, y, 'pup-speed') as Phaser.Physics.Arcade.Image;
     pup.setVelocityY(100);
   }

@@ -34,6 +34,8 @@ export class CosmicCargoScene extends Phaser.Scene {
   private cargoText!: Phaser.GameObjects.Text;
   private stateText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
+  private hiScoreText!: Phaser.GameObjects.Text;
+  private backBtn!: Phaser.GameObjects.Text;
 
   private starfield!: Phaser.GameObjects.Graphics;
   private stars: Array<{ x: number; y: number; speed: number; alpha: number }> = [];
@@ -147,24 +149,27 @@ export class CosmicCargoScene extends Phaser.Scene {
 
     // High Score
     const bestScore = localStorage.getItem('cosmic_cargo_high') || '0';
-    this.add.text(width / 2, height / 2 + 100, `🏆 BEST SCORE: ${bestScore}`, {
+    this.hiScoreText = this.add.text(width / 2, height / 2 + 100, `🏆 BEST SCORE: ${bestScore}`, {
       fontSize: '12px',
       fontFamily: 'monospace',
       color: '#ffd700'
     }).setOrigin(0.5);
 
     // Exit Button
-    const backBtn = this.add.text(width - 20, height - 30, '← BACK TO HUB', {
+    this.backBtn = this.add.text(width - 20, height - 30, '← BACK TO HUB', {
       fontSize: '14px',
       fontFamily: 'monospace',
       color: '#ff4444',
       fontStyle: 'bold'
     }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
-    backBtn.on('pointerdown', () => {
+    this.backBtn.on('pointerdown', () => {
       SoundSynth.playTone(400, 0.1, 'sine', 0.05);
       this.scene.start('HubScene');
     });
+
+    // Handle screen resizing
+    this.scale.on('resize', this.handleResize, this);
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       // Tap outside buttons starts game
@@ -177,6 +182,29 @@ export class CosmicCargoScene extends Phaser.Scene {
 
     // Set initial gravity configuration
     this.updateGravity(GravityDir.DOWN);
+  }
+
+  private handleResize() {
+    const { width, height } = this.scale;
+
+    // Reposition UI
+    this.levelText.setPosition(width - 20, 20);
+    this.stateText.setPosition(width / 2, height / 2 - 50);
+    this.hintText.setPosition(width / 2, height / 2 + 20);
+    this.hiScoreText.setPosition(width / 2, height / 2 + 100);
+    this.backBtn.setPosition(width - 20, height - 30);
+
+    // Update starfield
+    this.starfield.clear();
+    this.stars.forEach(star => {
+      star.x = Math.random() * width;
+      star.y = Math.random() * height;
+    });
+
+    // Reposition Portal
+    if (this.portal) {
+      this.portal.setPosition(width - 70, height - 70);
+    }
   }
 
   update() {

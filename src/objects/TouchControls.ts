@@ -9,72 +9,84 @@ export class TouchControls extends Phaser.GameObjects.Container {
   public bPressed = false;
   public autoToggled = true;
 
-  constructor(scene: Phaser.Scene, type: 'dpad-ab' | 'lr-thrust' | 'lr-shoot') {
+  private controlType: 'dpad-ab' | 'lr-thrust' | 'lr-shoot';
+  private controls: Phaser.GameObjects.GameObject[] = [];
+
+  constructor(scene: Phaser.Scene, controlType: 'dpad-ab' | 'lr-thrust' | 'lr-shoot') {
     super(scene);
+    this.controlType = controlType;
+    this.resize();
+    scene.add.existing(this);
+  }
 
-    const { width, height } = scene.scale;
+  public resize() {
+    const { width, height } = this.scene.scale;
+    
+    // Clear existing controls
+    this.controls.forEach(obj => obj.destroy());
+    this.controls = [];
+    this.removeAll(true);
 
-    // Setup values
-    const buttonRadius = 28;
-    const dpadRadius = 55;
+    const buttonRadius = Math.max(22, Math.floor(Math.min(width, height) * 0.045));
+    const dpadRadius = buttonRadius * 2;
 
-    // Check configuration and build controls
-    if (type === 'dpad-ab') {
+    if (this.controlType === 'dpad-ab') {
       // Contra: D-Pad bottom-left, buttons bottom-right
       const dpadX = 90;
       const dpadY = height - 90;
 
-      // Draw D-pad background disk
-      const dpadBg = scene.add.circle(dpadX, dpadY, dpadRadius, 0xffffff, 0.05);
+      const dpadBg = this.scene.add.circle(dpadX, dpadY, dpadRadius, 0xffffff, 0.05);
       dpadBg.setStrokeStyle(2, 0xffffff, 0.15);
       this.add(dpadBg);
+      this.controls.push(dpadBg);
 
-      // Create directional buttons
-      const btnSize = 18;
-      const upBtn = this.createButton(scene, dpadX, dpadY - 32, btnSize, '▲', () => this.upPressed = true, () => this.upPressed = false);
-      const downBtn = this.createButton(scene, dpadX, dpadY + 32, btnSize, '▼', () => this.downPressed = true, () => this.downPressed = false);
-      const leftBtn = this.createButton(scene, dpadX - 32, dpadY, btnSize, '◀', () => this.leftPressed = true, () => this.leftPressed = false);
-      const rightBtn = this.createButton(scene, dpadX + 32, dpadY, btnSize, '▶', () => this.rightPressed = true, () => this.rightPressed = false);
+      const btnOffset = buttonRadius + 4;
+      const upBtn = this.createButton(dpadX, dpadY - btnOffset, buttonRadius * 0.7, '▲', () => this.upPressed = true, () => this.upPressed = false);
+      const downBtn = this.createButton(dpadX, dpadY + btnOffset, buttonRadius * 0.7, '▼', () => this.downPressed = true, () => this.downPressed = false);
+      const leftBtn = this.createButton(dpadX - btnOffset, dpadY, buttonRadius * 0.7, '◀', () => this.leftPressed = true, () => this.leftPressed = false);
+      const rightBtn = this.createButton(dpadX + btnOffset, dpadY, buttonRadius * 0.7, '▶', () => this.rightPressed = true, () => this.rightPressed = false);
 
-      this.add([upBtn, downBtn, leftBtn, rightBtn]);
-
-      // Action buttons bottom-right
+      const actionX = width - 80;
       const actionY = height - 80;
-      const btnB = this.createButton(scene, width - 140, actionY, buttonRadius, 'B', () => this.bPressed = true, () => this.bPressed = false, 0xff5555);
-      const btnA = this.createButton(scene, width - 70, actionY, buttonRadius, 'A', () => this.aPressed = true, () => this.aPressed = false, 0x55ff55);
-      
-      // Auto toggle above B button
-      const btnAuto = this.createToggleButton(scene, width - 140, actionY - 70, 18, 'AUTO', (toggled) => this.autoToggled = toggled);
+      const btnB = this.createButton(actionX - (buttonRadius * 2.5), actionY, buttonRadius, 'B', () => this.bPressed = true, () => this.bPressed = false, 0xff5555);
+      const btnA = this.createButton(actionX, actionY, buttonRadius, 'A', () => this.aPressed = true, () => this.aPressed = false, 0x55ff55);
+      const btnAuto = this.createToggleButton(actionX - (buttonRadius * 2.5), actionY - (buttonRadius * 2.5), buttonRadius * 0.65, (toggled) => this.autoToggled = toggled);
 
-      this.add([btnB, btnA, btnAuto]);
-    } else if (type === 'lr-thrust') {
+      this.add([upBtn, downBtn, leftBtn, rightBtn, btnB, btnA, btnAuto]);
+      this.controls.push(upBtn, downBtn, leftBtn, rightBtn, btnB, btnA, btnAuto);
+    } else if (this.controlType === 'lr-thrust') {
       // Asteroids: Left/Right rotate bottom-left, Thrust bottom-right
       const btnY = height - 80;
+      const leftX = 70;
+      const rightX = leftX + (buttonRadius * 2.5);
+
+      const btnLeft = this.createButton(leftX, btnY, buttonRadius, '◀', () => this.leftPressed = true, () => this.leftPressed = false, 0x00ccff);
+      const btnRight = this.createButton(rightX, btnY, buttonRadius, '▶', () => this.rightPressed = true, () => this.rightPressed = false, 0x00ccff);
       
-      const btnLeft = this.createButton(scene, 70, btnY, buttonRadius, '◀', () => this.leftPressed = true, () => this.leftPressed = false, 0x00ccff);
-      const btnRight = this.createButton(scene, 150, btnY, buttonRadius, '▶', () => this.rightPressed = true, () => this.rightPressed = false, 0x00ccff);
-      
-      const btnThrust = this.createButton(scene, width - 70, btnY, buttonRadius, 'THRUST', () => this.upPressed = true, () => this.upPressed = false, 0xffcc33);
-      const btnAuto = this.createToggleButton(scene, width - 70, btnY - 70, 18, 'AUTO', (toggled) => this.autoToggled = toggled);
+      const actionX = width - 80;
+      const btnThrust = this.createButton(actionX, btnY, buttonRadius, 'THRUST', () => this.upPressed = true, () => this.upPressed = false, 0xffcc33);
+      const btnAuto = this.createToggleButton(actionX, btnY - (buttonRadius * 2.5), buttonRadius * 0.65, (toggled) => this.autoToggled = toggled);
 
       this.add([btnLeft, btnRight, btnThrust, btnAuto]);
-    } else if (type === 'lr-shoot') {
+      this.controls.push(btnLeft, btnRight, btnThrust, btnAuto);
+    } else if (this.controlType === 'lr-shoot') {
       // Space Invaders: Left/Right bottom-left, Shoot bottom-right
       const btnY = height - 80;
+      const leftX = 70;
+      const rightX = leftX + (buttonRadius * 2.5);
 
-      const btnLeft = this.createButton(scene, 70, btnY, buttonRadius, '◀', () => this.leftPressed = true, () => this.leftPressed = false, 0x00ccff);
-      const btnRight = this.createButton(scene, 150, btnY, buttonRadius, '▶', () => this.rightPressed = true, () => this.rightPressed = false, 0x00ccff);
+      const btnLeft = this.createButton(leftX, btnY, buttonRadius, '◀', () => this.leftPressed = true, () => this.leftPressed = false, 0x00ccff);
+      const btnRight = this.createButton(rightX, btnY, buttonRadius, '▶', () => this.rightPressed = true, () => this.rightPressed = false, 0x00ccff);
       
-      const btnShoot = this.createButton(scene, width - 70, btnY, buttonRadius, 'FIRE', () => this.aPressed = true, () => this.aPressed = false, 0xff5555);
+      const actionX = width - 80;
+      const btnShoot = this.createButton(actionX, btnY, buttonRadius, 'FIRE', () => this.aPressed = true, () => this.aPressed = false, 0xff5555);
 
       this.add([btnLeft, btnRight, btnShoot]);
+      this.controls.push(btnLeft, btnRight, btnShoot);
     }
-
-    scene.add.existing(this);
   }
 
   private createButton(
-    scene: Phaser.Scene,
     x: number,
     y: number,
     radius: number,
@@ -83,12 +95,16 @@ export class TouchControls extends Phaser.GameObjects.Container {
     onUp: () => void,
     color: number = 0xffffff
   ): Phaser.GameObjects.Container {
-    const container = scene.add.container(x, y);
+    const container = this.scene.add.container(x, y);
 
-    const circle = scene.add.circle(0, 0, radius, color, 0.15);
+    const circle = this.scene.add.circle(0, 0, radius, color, 0.15);
     circle.setStrokeStyle(2, color, 0.5);
 
-    const text = scene.add.text(0, 0, label, {
+    // Hit area 1.5x larger than visual
+    const hitArea = new Phaser.Geom.Circle(0, 0, radius * 1.5);
+    circle.setInteractive(hitArea, Phaser.Geom.Circle.Contains);
+
+    const text = this.scene.add.text(0, 0, label, {
       fontSize: radius > 22 ? '14px' : '10px',
       fontFamily: 'monospace',
       color: '#ffffff',
@@ -97,9 +113,6 @@ export class TouchControls extends Phaser.GameObjects.Container {
     text.setOrigin(0.5);
 
     container.add([circle, text]);
-
-    // Setup input
-    circle.setInteractive();
 
     circle.on('pointerdown', () => {
       circle.setFillStyle(color, 0.4);
@@ -112,29 +125,31 @@ export class TouchControls extends Phaser.GameObjects.Container {
     };
 
     circle.on('pointerup', release);
-    circle.on('pointerout', release);
+    circle.on('pointerupoutside', release);
 
     return container;
   }
 
   private createToggleButton(
-    scene: Phaser.Scene,
     x: number,
     y: number,
     radius: number,
-    label: string,
     onToggle: (toggled: boolean) => void
   ): Phaser.GameObjects.Container {
-    const container = scene.add.container(x, y);
+    const container = this.scene.add.container(x, y);
 
-    let toggled = true;
+    let toggled = this.autoToggled;
     const colorOn = 0x55ff55;
     const colorOff = 0xff5555;
 
-    const circle = scene.add.circle(0, 0, radius, colorOn, 0.2);
-    circle.setStrokeStyle(2, colorOn, 0.6);
+    const circle = this.scene.add.circle(0, 0, radius, toggled ? colorOn : colorOff, 0.2);
+    circle.setStrokeStyle(2, toggled ? colorOn : colorOff, 0.6);
 
-    const text = scene.add.text(0, 0, label, {
+    // Hit area 1.5x larger than visual
+    const hitArea = new Phaser.Geom.Circle(0, 0, radius * 1.5);
+    circle.setInteractive(hitArea, Phaser.Geom.Circle.Contains);
+
+    const text = this.scene.add.text(0, 0, toggled ? 'AUTO' : 'MAN', {
       fontSize: '8px',
       fontFamily: 'monospace',
       color: '#ffffff'
@@ -142,7 +157,6 @@ export class TouchControls extends Phaser.GameObjects.Container {
     text.setOrigin(0.5);
 
     container.add([circle, text]);
-    circle.setInteractive();
 
     const updateVisuals = () => {
       if (toggled) {
@@ -158,6 +172,7 @@ export class TouchControls extends Phaser.GameObjects.Container {
 
     circle.on('pointerdown', () => {
       toggled = !toggled;
+      this.autoToggled = toggled;
       updateVisuals();
       onToggle(toggled);
     });

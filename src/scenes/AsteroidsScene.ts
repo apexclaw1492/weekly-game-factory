@@ -33,6 +33,7 @@ export class AsteroidsScene extends Phaser.Scene {
   private comboText!: Phaser.GameObjects.Text;
   private stateText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
+  private backBtn!: Phaser.GameObjects.Text;
 
   private starfield!: Phaser.GameObjects.Graphics;
   private stars: Array<{ x: number; y: number; speed: number; alpha: number }> = [];
@@ -131,17 +132,20 @@ export class AsteroidsScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Back to Hub Button
-    const backBtn = this.add.text(width - 20, height - 35, '← BACK TO HUB', {
+    this.backBtn = this.add.text(width - 20, height - 35, '← BACK TO HUB', {
       fontSize: '14px',
       fontFamily: 'monospace',
       color: '#ff4444',
       fontStyle: 'bold'
     }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
-    backBtn.on('pointerdown', () => {
+    this.backBtn.on('pointerdown', () => {
       SoundSynth.playTone(400, 0.1, 'sine', 0.05);
       this.scene.start('HubScene');
     });
+
+    // Handle screen resizing
+    this.scale.on('resize', this.handleResize, this);
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (pointer.y < height - 70) {
@@ -155,6 +159,34 @@ export class AsteroidsScene extends Phaser.Scene {
         if (this.isWaitingToStart) this.startGame();
         else if (this.isGameOver) this.scene.restart();
       });
+    }
+  }
+
+  private handleResize() {
+    const { width, height } = this.scale;
+
+    // Reposition HUD
+    this.levelText.setPosition(width - 20, 20);
+    this.comboText.setPosition(width / 2, 20);
+    this.stateText.setPosition(width / 2, height / 2 - 60);
+    this.hintText.setPosition(width / 2, height / 2 + 10);
+    this.backBtn.setPosition(width - 20, height - 35);
+
+    // Update starfield
+    this.starfield.clear();
+    this.stars.forEach(star => {
+      star.x = Math.random() * width;
+      star.y = Math.random() * height;
+    });
+
+    // Resize touch controls
+    if (this.touchControls) {
+      this.touchControls.resize();
+    }
+
+    // Center ship if waiting to start
+    if (this.isWaitingToStart && this.ship) {
+      this.ship.setPosition(width / 2, height / 2 - 20);
     }
   }
 

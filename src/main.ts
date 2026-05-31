@@ -13,10 +13,13 @@ const config: Phaser.Types.Core.GameConfig = {
   height: 600,
   parent: 'game-container',
   backgroundColor: '#03020b',
-  pixelArt: true,
+  pixelArt: false,
+  antialias: true,
+  roundPixels: false,
   scale: {
-    mode: Phaser.Scale.FIT,
-    autoCenter: Phaser.Scale.CENTER_BOTH
+    mode: Phaser.Scale.RESIZE,
+    autoCenter: Phaser.Scale.CENTER_BOTH,
+    autoRound: false
   },
   physics: {
     default: 'arcade',

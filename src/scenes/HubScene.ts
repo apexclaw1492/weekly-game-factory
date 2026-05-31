@@ -5,6 +5,9 @@ export class HubScene extends Phaser.Scene {
   private starfield!: Phaser.GameObjects.Graphics;
   private stars: Array<{ x: number; y: number; speed: number; alpha: number }> = [];
   private cards: Phaser.GameObjects.Container[] = [];
+  private titleText!: Phaser.GameObjects.Text;
+  private subtitleText!: Phaser.GameObjects.Text;
+  private bgGrad!: Phaser.GameObjects.Graphics;
 
   constructor() {
     super('HubScene');
@@ -25,13 +28,13 @@ export class HubScene extends Phaser.Scene {
     }
 
     // 2. Draw modern backdrop gradient details
-    const bgGrad = this.add.graphics();
-    bgGrad.fillGradientStyle(0x020111, 0x020111, 0x0b092a, 0x0b092a, 1);
-    bgGrad.fillRect(0, 0, width, height);
-    bgGrad.setDepth(-1);
+    this.bgGrad = this.add.graphics();
+    this.bgGrad.fillGradientStyle(0x020111, 0x020111, 0x0b092a, 0x0b092a, 1);
+    this.bgGrad.fillRect(0, 0, width, height);
+    this.bgGrad.setDepth(-1);
 
     // 3. Header Title (Glowing retro font)
-    const title = this.add.text(width / 2, 60, 'WEEKLY GAME FACTORY', {
+    this.titleText = this.add.text(width / 2, 60, 'WEEKLY GAME FACTORY', {
       fontSize: width < 450 ? '24px' : '36px',
       fontFamily: 'monospace',
       color: '#00ccff',
@@ -39,9 +42,9 @@ export class HubScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Subtle glow on title
-    title.setShadow(0, 0, '#00ccff', 8, true, true);
+    this.titleText.setShadow(0, 0, '#00ccff', 8, true, true);
 
-    this.add.text(width / 2, 95, 'A new retro game every Friday. Fully optimized.', {
+    this.subtitleText = this.add.text(width / 2, 95, 'A new retro game every Friday. Fully optimized.', {
       fontSize: '12px',
       fontFamily: 'monospace',
       color: '#8888a0'
@@ -307,6 +310,16 @@ export class HubScene extends Phaser.Scene {
       star.x = Math.random() * width;
       star.y = Math.random() * height;
     });
+
+    // Reposition backdrop
+    this.bgGrad.clear();
+    this.bgGrad.fillGradientStyle(0x020111, 0x020111, 0x0b092a, 0x0b092a, 1);
+    this.bgGrad.fillRect(0, 0, width, height);
+
+    // Reposition title and subtitle
+    this.titleText.setPosition(width / 2, 60);
+    this.titleText.setFontSize(width < 450 ? '24px' : '36px');
+    this.subtitleText.setPosition(width / 2, 95);
 
     // Re-draw cards and stats
     this.renderGameCards();

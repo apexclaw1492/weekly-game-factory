@@ -23,10 +23,14 @@
       overflow: hidden;
       position: fixed;
       font-family: 'Courier New', Courier, monospace;
+      -webkit-overflow-scrolling: none;
+      -webkit-text-size-adjust: 100%;
+      touch-action: none;
     }
     #game-container {
       width: 100vw;
       height: 100vh;
+      height: 100dvh;
       display: flex;
       justify-content: center;
       align-items: center;
@@ -34,7 +38,6 @@
     }
     canvas {
       display: block;
-      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     }
   </style>
   <!-- Basic Web App Manifest (PWA) -->
