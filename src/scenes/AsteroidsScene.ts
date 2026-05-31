@@ -361,7 +361,9 @@ export class AsteroidsScene extends Phaser.Scene {
 
     for (let i = 0; i < count; i++) {
       let x = 0, y = 0, safe = false;
-      while (!safe) {
+      let attempts = 0;
+      while (!safe && attempts < 100) {
+        attempts++;
         x = Math.random() * width;
         y = Math.random() * height;
 

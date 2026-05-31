@@ -102,9 +102,6 @@ export class CosmicCargoScene extends Phaser.Scene {
     this.ship.setBounce(0.5, 0.5);
     this.ship.setMaxVelocity(this.maxSpeed, this.maxSpeed);
 
-    // 6. Setup level layout
-    this.generateLevel();
-
     // 7. Physics Colliders
     this.physics.add.overlap(this.ship, this.cargoPods, this.collectCargo, undefined, this);
     this.physics.add.overlap(this.ship, this.portal, this.checkExit, undefined, this);
@@ -130,6 +127,9 @@ export class CosmicCargoScene extends Phaser.Scene {
     // Fuel Bar
     this.add.text(20, 70, 'FUEL:', { fontSize: '11px', fontFamily: 'monospace', color: '#888888' });
     this.fuelBar = this.add.graphics();
+
+    // 6. Setup level layout
+    this.generateLevel();
 
     // Main overlays
     this.stateText = this.add.text(width / 2, height / 2 - 50, 'COSMIC CARGO', {
@@ -429,7 +429,9 @@ export class CosmicCargoScene extends Phaser.Scene {
     // Spawns cargo pods
     for (let i = 0; i < numCargo; i++) {
       let x = 0, y = 0, safe = false;
-      while (!safe) {
+      let attempts = 0;
+      while (!safe && attempts < 100) {
+        attempts++;
         x = 60 + Math.random() * (width - 120);
         y = 60 + Math.random() * (height - 120);
         
@@ -445,7 +447,9 @@ export class CosmicCargoScene extends Phaser.Scene {
     // Spawns floating asteroids
     for (let i = 0; i < numAsteroids; i++) {
       let x = 0, y = 0, safe = false;
-      while (!safe) {
+      let attempts = 0;
+      while (!safe && attempts < 100) {
+        attempts++;
         x = 50 + Math.random() * (width - 100);
         y = 50 + Math.random() * (height - 100);
         
