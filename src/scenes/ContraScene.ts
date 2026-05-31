@@ -169,19 +169,20 @@ export class ContraScene extends Phaser.Scene {
     }
 
     // 7. Dynamic Static capsule items
+    // Generate capsule texture first
+    if (!this.textures.exists('capsule')) {
+      const g = this.add.graphics();
+      g.fillStyle(0xff2222, 1);
+      g.fillRect(0, 0, 16, 16);
+      g.fillStyle(0xffffff, 1);
+      g.fillRect(4, 4, 8, 8);
+      g.generateTexture('capsule', 16, 16);
+      g.destroy();
+    }
+
     const capsulePoints = [900, 1900, 2900, 3700];
     capsulePoints.forEach(x => {
       const cap = this.capsules.create(x, this.groundY - 140, 'capsule') as Phaser.Physics.Arcade.Image;
-      if (!this.textures.exists('capsule')) {
-        const g = this.add.graphics();
-        g.fillStyle(0xff2222, 1);
-        g.fillRect(0, 0, 16, 16);
-        g.fillStyle(0xffffff, 1);
-        g.fillRect(4, 4, 8, 8);
-        g.generateTexture('capsule', 16, 16);
-        g.destroy();
-      }
-      cap.setTexture('capsule');
       cap.setCollideWorldBounds(true);
       if (cap.body) (cap.body as Phaser.Physics.Arcade.Body).setGravityY(100);
       cap.setData('type', 'spread');
@@ -286,19 +287,15 @@ export class ContraScene extends Phaser.Scene {
     }
 
     // Platform drops cleaner
-    this.bullets.getChildren().forEach(bullet => {
-      const b = bullet as Phaser.Physics.Arcade.Image;
-      if (b.x < this.cameras.main.scrollX || b.x > this.cameras.main.scrollX + width) {
-        b.destroy();
-      }
-    });
+    this.bullets.getChildren().filter(b => {
+      const bullet = b as Phaser.Physics.Arcade.Image;
+      return bullet.x < this.cameras.main.scrollX || bullet.x > this.cameras.main.scrollX + width;
+    }).forEach(b => b.destroy());
 
-    this.enemyBullets.getChildren().forEach(bullet => {
-      const b = bullet as Phaser.Physics.Arcade.Image;
-      if (b.x < this.cameras.main.scrollX - 40 || b.x > this.cameras.main.scrollX + width + 40) {
-        b.destroy();
-      }
-    });
+    this.enemyBullets.getChildren().filter(b => {
+      const bullet = b as Phaser.Physics.Arcade.Image;
+      return bullet.x < this.cameras.main.scrollX - 40 || bullet.x > this.cameras.main.scrollX + width + 40;
+    }).forEach(b => b.destroy());
 
     // --- PLAYER CONTROLS ---
     let vx = 0;

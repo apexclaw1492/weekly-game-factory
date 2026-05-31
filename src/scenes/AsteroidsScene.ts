@@ -9,6 +9,7 @@ export class AsteroidsScene extends Phaser.Scene {
   
   private touchControls?: TouchControls;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
+  private spaceKey!: Phaser.Input.Keyboard.Key;
 
   // Game state
   private score = 0;
@@ -101,6 +102,7 @@ export class AsteroidsScene extends Phaser.Scene {
     // 6. Controllers
     if (this.input.keyboard) {
       this.cursors = this.input.keyboard.createCursorKeys();
+      this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     }
 
     if (this.sys.game.device.input.touch) {
@@ -261,7 +263,7 @@ export class AsteroidsScene extends Phaser.Scene {
     const useAuto = this.touchControls ? this.touchControls.autoToggled : true;
     if (useAuto && this.frameCount % 8 === 0) {
       this.fireBullet();
-    } else if (!useAuto && (this.cursors.space?.isDown || this.input.keyboard?.addKey('SPACE').isDown) && this.frameCount % 8 === 0) {
+    } else if (!useAuto && this.spaceKey?.isDown && this.frameCount % 8 === 0) {
       this.fireBullet();
     }
 

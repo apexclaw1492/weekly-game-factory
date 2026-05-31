@@ -296,20 +296,9 @@ export class SpaceInvadersScene extends Phaser.Scene {
     }
 
     // Bullet bounds cleaners
-    this.bullets.getChildren().forEach(bullet => {
-      const b = bullet as Phaser.Physics.Arcade.Image;
-      if (b.y < 0) b.destroy();
-    });
-
-    this.enemyBullets.getChildren().forEach(bullet => {
-      const b = bullet as Phaser.Physics.Arcade.Image;
-      if (b.y > height) b.destroy();
-    });
-
-    this.powerUps.getChildren().forEach(pup => {
-      const p = pup as Phaser.Physics.Arcade.Image;
-      if (p.y > height) p.destroy();
-    });
+    this.bullets.getChildren().filter(b => (b as Phaser.Physics.Arcade.Image).y < 0).forEach(b => b.destroy());
+    this.enemyBullets.getChildren().filter(b => (b as Phaser.Physics.Arcade.Image).y > height).forEach(b => b.destroy());
+    this.powerUps.getChildren().filter(p => (p as Phaser.Physics.Arcade.Image).y > height).forEach(p => p.destroy());
 
     // Combo timer decay
     if (Date.now() - this.lastHitTime > 2000 && this.multiplier > 1) {
