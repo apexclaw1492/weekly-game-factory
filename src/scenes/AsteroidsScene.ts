@@ -6,10 +6,13 @@ export class AsteroidsScene extends Phaser.Scene {
   private ship!: Phaser.Physics.Arcade.Sprite;
   private asteroids!: Phaser.Physics.Arcade.Group;
   private bullets!: Phaser.Physics.Arcade.Group;
+  private saucers!: Phaser.Physics.Arcade.Group;
+  private saucerBullets!: Phaser.Physics.Arcade.Group;
   
   private touchControls?: TouchControls;
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private spaceKey!: Phaser.Input.Keyboard.Key;
+  private hyperspaceKey!: Phaser.Input.Keyboard.Key;
 
   // Game state
   private score = 0;
@@ -19,6 +22,9 @@ export class AsteroidsScene extends Phaser.Scene {
   private frameCount = 0;
   private combo = 0;
   private maxCombo = 0;
+  private nextExtraLifeScore = 10000;
+  private nextSaucerTime = 0;
+  private lastSaucerShotTime = 0;
   private isInvulnerable = false;
   private invulnTimer = 0;
   private thrustFlame?: Phaser.GameObjects.Graphics;
@@ -44,11 +50,15 @@ export class AsteroidsScene extends Phaser.Scene {
   }
 
   init() {
+    this.stars = [];
     this.score = 0;
     this.lives = 3;
     this.level = 1;
     this.combo = 0;
     this.maxCombo = 0;
+    this.nextExtraLifeScore = 10000;
+    this.nextSaucerTime = 0;
+    this.lastSaucerShotTime = 0;
     this.frameCount = 0;
     this.isGameOver = false;
     this.isWaitingToStart = true;
@@ -90,6 +100,8 @@ export class AsteroidsScene extends Phaser.Scene {
     this.bullets = this.physics.add.group({
       classType: Phaser.Physics.Arcade.Image
     });
+    this.saucers = this.physics.add.group();
+    this.saucerBullets = this.physics.add.group();
 
     // 5. Create asteroids group
     this.asteroids = this.physics.add.group();
@@ -97,16 +109,20 @@ export class AsteroidsScene extends Phaser.Scene {
 
     // Collisions
     this.physics.add.overlap(this.bullets, this.asteroids, this.hitAsteroid, undefined, this);
+    this.physics.add.overlap(this.bullets, this.saucers, this.hitSaucer, undefined, this);
     this.physics.add.overlap(this.ship, this.asteroids, this.hitShip, undefined, this);
+    this.physics.add.overlap(this.ship, this.saucers, this.hitShip, undefined, this);
+    this.physics.add.overlap(this.ship, this.saucerBullets, this.hitShip, undefined, this);
 
     // 6. Controllers
     if (this.input.keyboard) {
       this.cursors = this.input.keyboard.createCursorKeys();
       this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      this.hyperspaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.H);
     }
 
     if (this.sys.game.device.input.touch) {
-      this.touchControls = new TouchControls(this, 'lr-thrust');
+      this.touchControls = new TouchControls(this, 'lr-thrust', false);
     }
 
     // 7. HUD setup
@@ -126,7 +142,7 @@ export class AsteroidsScene extends Phaser.Scene {
     }).setOrigin(0.5);
     this.stateText.setShadow(0, 0, '#00ccff', 10, true, true);
 
-    this.hintText = this.add.text(width / 2, height / 2 + 10, 'ROTATE [<- ->] | THRUST [^]\nAUTO-FIRE ON\n\nTAP OR ENTER TO START', {
+    this.hintText = this.add.text(width / 2, height / 2 + 10, 'ROTATE [<- ->] | THRUST [^]\nFIRE [SPACE] | HYPERSPACE [H]\n\nTAP OR ENTER TO START', {
       fontSize: '13px',
       fontFamily: 'monospace',
       color: '#8888a0',
@@ -148,8 +164,16 @@ export class AsteroidsScene extends Phaser.Scene {
 
     // Handle screen resizing
     this.scale.on('resize', this.handleResize, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off('resize', this.handleResize, this);
+      this.touchControls?.resetPressed();
+      this.input.keyboard?.off('keydown-ENTER');
+    });
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.touchControls?.isInControlZone(pointer)) return;
+
+      const { height } = this.scale;
       if (pointer.y < height - 70) {
         if (this.isWaitingToStart) this.startGame();
         else if (this.isGameOver) this.scene.restart();
@@ -258,14 +282,27 @@ export class AsteroidsScene extends Phaser.Scene {
     // Screen Boundary Wrapping
     this.physics.world.wrap(this.ship, 12);
     this.physics.world.wrap(this.asteroids, 24);
+    this.physics.world.wrap(this.saucers, 32);
+    this.physics.world.wrap(this.bullets, 4);
+    this.physics.world.wrap(this.saucerBullets, 4);
 
-    // --- AUTO-FIRE ---
-    const useAuto = this.touchControls ? this.touchControls.autoToggled : true;
+    const useAuto = this.touchControls?.autoToggled ?? false;
     if (useAuto && this.frameCount % 8 === 0) {
       this.fireBullet();
-    } else if (!useAuto && this.spaceKey?.isDown && this.frameCount % 8 === 0) {
+    } else if (!useAuto && (this.spaceKey?.isDown || this.touchControls?.bPressed) && this.frameCount % 8 === 0) {
       this.fireBullet();
     }
+
+    if (this.hyperspaceKey && Phaser.Input.Keyboard.JustDown(this.hyperspaceKey)) {
+      this.useHyperspace();
+    }
+
+    if (this.time.now > this.nextSaucerTime) {
+      this.spawnSaucer();
+      this.scheduleSaucer();
+    }
+
+    this.updateSaucers();
 
     // Clean bullets after range threshold (equivalent to original frame count range)
     this.bullets.getChildren().forEach(bullet => {
@@ -273,6 +310,14 @@ export class AsteroidsScene extends Phaser.Scene {
       const age = b.getData('age') as number;
       b.setData('age', age + 1);
       if (age > 45) {
+        b.destroy();
+      }
+    });
+    this.saucerBullets.getChildren().forEach(bullet => {
+      const b = bullet as Phaser.Physics.Arcade.Image;
+      const age = b.getData('age') as number;
+      b.setData('age', age + 1);
+      if (age > 90) {
         b.destroy();
       }
     });
@@ -337,6 +382,21 @@ export class AsteroidsScene extends Phaser.Scene {
       g.generateTexture('ast-bullet', 4, 4);
       g.destroy();
     }
+    if (!this.textures.exists('ast-saucer')) {
+      const g = this.add.graphics();
+      g.lineStyle(2, 0xff55aa, 1);
+      g.strokeEllipse(18, 10, 34, 12);
+      g.strokeRect(10, 3, 16, 7);
+      g.generateTexture('ast-saucer', 36, 20);
+      g.destroy();
+    }
+    if (!this.textures.exists('saucer-bullet')) {
+      const g = this.add.graphics();
+      g.fillStyle(0xff55aa, 1);
+      g.fillRect(0, 0, 4, 4);
+      g.generateTexture('saucer-bullet', 4, 4);
+      g.destroy();
+    }
   }
 
   private drawThrustFlame(angleRad: number) {
@@ -385,6 +445,7 @@ export class AsteroidsScene extends Phaser.Scene {
 
   private fireBullet() {
     if (this.isGameOver || this.isWaitingToStart) return;
+    if (this.bullets.countActive(true) >= 4) return;
 
     const angleRad = Phaser.Math.DegToRad(this.ship.angle);
     // Fire from the nose of the ship
@@ -426,6 +487,7 @@ export class AsteroidsScene extends Phaser.Scene {
     const award = basePoints * comboMul;
     this.score += award;
     this.scoreText.setText(`SCORE: ${this.score}`);
+    this.awardExtraLifeIfNeeded();
 
     if (this.combo > 1) {
       this.comboText.setText(`${this.combo}x COMBO`);
@@ -449,6 +511,79 @@ export class AsteroidsScene extends Phaser.Scene {
 
     // Particle explosions
     this.createExplosion(px, py, size * 8, 0x8899aa);
+  }
+
+  private scheduleSaucer() {
+    this.nextSaucerTime = this.time.now + Phaser.Math.Between(9000, 15000);
+  }
+
+  private spawnSaucer() {
+    if (this.saucers.countActive(true) > 0 || this.isGameOver || this.isWaitingToStart) return;
+
+    const { width, height } = this.scale;
+    const fromLeft = Math.random() < 0.5;
+    const saucer = this.saucers.create(fromLeft ? -30 : width + 30, Phaser.Math.Between(80, Math.max(100, height - 120)), 'ast-saucer') as Phaser.Physics.Arcade.Image;
+    saucer.setVelocityX((fromLeft ? 1 : -1) * (70 + this.level * 5));
+    saucer.setData('size', this.level >= 3 ? 'small' : 'large');
+    saucer.setData('points', this.level >= 3 ? 1000 : 200);
+  }
+
+  private updateSaucers() {
+    const saucers = this.saucers.getChildren() as Phaser.Physics.Arcade.Image[];
+    if (saucers.length === 0) return;
+
+    if (this.time.now - this.lastSaucerShotTime < 1200) return;
+    this.lastSaucerShotTime = this.time.now;
+
+    saucers.forEach(saucer => {
+      const isSmall = saucer.getData('size') === 'small';
+      const angleToShip = Phaser.Math.Angle.Between(saucer.x, saucer.y, this.ship.x, this.ship.y);
+      const angle = angleToShip + Phaser.Math.FloatBetween(isSmall ? -0.18 : -0.65, isSmall ? 0.18 : 0.65);
+      const bullet = this.saucerBullets.create(saucer.x, saucer.y, 'saucer-bullet') as Phaser.Physics.Arcade.Image;
+      bullet.setVelocity(Math.cos(angle) * 190, Math.sin(angle) * 190);
+      bullet.setData('age', 0);
+      if (bullet.body) (bullet.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
+    });
+  }
+
+  private hitSaucer(bulletObj: any, saucerObj: any) {
+    const bullet = bulletObj as Phaser.Physics.Arcade.Image;
+    const saucer = saucerObj as Phaser.Physics.Arcade.Image;
+    const points = saucer.getData('points') as number;
+    bullet.destroy();
+    saucer.destroy();
+    this.score += points;
+    this.scoreText.setText(`SCORE: ${this.score}`);
+    this.comboText.setText(`SAUCER +${points}`);
+    this.awardExtraLifeIfNeeded();
+    this.createExplosion(saucer.x, saucer.y, 18, 0xff55aa);
+    SoundSynth.playExplosion();
+  }
+
+  private useHyperspace() {
+    if (this.isInvulnerable) return;
+
+    const { width, height } = this.scale;
+    this.ship.setPosition(Phaser.Math.Between(60, width - 60), Phaser.Math.Between(80, height - 80));
+    this.ship.setVelocity(0, 0);
+    this.isInvulnerable = true;
+    this.invulnTimer = 45;
+
+    if (Math.random() < 0.12) {
+      this.time.delayedCall(250, () => {
+        this.isInvulnerable = false;
+        this.hitShip(this.ship, this.ship);
+      });
+    }
+  }
+
+  private awardExtraLifeIfNeeded() {
+    while (this.score >= this.nextExtraLifeScore) {
+      this.lives++;
+      this.nextExtraLifeScore += 10000;
+      this.livesText.setText('▲ '.repeat(this.lives));
+      SoundSynth.playPowerUp();
+    }
   }
 
   private splitAsteroid(parent: Phaser.Physics.Arcade.Sprite) {

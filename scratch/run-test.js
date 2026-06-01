@@ -1,55 +1,150 @@
 import puppeteer from 'puppeteer';
-import path from 'path';
 
-(async () => {
-  console.log('Launching headless browser...');
+const BASE_URL = 'http://127.0.0.1:3000/';
+
+const VIEWPORTS = [
+  { name: 'desktop', width: 800, height: 600 },
+  { name: 'phone-portrait', width: 390, height: 844 },
+  { name: 'phone-landscape', width: 844, height: 390 }
+];
+
+const GAMES = [
+  { id: 'f1', name: 'F1 Space Invaders', index: 0, keys: ['Space', 'ArrowLeft', 'ArrowRight', 'Space'] },
+  { id: 'cargo', name: 'Cosmic Cargo', index: 1, keys: ['ArrowUp', 'ArrowLeft', 'Space'] },
+  { id: 'contra', name: 'Contra Bonus', index: 2, keys: ['ArrowRight', 'Space', 'KeyX'] },
+  { id: 'asteroids', name: 'Asteroid Belt', index: 3, keys: ['ArrowUp', 'ArrowLeft', 'Space'] }
+];
+
+const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function fingerprint(buffer) {
+  let hash = 2166136261;
+  const step = Math.max(1, Math.floor(buffer.length / 4096));
+  for (let i = 0; i < buffer.length; i += step) {
+    hash ^= buffer[i];
+    hash = Math.imul(hash, 16777619) >>> 0;
+  }
+  return `${buffer.length}:${hash}`;
+}
+
+function cardPoint(viewport, index) {
+  const { width, height } = viewport;
+  const isPortrait = height > width;
+
+  if (isPortrait) {
+    return {
+      x: width / 2,
+      y: 145 + index * (75 + 12)
+    };
+  }
+
+  const cardW = Math.min((width - 60) / 2, 360);
+  const cardH = 120;
+  const xOffsets = [-cardW / 2 - 10, cardW / 2 + 10, -cardW / 2 - 10, cardW / 2 + 10];
+  const yOffsets = [-cardH / 2 - 10, -cardH / 2 - 10, cardH / 2 + 25, cardH / 2 + 25];
+
+  return {
+    x: width / 2 + xOffsets[index],
+    y: height / 2 + yOffsets[index] + 15
+  };
+}
+
+async function canvasInfo(page) {
+  return page.evaluate(() => {
+    const canvas = document.querySelector('canvas');
+    return canvas
+      ? {
+          width: canvas.width,
+          height: canvas.height,
+          clientWidth: canvas.clientWidth,
+          clientHeight: canvas.clientHeight
+        }
+      : null;
+  });
+}
+
+async function runSmoke() {
   const browser = await puppeteer.launch({
     headless: true,
     args: ['--no-sandbox', '--disable-setuid-sandbox']
   });
-  
-  const page = await browser.newPage();
-  await page.setViewport({ width: 800, height: 600 });
-  
-  // Track console errors
-  page.on('console', msg => {
-    if (msg.type() === 'error') {
-      console.log('BROWSER CONSOLE ERROR:', msg.text());
-    } else {
-      console.log('BROWSER LOG:', msg.text());
+
+  const results = [];
+
+  try {
+    const page = await browser.newPage();
+    const messages = [];
+
+    page.on('console', (msg) => {
+      if (['error', 'warning'].includes(msg.type())) {
+        messages.push({ type: msg.type(), text: msg.text() });
+      }
+    });
+    page.on('pageerror', (error) => {
+      messages.push({ type: 'pageerror', text: error.stack || error.message });
+    });
+
+    for (const viewport of VIEWPORTS) {
+      await page.setViewport({ width: viewport.width, height: viewport.height });
+
+      for (const game of GAMES) {
+        messages.length = 0;
+
+        await page.goto(BASE_URL, { waitUntil: 'networkidle0' });
+        await delay(3000);
+        const hubFingerprint = fingerprint(await page.screenshot());
+
+        const point = cardPoint(viewport, game.index);
+        await page.mouse.click(point.x, point.y);
+        await delay(1400);
+        const launchFingerprint = fingerprint(await page.screenshot({
+          path: `scratch/live-smoke-${viewport.name}-${game.id}-launch.png`
+        }));
+
+        await page.mouse.click(viewport.width / 2, viewport.height / 2);
+        for (const key of game.keys) {
+          await page.keyboard.press(key);
+          await delay(120);
+        }
+        await delay(1800);
+        const playFingerprint = fingerprint(await page.screenshot({
+          path: `scratch/live-smoke-${viewport.name}-${game.id}-play.png`
+        }));
+
+        results.push({
+          viewport: viewport.name,
+          game: game.name,
+          launched: launchFingerprint !== hubFingerprint,
+          respondedAfterStart: playFingerprint !== launchFingerprint,
+          canvas: await canvasInfo(page),
+          messages: [...messages]
+        });
+      }
     }
+  } finally {
+    await browser.close();
+  }
+
+  return results;
+}
+
+runSmoke()
+  .then((results) => {
+    console.log(JSON.stringify(results, null, 2));
+
+    const failures = results.filter((result) => (
+      !result.launched ||
+      !result.respondedAfterStart ||
+      !result.canvas ||
+      result.messages.length > 0
+    ));
+
+    if (failures.length > 0) {
+      console.error(`Smoke test failed: ${failures.length} failing checks.`);
+      process.exit(1);
+    }
+  })
+  .catch((error) => {
+    console.error(error);
+    process.exit(1);
   });
-
-  page.on('pageerror', error => {
-    console.log('BROWSER CRASH/EXCEPTION:', error.stack || error.message);
-  });
-
-  console.log('Navigating to http://localhost:3000...');
-  await page.goto('http://localhost:3000/', { waitUntil: 'networkidle0' });
-  
-  console.log('Waiting for HubScene...');
-  await new Promise(resolve => setTimeout(resolve, 5000)); // wait 5 seconds to ensure PreloadScene finishes
-
-  console.log('Taking screenshot of Hub...');
-  await page.screenshot({ path: 'scratch/hub.png' });
-  console.log('Saved scratch/hub.png');
-
-  // Click on Cosmic Cargo card coordinates (x: 590, y: 245)
-  console.log('Clicking on Cosmic Cargo card coordinates (x: 590, y: 245)...');
-  await page.mouse.click(590, 245);
-  
-  console.log('Waiting to see if scene launches...');
-  await new Promise(resolve => setTimeout(resolve, 4000));
-
-  console.log('Taking screenshot after click...');
-  await page.screenshot({ path: 'scratch/after_click.png' });
-  console.log('Saved scratch/after_click.png');
-
-  console.log('Done.');
-  await browser.close();
-  process.exit(0);
-})().catch(err => {
-  console.error('TEST ERROR:', err);
-  process.exit(1);
-});
-

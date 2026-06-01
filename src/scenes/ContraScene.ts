@@ -46,6 +46,7 @@ export class ContraScene extends Phaser.Scene {
   private isVictory = false;
   private isWaitingToStart = true;
   private faceDirection = 1; // 1 = right, -1 = left
+  private wasTouchJumpPressed = false;
 
   // UI Elements
   private scoreText!: Phaser.GameObjects.Text;
@@ -71,6 +72,7 @@ export class ContraScene extends Phaser.Scene {
   }
 
   init() {
+    this.stars = [];
     this.lives = 3;
     this.score = 0;
     this.weapon = 'rifle';
@@ -80,6 +82,7 @@ export class ContraScene extends Phaser.Scene {
     this.isVictory = false;
     this.isWaitingToStart = true;
     this.faceDirection = 1;
+    this.wasTouchJumpPressed = false;
     this.bossActive = false;
     this.bossDefeated = false;
     this.bossHp = 35;
@@ -156,6 +159,7 @@ export class ContraScene extends Phaser.Scene {
     this.cameras.main.setBounds(0, 0, this.levelWidth, height);
     this.physics.world.setBounds(0, 0, this.levelWidth, height);
     this.cameras.main.startFollow(this.player, true, 0.1, 0, -100, 60);
+    this.applyCameraLayout();
 
     // 6. Controllers
     if (this.input.keyboard) {
@@ -224,8 +228,14 @@ export class ContraScene extends Phaser.Scene {
 
     // Handle screen resizing
     this.scale.on('resize', this.handleResize, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off('resize', this.handleResize, this);
+      this.touchControls?.resetPressed();
+    });
 
-    this.input.on('pointerdown', () => {
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      if (this.touchControls?.isInControlZone(pointer)) return;
+
       if (this.isWaitingToStart) this.startGame();
       else if (this.isGameOver || this.isVictory) this.scene.restart();
     });
@@ -235,6 +245,7 @@ export class ContraScene extends Phaser.Scene {
     const { width, height } = this.scale;
 
     // Reposition HUD
+    this.applyCameraLayout();
     this.livesText.setPosition(width / 2, 20);
     this.stateText.setPosition(width / 2, height / 2 - 40);
     this.hintText.setPosition(width / 2, height / 2 + 25);
@@ -257,7 +268,7 @@ export class ContraScene extends Phaser.Scene {
   }
 
   update(time: number) {
-    const { width } = this.scale;
+    const { width, height } = this.scale;
 
     // Background Stars movement
     this.starfield.clear();
@@ -289,20 +300,31 @@ export class ContraScene extends Phaser.Scene {
     // Platform drops cleaner
     this.bullets.getChildren().filter(b => {
       const bullet = b as Phaser.Physics.Arcade.Image;
-      return bullet.x < this.cameras.main.scrollX || bullet.x > this.cameras.main.scrollX + width;
+      return bullet.x < this.cameras.main.scrollX - 40 ||
+        bullet.x > this.cameras.main.scrollX + width + 40 ||
+        bullet.y < -50 ||
+        bullet.y > height + 50;
     }).forEach(b => b.destroy());
 
     this.enemyBullets.getChildren().filter(b => {
       const bullet = b as Phaser.Physics.Arcade.Image;
-      return bullet.x < this.cameras.main.scrollX - 40 || bullet.x > this.cameras.main.scrollX + width + 40;
+      return bullet.x < this.cameras.main.scrollX - 40 ||
+        bullet.x > this.cameras.main.scrollX + width + 40 ||
+        bullet.y < -50 ||
+        bullet.y > height + 50;
     }).forEach(b => b.destroy());
 
     // --- PLAYER CONTROLS ---
     let vx = 0;
     const isGnd = this.player.body!.blocked.down || this.player.body!.touching.down;
+    const aimingDown = this.cursors.down.isDown || this.touchControls?.downPressed;
 
     // Left/Right
-    if (this.cursors.left.isDown || this.touchControls?.leftPressed) {
+    if (aimingDown && isGnd) {
+      vx = 0;
+      this.player.stop();
+      this.player.setTexture('player-stand');
+    } else if (this.cursors.left.isDown || this.touchControls?.leftPressed) {
       vx = -180;
       this.faceDirection = -1;
       this.player.setFlipX(true);
@@ -320,7 +342,10 @@ export class ContraScene extends Phaser.Scene {
     this.player.setVelocityX(vx);
 
     // Jump
-    const justJump = Phaser.Input.Keyboard.JustDown(this.jumpKey) || this.touchControls?.aPressed;
+    const touchJumpPressed = this.touchControls?.aPressed ?? false;
+    const justTouchJump = touchJumpPressed && !this.wasTouchJumpPressed;
+    this.wasTouchJumpPressed = touchJumpPressed;
+    const justJump = Phaser.Input.Keyboard.JustDown(this.jumpKey) || justTouchJump;
     if (justJump && isGnd) {
       this.player.setVelocityY(-350);
       this.player.setTexture('player-jump');
@@ -332,9 +357,11 @@ export class ContraScene extends Phaser.Scene {
     }
 
     // Aim calculations
-    let aim = 0; // 0 = straight, -1 = diagonal up, -2 = straight up
+    let aim = 0; // 0 = straight, -1 = diagonal up, -2 = up, 1 = diagonal down, 2 = down
     if (this.cursors.up.isDown || this.touchControls?.upPressed) {
       aim = (vx !== 0) ? -1 : -2;
+    } else if (aimingDown) {
+      aim = (!isGnd && vx !== 0) ? 1 : !isGnd ? 2 : 0;
     }
 
     // Shoot
@@ -453,6 +480,14 @@ export class ContraScene extends Phaser.Scene {
     this.hintText.setVisible(false);
   }
 
+  private applyCameraLayout() {
+    const { height } = this.scale;
+    const zoom = Math.min(1, Math.max(0.62, height / 600));
+    this.cameras.main.setZoom(zoom);
+    this.cameras.main.setBounds(0, 0, this.levelWidth, Math.max(height / zoom, 600));
+    this.physics.world.setBounds(0, 0, this.levelWidth, Math.max(height / zoom, 600));
+  }
+
   private fireWeapon(aim: number) {
     this.fireCooldown = 10;
     SoundSynth.playShoot();
@@ -461,6 +496,7 @@ export class ContraScene extends Phaser.Scene {
     let by = this.player.y - 2;
 
     if (aim === -2) by = this.player.y - 25; // Aim straight up coordinates
+    if (aim === 2) by = this.player.y + 18; // Aim straight down coordinates
 
     if (this.weapon === 'rifle') {
       let vx = this.faceDirection * 350;
@@ -472,6 +508,12 @@ export class ContraScene extends Phaser.Scene {
       } else if (aim === -2) {
         vx = 0;
         vy = -350;
+      } else if (aim === 1) {
+        vx = this.faceDirection * 250;
+        vy = 250;
+      } else if (aim === 2) {
+        vx = 0;
+        vy = 350;
       }
 
       this.spawnBullet(bx, by, vx, vy, 0xffff00);
@@ -490,6 +532,20 @@ export class ContraScene extends Phaser.Scene {
       } else if (aim === -2) {
         // Straight up
         const baseAng = -Math.PI / 2;
+        angles.forEach(offset => {
+          const ang = baseAng + offset;
+          this.spawnBullet(bx, by, Math.cos(ang) * baseSpeed, Math.sin(ang) * baseSpeed, 0xff5555);
+        });
+      } else if (aim === 1) {
+        // Diagonal down
+        const baseAng = Math.PI / 4;
+        angles.forEach(offset => {
+          const ang = baseAng + offset;
+          this.spawnBullet(bx, by, Math.cos(ang) * baseSpeed * this.faceDirection, Math.sin(ang) * baseSpeed, 0xff5555);
+        });
+      } else if (aim === 2) {
+        // Straight down
+        const baseAng = Math.PI / 2;
         angles.forEach(offset => {
           const ang = baseAng + offset;
           this.spawnBullet(bx, by, Math.cos(ang) * baseSpeed, Math.sin(ang) * baseSpeed, 0xff5555);
@@ -901,4 +957,3 @@ export class ContraScene extends Phaser.Scene {
     });
   }
 }
-

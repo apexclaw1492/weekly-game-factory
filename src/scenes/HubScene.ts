@@ -1,4 +1,11 @@
 import Phaser from 'phaser';
+import {
+  BONUS_GAME_COUNT,
+  GAME_BACKLOG_IDEA_COUNT,
+  GAME_DEFINITIONS,
+  PUBLISHED_WEEK_COUNT,
+  type GameDefinition
+} from '../data/gameCatalog';
 import { SoundSynth } from '../utils/SoundSynth';
 
 export class HubScene extends Phaser.Scene {
@@ -15,6 +22,7 @@ export class HubScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.scale;
+    this.stars = [];
 
     // 1. Create starfield background
     this.starfield = this.add.graphics();
@@ -44,10 +52,12 @@ export class HubScene extends Phaser.Scene {
     // Subtle glow on title
     this.titleText.setShadow(0, 0, '#00ccff', 8, true, true);
 
-    this.subtitleText = this.add.text(width / 2, 95, 'A new retro game every Friday. Fully optimized.', {
-      fontSize: '12px',
+    this.subtitleText = this.add.text(width / 2, 95, this.getSubtitleText(width), {
+      fontSize: width < 450 ? '10px' : '12px',
       fontFamily: 'monospace',
-      color: '#8888a0'
+      color: '#8888a0',
+      align: 'center',
+      wordWrap: { width: Math.max(240, width - 32) }
     }).setOrigin(0.5);
 
     // 4. Render Game Cards (Responsive Grid/List)
@@ -58,6 +68,9 @@ export class HubScene extends Phaser.Scene {
 
     // Handle screen resizing
     this.scale.on('resize', this.handleResize, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off('resize', this.handleResize, this);
+    });
   }
 
   update() {
@@ -83,45 +96,6 @@ export class HubScene extends Phaser.Scene {
     this.cards.forEach(c => c.destroy());
     this.cards = [];
 
-    const games = [
-      {
-        id: 'f1-space-invaders',
-        title: 'F1 Space Invaders',
-        week: 'Week 0',
-        icon: '🏎️',
-        scene: 'SpaceInvadersScene',
-        color: 0x0600EF,
-        desc: 'Red Bull space invaders! Dodge, blast, build combos.'
-      },
-      {
-        id: 'cosmic-cargo',
-        title: 'Cosmic Cargo',
-        week: 'Week 1',
-        icon: '🚀',
-        scene: 'CosmicCargoScene',
-        color: 0xff6b35,
-        desc: 'Gravity-switching puzzle. Collect pods and escape.'
-      },
-      {
-        id: 'contra-bonus',
-        title: 'Contra Bonus',
-        week: '🎁 Bonus',
-        icon: '⚔️',
-        scene: 'ContraScene',
-        color: 0xee2222,
-        desc: 'Run & gun retro action! Jump, shoot, defeat the boss.'
-      },
-      {
-        id: 'asteroid-belt',
-        title: 'Asteroid Belt',
-        week: 'Week 2',
-        icon: '☄️',
-        scene: 'AsteroidsScene',
-        color: 0x8899aa,
-        desc: 'Asteroids shooter clone. Split space rocks and survive.'
-      }
-    ];
-
     const isPortrait = height > width;
 
     if (isPortrait) {
@@ -130,7 +104,7 @@ export class HubScene extends Phaser.Scene {
       const cardH = 75;
       const cardW = Math.min(width - 40, 360);
 
-      games.forEach((game, idx) => {
+      GAME_DEFINITIONS.forEach((game, idx) => {
         const cardX = width / 2;
         const cardY = startY + idx * (cardH + 12);
         const card = this.createGameCard(cardX, cardY, cardW, cardH, game);
@@ -148,7 +122,7 @@ export class HubScene extends Phaser.Scene {
         { x: cardW / 2 + 10, y: cardH / 2 + 25 }
       ];
 
-      games.forEach((game, idx) => {
+      GAME_DEFINITIONS.forEach((game, idx) => {
         const offset = offsets[idx];
         const card = this.createGameCard(width / 2 + offset.x, height / 2 + offset.y + 15, cardW, cardH, game);
         this.cards.push(card);
@@ -161,7 +135,7 @@ export class HubScene extends Phaser.Scene {
     y: number,
     w: number,
     h: number,
-    game: any
+    game: GameDefinition
   ): Phaser.GameObjects.Container {
     const container = this.add.container(x, y);
 
@@ -187,7 +161,7 @@ export class HubScene extends Phaser.Scene {
         color: '#ffffff'
       }).setOrigin(0, 0.5);
 
-      const subtitle = this.add.text(-w / 2 + 55, 6, `${game.week} — PLAY NOW`, {
+      const subtitle = this.add.text(-w / 2 + 55, 6, `${game.weekLabel} - PLAY NOW`, {
         fontSize: '10px',
         fontFamily: 'monospace',
         color: '#00ccff'
@@ -204,14 +178,14 @@ export class HubScene extends Phaser.Scene {
         color: '#ffffff'
       }).setOrigin(0, 0.5);
 
-      const weekText = this.add.text(-w / 2 + 75, -10, game.week, {
+      const weekText = this.add.text(-w / 2 + 75, -10, game.weekLabel, {
         fontSize: '10px',
         fontFamily: 'monospace',
         color: '#00ccff',
         fontStyle: 'bold'
       }).setOrigin(0, 0.5);
 
-      const descText = this.add.text(-w / 2 + 15, 20, game.desc, {
+      const descText = this.add.text(-w / 2 + 15, 20, game.description, {
         fontSize: '11px',
         fontFamily: 'monospace',
         color: '#a0a0c0',
@@ -252,7 +226,7 @@ export class HubScene extends Phaser.Scene {
       bg.setFillStyle(game.color, 0.2);
       this.time.delayedCall(100, () => {
         this.scale.off('resize', this.handleResize, this);
-        this.scene.start(game.scene);
+        this.scene.start(game.sceneKey);
       });
     });
 
@@ -286,16 +260,16 @@ export class HubScene extends Phaser.Scene {
     const gap = width < 450 ? 80 : 130;
 
     // Render 4 stats items
-    const stat1 = this.add.text(-gap * 1.5, -10, 'PUBLISHED: 4', valueStyle).setOrigin(0.5);
+    const stat1 = this.add.text(-gap * 1.5, -10, `PUBLISHED: ${GAME_DEFINITIONS.length}`, valueStyle).setOrigin(0.5);
     const stat1L = this.add.text(-gap * 1.5, 10, 'Games Total', labelStyle).setOrigin(0.5);
 
-    const stat2 = this.add.text(-gap * 0.5, -10, 'WEEKS: 3', valueStyle).setOrigin(0.5);
+    const stat2 = this.add.text(-gap * 0.5, -10, `WEEKS: ${PUBLISHED_WEEK_COUNT}`, valueStyle).setOrigin(0.5);
     const stat2L = this.add.text(-gap * 0.5, 10, 'Production', labelStyle).setOrigin(0.5);
 
-    const stat3 = this.add.text(gap * 0.5, -10, 'BONUS: 1', valueStyle).setOrigin(0.5);
+    const stat3 = this.add.text(gap * 0.5, -10, `BONUS: ${BONUS_GAME_COUNT}`, valueStyle).setOrigin(0.5);
     const stat3L = this.add.text(gap * 0.5, 10, 'Secret Drops', labelStyle).setOrigin(0.5);
 
-    const stat4 = this.add.text(gap * 1.5, -10, 'IDEAS: 88+', valueStyle).setOrigin(0.5);
+    const stat4 = this.add.text(gap * 1.5, -10, `IDEAS: ${GAME_BACKLOG_IDEA_COUNT}+`, valueStyle).setOrigin(0.5);
     const stat4L = this.add.text(gap * 1.5, 10, 'Remaining', labelStyle).setOrigin(0.5);
 
     statsContainer.add([stat1, stat1L, stat2, stat2L, stat3, stat3L, stat4, stat4L]);
@@ -320,9 +294,16 @@ export class HubScene extends Phaser.Scene {
     this.titleText.setPosition(width / 2, 60);
     this.titleText.setFontSize(width < 450 ? '24px' : '36px');
     this.subtitleText.setPosition(width / 2, 95);
+    this.subtitleText.setText(this.getSubtitleText(width));
+    this.subtitleText.setFontSize(width < 450 ? '10px' : '12px');
+    this.subtitleText.setWordWrapWidth(Math.max(240, width - 32));
 
     // Re-draw cards and stats
     this.renderGameCards();
     this.renderStats();
+  }
+
+  private getSubtitleText(width: number) {
+    return width < 420 ? 'A new retro game every Friday.' : 'A new retro game every Friday. Fully optimized.';
   }
 }

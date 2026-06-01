@@ -32,10 +32,13 @@ export class CosmicCargoScene extends Phaser.Scene {
   private levelText!: Phaser.GameObjects.Text;
   private fuelBar!: Phaser.GameObjects.Graphics;
   private cargoText!: Phaser.GameObjects.Text;
+  private gravityText!: Phaser.GameObjects.Text;
+  private portalText!: Phaser.GameObjects.Text;
   private stateText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
   private hiScoreText!: Phaser.GameObjects.Text;
   private backBtn!: Phaser.GameObjects.Text;
+  private boostBtn?: Phaser.GameObjects.Text;
 
   private starfield!: Phaser.GameObjects.Graphics;
   private stars: Array<{ x: number; y: number; speed: number; alpha: number }> = [];
@@ -54,6 +57,7 @@ export class CosmicCargoScene extends Phaser.Scene {
   }
 
   init() {
+    this.stars = [];
     this.level = 1;
     this.score = 0;
     this.comboCount = 0;
@@ -123,6 +127,8 @@ export class CosmicCargoScene extends Phaser.Scene {
     this.scoreText = this.add.text(20, 20, 'SCORE: 0', { fontSize: '16px', fontFamily: 'monospace', color: '#ffffff' });
     this.levelText = this.add.text(width - 20, 20, 'LEVEL 1', { fontSize: '16px', fontFamily: 'monospace', color: '#8888a0' }).setOrigin(1, 0);
     this.cargoText = this.add.text(20, 45, 'CARGO: 0/3', { fontSize: '12px', fontFamily: 'monospace', color: '#ffd700' });
+    this.gravityText = this.add.text(width / 2, 20, 'GRAVITY: DOWN', { fontSize: '12px', fontFamily: 'monospace', color: '#00ccff' }).setOrigin(0.5, 0);
+    this.portalText = this.add.text(width / 2, 42, 'PORTAL: LOCKED', { fontSize: '11px', fontFamily: 'monospace', color: '#ff8844' }).setOrigin(0.5, 0);
     
     // Fuel Bar
     this.add.text(20, 70, 'FUEL:', { fontSize: '11px', fontFamily: 'monospace', color: '#888888' });
@@ -168,12 +174,33 @@ export class CosmicCargoScene extends Phaser.Scene {
       this.scene.start('HubScene');
     });
 
+    if (this.sys.game.device.input.touch) {
+      this.boostBtn = this.add.text(width - 35, height - 82, 'BOOST', {
+        fontSize: '13px',
+        fontFamily: 'monospace',
+        color: '#ffffff',
+        backgroundColor: '#884422',
+        padding: { x: 10, y: 8 }
+      }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+
+      this.boostBtn.on('pointerdown', (_pointer: Phaser.Input.Pointer, _localX: number, _localY: number, event: Phaser.Types.Input.EventData) => {
+        if (!this.isWaitingToStart && !this.isGameOver && !this.isLevelComplete) {
+          this.useBoost();
+        }
+        event.stopPropagation();
+      });
+    }
+
     // Handle screen resizing
     this.scale.on('resize', this.handleResize, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      this.scale.off('resize', this.handleResize, this);
+    });
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       // Tap outside buttons starts game
-      if (pointer.y < height - 60) {
+      const { height } = this.scale;
+      if (pointer.y < height - 95) {
         if (this.isWaitingToStart) this.startGame();
         else if (this.isGameOver) this.scene.restart();
         else if (this.isLevelComplete) this.nextLevel();
@@ -189,10 +216,13 @@ export class CosmicCargoScene extends Phaser.Scene {
 
     // Reposition UI
     this.levelText.setPosition(width - 20, 20);
+    this.gravityText.setPosition(width / 2, 20);
+    this.portalText.setPosition(width / 2, 42);
     this.stateText.setPosition(width / 2, height / 2 - 50);
     this.hintText.setPosition(width / 2, height / 2 + 20);
     this.hiScoreText.setPosition(width / 2, height / 2 + 100);
     this.backBtn.setPosition(width - 20, height - 30);
+    this.boostBtn?.setPosition(width - 35, height - 82);
 
     // Update starfield
     this.starfield.clear();
@@ -381,18 +411,22 @@ export class CosmicCargoScene extends Phaser.Scene {
       case GravityDir.UP:
         this.physics.world.gravity.set(0, -this.gravityForce);
         this.ship.setAngle(-90);
+        this.gravityText.setText('GRAVITY: UP');
         break;
       case GravityDir.DOWN:
         this.physics.world.gravity.set(0, this.gravityForce);
         this.ship.setAngle(90);
+        this.gravityText.setText('GRAVITY: DOWN');
         break;
       case GravityDir.LEFT:
         this.physics.world.gravity.set(-this.gravityForce, 0);
         this.ship.setAngle(180);
+        this.gravityText.setText('GRAVITY: LEFT');
         break;
       case GravityDir.RIGHT:
         this.physics.world.gravity.set(this.gravityForce, 0);
         this.ship.setAngle(0);
+        this.gravityText.setText('GRAVITY: RIGHT');
         break;
     }
   }
@@ -422,9 +456,15 @@ export class CosmicCargoScene extends Phaser.Scene {
     const { width, height } = this.scale;
     this.asteroids.clear(true, true);
     this.cargoPods.clear(true, true);
+    this.portalText.setText('PORTAL: LOCKED').setColor('#ff8844');
+    this.portal.setTint(0x666666);
 
     const numAsteroids = 6 + this.level * 2;
     const numCargo = 3 + Math.min(this.level, 7);
+    const placed: Array<{ x: number; y: number; radius: number }> = [
+      { x: this.ship.x, y: this.ship.y, radius: 100 },
+      { x: this.portal.x, y: this.portal.y, radius: 80 }
+    ];
 
     // Spawns cargo pods
     for (let i = 0; i < numCargo; i++) {
@@ -433,14 +473,11 @@ export class CosmicCargoScene extends Phaser.Scene {
       while (!safe && attempts < 100) {
         attempts++;
         x = 60 + Math.random() * (width - 120);
-        y = 60 + Math.random() * (height - 120);
-        
-        const distToShip = Phaser.Math.Distance.Between(x, y, this.ship.x, this.ship.y);
-        const distToExit = Phaser.Math.Distance.Between(x, y, this.portal.x, this.portal.y);
-        
-        safe = distToShip > 100 && distToExit > 80;
+        y = 105 + Math.random() * Math.max(1, height - 225);
+        safe = this.isSafeSpawn(x, y, 24, placed);
       }
       this.cargoPods.create(x, y, 'cargo-pod');
+      placed.push({ x, y, radius: 34 });
     }
     this.cargoText.setText(`CARGO: 0/${numCargo}`);
 
@@ -451,10 +488,8 @@ export class CosmicCargoScene extends Phaser.Scene {
       while (!safe && attempts < 100) {
         attempts++;
         x = 50 + Math.random() * (width - 100);
-        y = 50 + Math.random() * (height - 100);
-        
-        const distToShip = Phaser.Math.Distance.Between(x, y, this.ship.x, this.ship.y);
-        safe = distToShip > 120;
+        y = 105 + Math.random() * Math.max(1, height - 225);
+        safe = this.isSafeSpawn(x, y, 36, placed);
       }
       
       const size = Phaser.Math.Between(1, 3);
@@ -467,7 +502,15 @@ export class CosmicCargoScene extends Phaser.Scene {
       const ang = Math.random() * Math.PI * 2;
       asteroid.setVelocity(Math.cos(ang) * speed, Math.sin(ang) * speed);
       asteroid.setData('size', size);
+      placed.push({ x, y, radius: r + 26 });
     }
+  }
+
+  private isSafeSpawn(x: number, y: number, radius: number, placed: Array<{ x: number; y: number; radius: number }>) {
+    const { width, height } = this.scale;
+    if (x < 35 || x > width - 35 || y < 95 || y > height - 115) return false;
+
+    return placed.every(item => Phaser.Math.Distance.Between(x, y, item.x, item.y) > radius + item.radius);
   }
 
   private collectCargo(_shipObj: any, podObj: any) {
@@ -511,6 +554,8 @@ export class CosmicCargoScene extends Phaser.Scene {
 
     // Portal glowing effect
     if (collected === 0) {
+      this.portalText.setText('PORTAL: OPEN').setColor('#55ff88');
+      this.portal.clearTint();
       this.tweens.add({
         targets: this.portal,
         scale: 1.3,

@@ -2,10 +2,7 @@ import Phaser from 'phaser';
 import { BootScene } from './scenes/BootScene';
 import { PreloadScene } from './scenes/PreloadScene';
 import { HubScene } from './scenes/HubScene';
-import { SpaceInvadersScene } from './scenes/SpaceInvadersScene';
-import { CosmicCargoScene } from './scenes/CosmicCargoScene';
-import { ContraScene } from './scenes/ContraScene';
-import { AsteroidsScene } from './scenes/AsteroidsScene';
+import { GAME_DEFINITIONS } from './data/gameCatalog';
 
 const config: Phaser.Types.Core.GameConfig = {
   type: Phaser.AUTO,
@@ -29,16 +26,13 @@ const config: Phaser.Types.Core.GameConfig = {
     }
   },
   input: {
-    activePointers: 3 // Enable multi-touch up to 3 pointers (perfect for D-pad + action buttons on mobile)
+    activePointers: 5 // D-pad plus jump/fire/boost combinations on touch devices
   },
   scene: [
     BootScene,
     PreloadScene,
     HubScene,
-    SpaceInvadersScene,
-    CosmicCargoScene,
-    ContraScene,
-    AsteroidsScene
+    ...GAME_DEFINITIONS.map((game) => game.sceneClass)
   ]
 };
 

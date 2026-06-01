@@ -12,20 +12,24 @@ export class TouchControls extends Phaser.GameObjects.Container {
   private controlType: 'dpad-ab' | 'lr-thrust' | 'lr-shoot';
   private controls: Phaser.GameObjects.GameObject[] = [];
 
-  constructor(scene: Phaser.Scene, controlType: 'dpad-ab' | 'lr-thrust' | 'lr-shoot') {
+  constructor(scene: Phaser.Scene, controlType: 'dpad-ab' | 'lr-thrust' | 'lr-shoot', autoToggled = true) {
     super(scene);
     this.controlType = controlType;
+    this.autoToggled = autoToggled;
+    this.setScrollFactor(0);
+    this.setDepth(1000);
     this.resize();
     scene.add.existing(this);
+    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.resetPressed, this);
   }
 
   public resize() {
     const { width, height } = this.scene.scale;
+    this.resetPressed();
     
     // Clear existing controls
-    this.controls.forEach(obj => obj.destroy());
-    this.controls = [];
     this.removeAll(true);
+    this.controls = [];
 
     const buttonRadius = Math.max(22, Math.floor(Math.min(width, height) * 0.045));
     const dpadRadius = buttonRadius * 2;
@@ -65,10 +69,11 @@ export class TouchControls extends Phaser.GameObjects.Container {
       
       const actionX = width - 80;
       const btnThrust = this.createButton(actionX, btnY, buttonRadius, 'THRUST', () => this.upPressed = true, () => this.upPressed = false, 0xffcc33);
+      const btnFire = this.createButton(actionX - (buttonRadius * 2.5), btnY, buttonRadius, 'FIRE', () => this.bPressed = true, () => this.bPressed = false, 0xff5555);
       const btnAuto = this.createToggleButton(actionX, btnY - (buttonRadius * 2.5), buttonRadius * 0.65, (toggled) => this.autoToggled = toggled);
 
-      this.add([btnLeft, btnRight, btnThrust, btnAuto]);
-      this.controls.push(btnLeft, btnRight, btnThrust, btnAuto);
+      this.add([btnLeft, btnRight, btnFire, btnThrust, btnAuto]);
+      this.controls.push(btnLeft, btnRight, btnFire, btnThrust, btnAuto);
     } else if (this.controlType === 'lr-shoot') {
       // Space Invaders: Left/Right bottom-left, Shoot bottom-right
       const btnY = height - 80;
@@ -86,6 +91,21 @@ export class TouchControls extends Phaser.GameObjects.Container {
     }
   }
 
+  public resetPressed() {
+    this.leftPressed = false;
+    this.rightPressed = false;
+    this.upPressed = false;
+    this.downPressed = false;
+    this.aPressed = false;
+    this.bPressed = false;
+  }
+
+  public isInControlZone(pointer: Phaser.Input.Pointer) {
+    const { width, height } = this.scene.scale;
+    const controlBand = Math.max(110, Math.floor(Math.min(width, height) * 0.22));
+    return pointer.y >= height - controlBand;
+  }
+
   private createButton(
     x: number,
     y: number,
@@ -96,6 +116,8 @@ export class TouchControls extends Phaser.GameObjects.Container {
     color: number = 0xffffff
   ): Phaser.GameObjects.Container {
     const container = this.scene.add.container(x, y);
+    container.setScrollFactor(0);
+    container.setDepth(1000);
 
     const circle = this.scene.add.circle(0, 0, radius, color, 0.15);
     circle.setStrokeStyle(2, color, 0.5);
@@ -114,9 +136,10 @@ export class TouchControls extends Phaser.GameObjects.Container {
 
     container.add([circle, text]);
 
-    circle.on('pointerdown', () => {
+    circle.on('pointerdown', (_pointer: Phaser.Input.Pointer, _localX: number, _localY: number, event: Phaser.Types.Input.EventData) => {
       circle.setFillStyle(color, 0.4);
       onDown();
+      event.stopPropagation();
     });
 
     const release = () => {
@@ -126,6 +149,7 @@ export class TouchControls extends Phaser.GameObjects.Container {
 
     circle.on('pointerup', release);
     circle.on('pointerupoutside', release);
+    circle.on('pointerout', release);
 
     return container;
   }
@@ -137,6 +161,8 @@ export class TouchControls extends Phaser.GameObjects.Container {
     onToggle: (toggled: boolean) => void
   ): Phaser.GameObjects.Container {
     const container = this.scene.add.container(x, y);
+    container.setScrollFactor(0);
+    container.setDepth(1000);
 
     let toggled = this.autoToggled;
     const colorOn = 0x55ff55;
@@ -170,11 +196,12 @@ export class TouchControls extends Phaser.GameObjects.Container {
       }
     };
 
-    circle.on('pointerdown', () => {
+    circle.on('pointerdown', (_pointer: Phaser.Input.Pointer, _localX: number, _localY: number, event: Phaser.Types.Input.EventData) => {
       toggled = !toggled;
       this.autoToggled = toggled;
       updateVisuals();
       onToggle(toggled);
+      event.stopPropagation();
     });
 
     return container;
