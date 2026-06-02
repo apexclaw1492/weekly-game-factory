@@ -122,7 +122,7 @@ export class AsteroidsScene extends Phaser.Scene {
     }
 
     if (this.sys.game.device.input.touch) {
-      this.touchControls = new TouchControls(this, 'lr-thrust', false);
+      this.touchControls = new TouchControls(this, 'lr-thrust', true);
     }
 
     // 7. HUD setup
@@ -142,7 +142,7 @@ export class AsteroidsScene extends Phaser.Scene {
     }).setOrigin(0.5);
     this.stateText.setShadow(0, 0, '#00ccff', 10, true, true);
 
-    this.hintText = this.add.text(width / 2, height / 2 + 10, 'ROTATE [<- ->] | THRUST [^]\nFIRE [SPACE] | HYPERSPACE [H]\n\nTAP OR ENTER TO START', {
+    this.hintText = this.add.text(width / 2, height / 2 + 10, 'PHONE: TILT OR DRAG TO STEER\nSWIPE UP TO THRUST, TWO FINGERS TO BURST FIRE\nDESKTOP: ARROWS + SPACE\n\nTAP OR ENTER TO START', {
       fontSize: '13px',
       fontFamily: 'monospace',
       color: '#8888a0',

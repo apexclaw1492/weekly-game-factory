@@ -9,8 +9,8 @@ This roadmap defines the shared requirements that every game must satisfy before
 ## Current System Findings
 
 - Scene resize listeners are registered inside scenes and are not consistently removed on shutdown.
-- Touch controls are implemented as scene objects with hardcoded positions, not as safe-area-aware fixed overlays.
-- Scene-level `pointerdown` handlers can conflict with touch-control buttons.
+- Earlier touch controls were scene objects with hardcoded positions; current direction is invisible gesture and motion input.
+- Scene-level `pointerdown` handlers can conflict with start/retry/back state if active-play gestures are not gated.
 - Several scenes capture `width` or `height` during `create()` and reuse those values after orientation changes.
 - Starfield arrays are appended in `create()` and not reset in `init()`, so repeated restarts can accumulate extra work.
 - Responsive behavior is mostly HUD repositioning; gameplay objects, safe spawn zones, and playfield bounds are not consistently recalculated.
@@ -20,7 +20,7 @@ This roadmap defines the shared requirements that every game must satisfy before
 
 ### Input Model
 
-Every game must consume a normalized input layer instead of directly mixing keyboard, pointer, swipe, and virtual-button state inside gameplay scenes.
+Every game must consume a normalized input layer instead of directly mixing keyboard, pointer, swipe, tilt, and action state inside gameplay scenes.
 
 Required actions:
 
@@ -42,12 +42,12 @@ Each action must expose:
 - `held`
 - `justPressed`
 - `justReleased`
-- source device: keyboard, pointer, virtual control, or gesture
+- source device: keyboard, pointer gesture, multi-touch, or motion
 
 Acceptance criteria:
 
-- Holding a virtual button through orientation change must not leave an action stuck.
-- Touching a virtual control must not trigger scene-level start/retry/fire handlers.
+- Holding a gesture through orientation change must not leave an action stuck.
+- Active-play gestures must not trigger scene-level start/retry/fire handlers.
 - Keyboard and touch must both support start, play, retry, and return-to-hub.
 - Contra-style multi-button play must support movement plus aim plus jump/fire simultaneously.
 
@@ -67,16 +67,16 @@ Shared viewport service must provide:
 - orientation
 - safe-area padding
 - top HUD band
-- bottom control band
+- gameplay-safe rectangle
 - gameplay-safe rectangle
 - text scale bucket
 
 Acceptance criteria:
 
 - Required test sizes: `320x568`, `390x844`, `430x932`, `667x375`, `844x390`, `768x1024`, `1024x768`, `800x600`.
-- HUD, back button, virtual controls, player spawn, enemies, collectibles, and portals must not overlap.
+- HUD, back affordance, player spawn, enemies, collectibles, and portals must not overlap.
 - On orientation change, each game must either reflow existing objects safely or regenerate the level.
-- Touch controls must remain fixed to screen space during camera movement.
+- Gesture interpretation must remain screen-space during camera movement.
 
 ### Scene Lifecycle
 
@@ -148,4 +148,3 @@ CI minimum:
 - Asteroids gameplay reference: https://strategywiki.org/wiki/Asteroids/Gameplay
 - Asteroids overview: https://en.wikipedia.org/wiki/Asteroids_%28video_game%29
 - Contra overview: https://en.wikipedia.org/wiki/Contra_%28video_game%29
-

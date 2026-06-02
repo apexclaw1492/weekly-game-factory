@@ -26,7 +26,7 @@ const config: Phaser.Types.Core.GameConfig = {
     }
   },
   input: {
-    activePointers: 5 // D-pad plus jump/fire/boost combinations on touch devices
+    activePointers: 5 // Multi-touch gestures plus keyboard fallback.
   },
   scene: [
     BootScene,

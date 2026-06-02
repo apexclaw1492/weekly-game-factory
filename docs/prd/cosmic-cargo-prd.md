@@ -13,7 +13,8 @@ Implemented:
 - Player ship affected by directional gravity.
 - Arrow keys flip gravity.
 - Swipe gestures flip gravity.
-- Tap or Space boosts.
+- Holding the screen or pressing Space boosts.
+- Tilt or swipe flips gravity on touch devices.
 - Fuel limits boost and regenerates slowly.
 - Cargo pods must be collected.
 - Portal completes the level after all cargo is collected.
@@ -37,8 +38,7 @@ Cosmic Cargo should behave like a purpose-built arcade machine:
 
 ### Functional Bugs
 
-- No explicit virtual controls; swipe/tap is elegant but ambiguous.
-- Tap can mean start, boost, retry, continue, or back depending context.
+- Touch input previously depended on ambiguous tap/boost/control zones; current target is state-gated start/retry plus hold-to-boost during active play.
 - Pointer guard uses initial `height` and can be wrong after resize.
 - Portal moves on resize, but cargo, asteroids, ship, world bounds, and safe zones are not revalidated.
 - Procedural placement does not prevent cargo-cargo, cargo-asteroid, asteroid-asteroid, HUD, control, or portal overlap.
@@ -77,12 +77,12 @@ Cosmic Cargo should behave like a purpose-built arcade machine:
 
 - Gravity direction must be visible at all times.
 - Gravity changes must have sound and visual feedback.
-- Gravity flip cannot be accidentally triggered by back button or boost control.
+- Gravity flip cannot be accidentally triggered by back navigation or start/retry state changes.
 - Gravity vector must update physics immediately.
 
 ### Boost And Fuel
 
-- Boost must be an explicit action.
+- Boost must be an explicit hold action on touch and Space action on keyboard.
 - Fuel cost per boost must be tunable.
 - Fuel regeneration must be tunable or removable.
 - Product decision required:
@@ -103,26 +103,20 @@ Recommended MVP: fuel is a boost resource and end-level bonus, not a fail timer.
 
 ## Touch Requirements
 
-### Portrait
+### Portrait And Landscape
 
-- Left thumb: gravity selector or swipe zone.
-- Right thumb: boost button.
-- Gravity direction indicator near ship or HUD.
-- Start/retry/continue button must be explicit or limited to central overlay tap.
-- Back button must be outside boost zone.
-
-### Landscape
-
-- Gravity selector lower-left.
-- Boost lower-right.
-- Cargo and asteroids cannot spawn under thumb zones.
-- HUD remains readable without covering hazards.
+- Tilt is the primary gravity selector where device motion permission is available.
+- Swipe remains the gravity fallback.
+- Hold anywhere in active play boosts; release returns to drift.
+- No visible gravity direction buttons or BOOST button.
+- Gravity direction indicator remains near the HUD.
+- Cargo and asteroids cannot spawn under HUD or unsafe play bounds.
 
 ## Acceptance Criteria
 
 - Game launches from hub in all required viewport sizes.
 - Player can start, flip gravity, boost, collect cargo, complete level, retry, and return to hub on keyboard and touch.
-- Touch input cannot confuse boost with start/retry/continue/back.
+- Touch input cannot confuse active boost with start/retry/continue/back.
 - Gravity direction is visible before and during gameplay.
 - Portal locked/unlocked state is clear.
 - Procedural generation validates no overlaps in ship, cargo, asteroid, portal, HUD, or controls.
@@ -132,9 +126,8 @@ Recommended MVP: fuel is a boost resource and end-level bonus, not a fail timer.
 
 ## Implementation Notes
 
-- Add `swipe-boost` or `gravity-boost` control scheme to game catalog.
+- Maintain a hardware-first `tilt/swipe/hold` control scheme.
 - Add procedural placement validator using layout safe rectangles.
 - Add gravity indicator component.
 - Separate boost pointer handling from scene-level tap handling.
 - Add tunable difficulty table per level.
-

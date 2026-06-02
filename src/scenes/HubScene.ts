@@ -161,7 +161,7 @@ export class HubScene extends Phaser.Scene {
         color: '#ffffff'
       }).setOrigin(0, 0.5);
 
-      const subtitle = this.add.text(-w / 2 + 55, 6, `${game.weekLabel} - PLAY NOW`, {
+      const subtitle = this.add.text(-w / 2 + 55, 6, `${game.weekLabel} - TOUCH + MOTION`, {
         fontSize: '10px',
         fontFamily: 'monospace',
         color: '#00ccff'

@@ -19,7 +19,7 @@ Implemented:
 - Clearing all enemies advances the level.
 - Combo multiplier and speed power-up exist as modern additions.
 - Keyboard arrows and Space are supported.
-- Touch controls provide left/right/fire buttons.
+- Touch play uses drag or tilt for lateral aim and hold-to-fire, with no visible virtual fire/move buttons.
 - High scores are stored in `localStorage`.
 
 ## Arcade Reference Target
@@ -44,9 +44,9 @@ Reference: https://strategywiki.org/wiki/Space_Invaders/Gameplay
 
 - `stars` is not reset in `init()`, so repeated restarts can accumulate stars.
 - Resize listener is registered but not removed on scene shutdown.
-- Global `pointerdown` can fire from any tap, including virtual controls and back button area.
+- Global `pointerdown` can still conflict with start/retry/back flows if scene-level state guards regress.
 - Keyboard fields are conditionally initialized but later dereferenced directly.
-- Touch-control resize can leave held button state stuck.
+- Gesture and tilt state must clear after release, restart, and resize.
 
 ### Arcade Fidelity Gaps
 
@@ -108,26 +108,19 @@ Optional after classic mode works:
 
 ## Touch Requirements
 
-### Portrait
+### Portrait And Landscape
 
-- Left/right controls bottom-left.
-- Fire button bottom-right.
-- Player baseline must sit above the touch-control band.
-- Back button must not share the fire button zone.
-- Start/retry must use a centered playfield tap or explicit start button, not any control tap.
-
-### Landscape
-
-- Left/right controls lower-left.
-- Fire lower-right.
-- Controls must avoid the enemy/player bullet lanes.
-- HUD remains top-aligned and readable.
+- Drag or tilt controls lateral aim.
+- Holding the screen fires.
+- No visible virtual FIRE, LEFT, or RIGHT buttons.
+- Player baseline, shields, enemies, bullets, HUD, and back affordance must remain readable in both orientations.
+- Start/retry must be state-gated so active play gestures do not accidentally restart or leave the game.
 
 ## Acceptance Criteria
 
 - Game launches from hub in all required viewport sizes.
 - Player can move left/right and fire on keyboard and touch.
-- Touching movement/fire controls never starts, retries, advances level, or returns to hub.
+- Touch movement/fire gestures never start, retry, advance level, or return to hub during active play.
 - Classic mode has lives, shields, saucer, one player missile, row scoring, exposed-invader shooting, and count-based speedup.
 - Game over occurs when lives reach zero or an invader lands.
 - Twenty retries do not increase star count or duplicate resize handlers.
@@ -137,6 +130,5 @@ Optional after classic mode works:
 
 - Move scoring, formation, saucer, shields, and difficulty constants into a rules object.
 - Use shared input actions: `left`, `right`, `fire`, `start`, `back`.
-- Use a fixed arena layout that reserves top HUD and bottom controls.
+- Use a fixed arena layout that reserves top HUD and keeps phone gestures invisible during play.
 - Add smoke tests that validate both classic and touch behavior.
-

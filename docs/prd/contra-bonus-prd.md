@@ -17,7 +17,7 @@ Implemented:
 - Soldiers, flyers, turrets, heavy enemies, capsules, and boss exist.
 - Player has 3 lives and loses weapon on death.
 - Boss has HP, movement, attack phases, hit flash, and victory flow.
-- Touch controls provide d-pad, A, B, and auto toggle.
+- Touch play uses drag or tilt for run/aim, swipe-up for jump, and automatic fire while engaged.
 
 ## Arcade Reference Target
 
@@ -36,13 +36,13 @@ Reference: https://en.wikipedia.org/wiki/Contra_%28video_game%29
 
 ### Functional Bugs
 
-- Touch controls are not fixed to camera; they are likely world-space objects and can scroll away.
+- Touch gestures must remain screen-space and must not create camera-scrolling overlay artifacts.
 - Fixed `groundY = 530` breaks short landscape layouts.
 - Resize handler only adjusts HUD, not ground, camera bounds, world bounds, platforms, boss arena, or player visibility.
 - Jump uses held `aPressed` as a just-pressed event, so holding jump can retrigger on landing.
-- `downPressed` is unused.
+- Down/aim intent must be documented for gesture and tilt inputs.
 - Bullet cleanup only checks horizontal bounds; upward shots can leak offscreen.
-- Resize listeners and input listeners are not explicitly cleaned up.
+- Resize listeners and input listeners must be explicitly cleaned up.
 - Star arrays can accumulate across restarts.
 
 ### Arcade Fidelity Gaps
@@ -103,25 +103,19 @@ Reference: https://en.wikipedia.org/wiki/Contra_%28video_game%29
 
 ## Touch Requirements
 
-### Portrait
+### Portrait And Landscape
 
-- Fixed overlay controls with safe-area padding.
-- 8-way d-pad bottom-left.
-- Fire and Jump buttons bottom-right.
-- Optional auto-fire toggle, off by default or clearly marked accessibility.
-- Controls must not scroll with the camera.
-
-### Landscape
-
-- Same control clusters, but smaller and anchored to corners.
-- Ground and player must remain visible above the control band.
-- Camera should preserve a combat-readable aspect ratio.
-- Boss attacks must not be hidden by thumbs.
+- Drag controls run direction and aim vector.
+- Tilt can move/aim hands-free after motion permission.
+- Swipe up triggers jump as a just-pressed action.
+- Firing is automatic while engaged so movement and aiming remain playable on a phone.
+- No visible D-pad, A/B, or auto-fire toggle labels.
+- Ground, player, camera framing, and boss attacks must remain readable in both orientations.
 
 ## Acceptance Criteria
 
 - Game is playable from start through boss defeat on desktop, phone portrait, phone landscape, tablet portrait, and tablet landscape.
-- Touch controls remain fixed on screen during scrolling and after rotation.
+- Touch gestures remain screen-space during scrolling and after rotation.
 - Player can move, aim, jump, and fire simultaneously on touch.
 - Holding jump does not repeatedly auto-jump on landing.
 - Down input has documented behavior.
@@ -133,10 +127,9 @@ Reference: https://en.wikipedia.org/wiki/Contra_%28video_game%29
 
 ## Implementation Notes
 
-- Make touch controls fixed with `setScrollFactor(0)` or move them into a dedicated HUD container/camera.
+- Keep touch gestures screen-space and invisible rather than rendering a control overlay.
 - Replace direct `aPressed` jump with normalized `jump.justPressed`.
 - Add aiming resolver based on action vector and player state.
 - Rework `groundY` and camera/world bounds through a scrolling-platformer layout profile.
 - Add vertical bullet cleanup.
 - Add authored enemy-wave data with pacing and screen-entry rules.
-

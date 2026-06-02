@@ -206,7 +206,7 @@ export class ContraScene extends Phaser.Scene {
     }).setOrigin(0.5).setScrollFactor(0);
     this.stateText.setShadow(0, 0, '#ff2222', 8, true, true);
 
-    this.hintText = this.add.text(width / 2, height / 2 + 25, 'D-PAD OR ARROWS to Move\n[A] or [X] to Jump | [B] or [SPACE] to Fire\n\nTAP TO START', {
+    this.hintText = this.add.text(width / 2, height / 2 + 25, 'PHONE: DRAG TO RUN/AIM, SWIPE UP TO JUMP\nAUTO-FIRE ON HOLD, TILT TO MOVE HANDS-FREE\nDESKTOP: ARROWS + X + SPACE\n\nTAP TO START', {
       fontSize: '12px',
       fontFamily: 'monospace',
       color: '#ffffff',

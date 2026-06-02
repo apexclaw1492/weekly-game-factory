@@ -17,7 +17,7 @@ Implemented:
 - Three lives and temporary respawn invulnerability.
 - Score values roughly match large/medium/small asteroid values but are multiplied by combo.
 - Auto-fire is enabled by default.
-- Touch controls provide rotate, thrust, and auto/manual toggle.
+- Touch play uses tilt or drag for steering, swipe-up for thrust, and autofire on touch devices.
 - High score is stored in `localStorage`.
 
 ## Arcade Reference Target
@@ -44,12 +44,12 @@ References:
 - `stars` is not reset on scene restart.
 - Resize listener is not removed on shutdown.
 - Start/retry pointer guard captures initial height and may be wrong after orientation change.
-- Touch controls can leave held state stuck after resize.
+- Gesture and tilt state can leave held state stuck after resize if release/reset handling regresses.
 - Asteroids can spawn behind or under HUD areas.
 
 ### Arcade Fidelity Gaps
 
-- Auto-fire default diverges from the original.
+- Touch autofire diverges from the original, but is accepted for the phone-first mode because it removes a virtual button dependency.
 - Bullets do not wrap.
 - No hyperspace.
 - No saucers.
@@ -62,7 +62,7 @@ References:
 ## Product Goals
 
 - Make the default mode faithful to Asteroids controls and risk/reward.
-- Keep optional auto-fire as accessibility, not default.
+- Keep manual fire on desktop; use autofire on touch to avoid virtual action buttons.
 - Make touchscreen play viable without removing the arcade skill curve.
 - Preserve readability in both orientations.
 
@@ -102,39 +102,31 @@ Optional accessibility toggles:
 
 ## Touch Requirements
 
-### Portrait
+### Portrait And Landscape
 
-- Rotate left/right bottom-left.
-- Thrust bottom-right.
-- Fire button near thrust but separated enough for thumb accuracy.
-- Hyperspace should be a smaller emergency button away from fire/thrust.
-- Auto-fire toggle, if enabled, must be above the action cluster and hard to hit accidentally.
-
-### Landscape
-
-- Rotate controls lower-left.
-- Thrust/fire lower-right.
-- Hyperspace reachable but not in primary thumb path.
-- Controls must not obscure central asteroid field.
+- Tilt or drag controls steering.
+- Swipe up thrusts.
+- Touch defaults to autofire; multi-touch may trigger burst/manual fire behavior.
+- No visible rotate, thrust, fire, hyperspace, or auto labels.
+- Controls must not obscure the asteroid field because gameplay gestures are invisible.
 
 ## Acceptance Criteria
 
 - Game launches from hub in all required viewport sizes.
 - Keyboard and touch both support rotate, thrust, fire, start, retry, and back.
-- Default mode uses manual fire.
+- Desktop default uses manual fire; touch default uses autofire for phone playability.
 - Shot cap is enforced.
 - Saucers spawn and can kill or be killed.
 - Hyperspace can relocate the player and can fail dangerously.
-- No asteroid, saucer, HUD, back button, or touch control overlap at spawn.
+- No asteroid, saucer, HUD, or back affordance overlap at spawn.
 - Orientation changes preserve valid world bounds and clear stuck input.
 - Twenty restarts do not increase star count or duplicate resize handlers.
 - No console errors during start, play, resize, death, retry, and return to hub.
 
 ## Implementation Notes
 
-- Add `fire` and `hyperspace` to the touch control scheme.
+- Keep the touch control scheme hardware-first: tilt/drag steering, swipe thrust, autofire.
 - Use a wrapping arena layout profile.
 - Add saucer state machine separate from asteroid logic.
 - Move score values and difficulty ramps into a rules object.
 - Add tests for bullet cap, asteroid split counts, saucer spawn, and safe respawn.
-

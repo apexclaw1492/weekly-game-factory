@@ -1,6 +1,7 @@
 import Phaser from 'phaser';
 import { SoundSynth } from '../utils/SoundSynth';
-import { getMobileLayout, isInBottomControlBand } from '../utils/MobileLayout';
+import { getMobileLayout } from '../utils/MobileLayout';
+import { getTiltIntent, pulseHaptic, requestMotionAccess } from '../utils/MobileHardware';
 
 enum GravityDir {
   UP = 0,
@@ -39,8 +40,6 @@ export class CosmicCargoScene extends Phaser.Scene {
   private hintText!: Phaser.GameObjects.Text;
   private hiScoreText!: Phaser.GameObjects.Text;
   private backBtn!: Phaser.GameObjects.Text;
-  private boostBtn?: Phaser.GameObjects.Text;
-  private gravityButtons: Phaser.GameObjects.Text[] = [];
 
   private starfield!: Phaser.GameObjects.Graphics;
   private stars: Array<{ x: number; y: number; speed: number; alpha: number }> = [];
@@ -48,6 +47,9 @@ export class CosmicCargoScene extends Phaser.Scene {
   private isGameOver = false;
   private isLevelComplete = false;
   private isWaitingToStart = true;
+  private boostHeld = false;
+  private lastBoostTime = 0;
+  private lastTiltGravityTime = 0;
 
   // Physics constants
   private readonly gravityForce = 180;
@@ -67,6 +69,9 @@ export class CosmicCargoScene extends Phaser.Scene {
     this.fuel = 100;
     this.activeGravity = GravityDir.DOWN;
     this.nearMissFlash = 0;
+    this.boostHeld = false;
+    this.lastBoostTime = 0;
+    this.lastTiltGravityTime = 0;
     this.isGameOver = false;
     this.isLevelComplete = false;
     this.isWaitingToStart = true;
@@ -148,7 +153,7 @@ export class CosmicCargoScene extends Phaser.Scene {
     }).setOrigin(0.5);
     this.stateText.setShadow(0, 0, '#ff6b35', 10, true, true);
 
-    this.hintText = this.add.text(width / 2, height / 2 + 20, 'CHOOSE GRAVITY OR SWIPE\nBOOST BUTTON OR SPACE\n\nTAP TO START', {
+    this.hintText = this.add.text(width / 2, height / 2 + 20, 'PHONE: TILT OR SWIPE TO FLIP GRAVITY\nHOLD TO BOOST, RELEASE TO DRIFT\nDESKTOP: ARROWS + SPACE\n\nTAP TO START', {
       fontSize: '13px',
       fontFamily: 'monospace',
       color: '#ffffff',
@@ -176,38 +181,34 @@ export class CosmicCargoScene extends Phaser.Scene {
       this.scene.start('HubScene');
     });
 
-    if (this.shouldShowMobileControls()) {
-      this.createGravityControls();
-      this.boostBtn = this.add.text(width - 35, height - 82, 'BOOST', {
-        fontSize: '13px',
-        fontFamily: 'monospace',
-        color: '#ffffff',
-        backgroundColor: '#884422',
-        padding: { x: 10, y: 8 }
-      }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
-
-      this.boostBtn.on('pointerdown', (_pointer: Phaser.Input.Pointer, _localX: number, _localY: number, event: Phaser.Types.Input.EventData) => {
-        if (!this.isWaitingToStart && !this.isGameOver && !this.isLevelComplete) {
-          this.useBoost();
-        }
-        event.stopPropagation();
-      });
-    }
-    this.layoutMobileControls();
-
     // Handle screen resizing
     this.scale.on('resize', this.handleResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off('resize', this.handleResize, this);
+      this.boostHeld = false;
     });
 
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      // Tap outside buttons starts game
-      if (!isInBottomControlBand(this, pointer)) {
-        if (this.isWaitingToStart) this.startGame();
-        else if (this.isGameOver) this.scene.restart();
-        else if (this.isLevelComplete) this.nextLevel();
+    this.input.on('pointerdown', () => {
+      void requestMotionAccess();
+
+      if (this.isWaitingToStart) {
+        this.startGame();
+      } else if (this.isGameOver) {
+        this.scene.restart();
+      } else if (this.isLevelComplete) {
+        this.nextLevel();
+      } else {
+        this.boostHeld = true;
+        this.useBoost();
       }
+    });
+
+    this.input.on('pointerup', () => {
+      this.boostHeld = false;
+    });
+
+    this.input.on('pointerupoutside', () => {
+      this.boostHeld = false;
     });
 
     // Set initial gravity configuration
@@ -216,7 +217,6 @@ export class CosmicCargoScene extends Phaser.Scene {
 
   private handleResize() {
     const { width, height } = this.scale;
-    const layout = getMobileLayout(this);
 
     // Reposition UI
     this.levelText.setPosition(width - 20, 20);
@@ -226,8 +226,6 @@ export class CosmicCargoScene extends Phaser.Scene {
     this.hintText.setPosition(width / 2, height / 2 + 20);
     this.hiScoreText.setPosition(width / 2, height / 2 + 100);
     this.backBtn.setPosition(width - 20, height - 30);
-    this.boostBtn?.setPosition(width - layout.rightPad, layout.controlCenterY);
-    this.layoutMobileControls();
 
     // Update starfield
     this.starfield.clear();
@@ -275,6 +273,10 @@ export class CosmicCargoScene extends Phaser.Scene {
     if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
       this.useBoost();
     }
+    if (this.boostHeld && this.time.now - this.lastBoostTime > 160) {
+      this.useBoost();
+    }
+    this.applyTiltGravity();
 
     // Slow fuel regen
     this.fuel = Math.min(100, this.fuel + 0.03);
@@ -387,7 +389,6 @@ export class CosmicCargoScene extends Phaser.Scene {
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       if (this.isWaitingToStart || this.isGameOver || this.isLevelComplete) return;
-      if (isInBottomControlBand(this, pointer)) return;
 
       if (dist > 30 && dt < 400) {
         // Swipe to shift gravity
@@ -406,6 +407,7 @@ export class CosmicCargoScene extends Phaser.Scene {
 
     if (!this.isWaitingToStart) {
       SoundSynth.playFlip();
+      pulseHaptic([8, 18, 8]);
       this.createBoostParticles(this.ship.x, this.ship.y, 0x00ccff, 6);
     }
 
@@ -436,9 +438,12 @@ export class CosmicCargoScene extends Phaser.Scene {
 
   private useBoost() {
     if (this.fuel < 5) return;
+    if (this.time.now - this.lastBoostTime < 90) return;
+    this.lastBoostTime = this.time.now;
     this.fuel = Math.max(0, this.fuel - 5);
     
     SoundSynth.playBoost();
+    pulseHaptic(14);
 
     // Apply thrust velocity
     let vx = 0;
@@ -517,63 +522,19 @@ export class CosmicCargoScene extends Phaser.Scene {
     return placed.every(item => Phaser.Math.Distance.Between(x, y, item.x, item.y) > radius + item.radius);
   }
 
-  private shouldShowMobileControls() {
-    const { width, height } = this.scale;
-    return this.sys.game.device.input.touch || width < 700 || height < 520;
-  }
+  private applyTiltGravity() {
+    const tilt = getTiltIntent(12);
+    if (!tilt.active || !tilt.dominant || this.time.now - this.lastTiltGravityTime < 260) return;
 
-  private createGravityControls() {
-    const configs = [
-      { label: 'UP', dir: GravityDir.UP },
-      { label: 'LEFT', dir: GravityDir.LEFT },
-      { label: 'RIGHT', dir: GravityDir.RIGHT },
-      { label: 'DOWN', dir: GravityDir.DOWN }
-    ];
+    const dirByTilt: Record<NonNullable<typeof tilt.dominant>, GravityDir> = {
+      left: GravityDir.LEFT,
+      right: GravityDir.RIGHT,
+      up: GravityDir.UP,
+      down: GravityDir.DOWN
+    };
 
-    this.gravityButtons = configs.map(config => {
-      const button = this.add.text(0, 0, config.label, {
-        fontSize: '10px',
-        fontFamily: 'monospace',
-        color: '#ffffff',
-        backgroundColor: '#124466',
-        padding: { x: 8, y: 7 }
-      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
-
-      button.on('pointerdown', (_pointer: Phaser.Input.Pointer, _localX: number, _localY: number, event: Phaser.Types.Input.EventData) => {
-        if (!this.isWaitingToStart && !this.isGameOver && !this.isLevelComplete) {
-          this.updateGravity(config.dir);
-        }
-        event.stopPropagation();
-      });
-
-      return button;
-    });
-  }
-
-  private layoutMobileControls() {
-    if (this.gravityButtons.length === 0 && !this.boostBtn) return;
-
-    const layout = getMobileLayout(this);
-    const cx = layout.leftPad + layout.buttonSize * 1.35;
-    const cy = layout.controlCenterY;
-    const gap = layout.buttonSize * 0.95;
-
-    const positions = [
-      { x: cx, y: cy - gap },
-      { x: cx - gap, y: cy },
-      { x: cx + gap, y: cy },
-      { x: cx, y: cy + gap }
-    ];
-
-    this.gravityButtons.forEach((button, index) => {
-      const position = positions[index];
-      button.setPosition(position.x, position.y);
-      button.setDepth(1000);
-      button.setScrollFactor(0);
-    });
-
-    this.boostBtn?.setDepth(1000);
-    this.boostBtn?.setScrollFactor(0);
+    this.lastTiltGravityTime = this.time.now;
+    this.updateGravity(dirByTilt[tilt.dominant]);
   }
 
   private collectCargo(_shipObj: any, podObj: any) {

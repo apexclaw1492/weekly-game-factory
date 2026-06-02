@@ -188,7 +188,7 @@ export class SpaceInvadersScene extends Phaser.Scene {
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    this.hintText = this.add.text(width / 2, height / 2 + 20, 'TAP OR SPACE TO START\n\n[<- ->] to Move | [SPACE] to Fire', {
+    this.hintText = this.add.text(width / 2, height / 2 + 20, 'TAP OR SPACE TO START\n\nPHONE: DRAG OR TILT TO AIM, HOLD TO FIRE\nDESKTOP: ARROWS + SPACE', {
       fontSize: '14px',
       fontFamily: 'monospace',
       color: '#ffffff',

@@ -1,4 +1,15 @@
 import Phaser from 'phaser';
+import { getTiltIntent, pulseHaptic, requestMotionAccess } from '../utils/MobileHardware';
+
+type ControlType = 'dpad-ab' | 'lr-thrust' | 'lr-shoot';
+
+interface PointerState {
+  startX: number;
+  startY: number;
+  x: number;
+  y: number;
+  startTime: number;
+}
 
 export class TouchControls extends Phaser.GameObjects.Container {
   public leftPressed = false;
@@ -9,89 +20,55 @@ export class TouchControls extends Phaser.GameObjects.Container {
   public bPressed = false;
   public autoToggled = true;
 
-  private controlType: 'dpad-ab' | 'lr-thrust' | 'lr-shoot';
-  private controls: Phaser.GameObjects.GameObject[] = [];
+  private controlType: ControlType;
+  private pointerStates = new Map<number, PointerState>();
+  private pointerLeft = false;
+  private pointerRight = false;
+  private pointerUp = false;
+  private pointerDown = false;
+  private pointerA = false;
+  private pointerB = false;
+  private pulsedA = false;
+  private lastJumpPulseAt = 0;
 
-  constructor(scene: Phaser.Scene, controlType: 'dpad-ab' | 'lr-thrust' | 'lr-shoot', autoToggled = true) {
+  constructor(scene: Phaser.Scene, controlType: ControlType, autoToggled = true) {
     super(scene);
     this.controlType = controlType;
     this.autoToggled = autoToggled;
     this.setScrollFactor(0);
     this.setDepth(1000);
-    this.resize();
+    this.setVisible(false);
     scene.add.existing(this);
-    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, this.resetPressed, this);
+
+    scene.input.on('pointerdown', this.handlePointerDown, this);
+    scene.input.on('pointermove', this.handlePointerMove, this);
+    scene.input.on('pointerup', this.handlePointerUp, this);
+    scene.input.on('pointerupoutside', this.handlePointerUp, this);
+    scene.events.on(Phaser.Scenes.Events.UPDATE, this.refreshHardwareState, this);
+
+    scene.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
+      scene.input.off('pointerdown', this.handlePointerDown, this);
+      scene.input.off('pointermove', this.handlePointerMove, this);
+      scene.input.off('pointerup', this.handlePointerUp, this);
+      scene.input.off('pointerupoutside', this.handlePointerUp, this);
+      scene.events.off(Phaser.Scenes.Events.UPDATE, this.refreshHardwareState, this);
+      this.resetPressed();
+    });
   }
 
   public resize() {
-    const { width, height } = this.scene.scale;
-    this.resetPressed();
-    
-    // Clear existing controls
-    this.removeAll(true);
-    this.controls = [];
-
-    const buttonRadius = Math.max(22, Math.floor(Math.min(width, height) * 0.045));
-    const dpadRadius = buttonRadius * 2;
-
-    if (this.controlType === 'dpad-ab') {
-      // Contra: D-Pad bottom-left, buttons bottom-right
-      const dpadX = 90;
-      const dpadY = height - 90;
-
-      const dpadBg = this.scene.add.circle(dpadX, dpadY, dpadRadius, 0xffffff, 0.05);
-      dpadBg.setStrokeStyle(2, 0xffffff, 0.15);
-      this.add(dpadBg);
-      this.controls.push(dpadBg);
-
-      const btnOffset = buttonRadius + 4;
-      const upBtn = this.createButton(dpadX, dpadY - btnOffset, buttonRadius * 0.7, '▲', () => this.upPressed = true, () => this.upPressed = false);
-      const downBtn = this.createButton(dpadX, dpadY + btnOffset, buttonRadius * 0.7, '▼', () => this.downPressed = true, () => this.downPressed = false);
-      const leftBtn = this.createButton(dpadX - btnOffset, dpadY, buttonRadius * 0.7, '◀', () => this.leftPressed = true, () => this.leftPressed = false);
-      const rightBtn = this.createButton(dpadX + btnOffset, dpadY, buttonRadius * 0.7, '▶', () => this.rightPressed = true, () => this.rightPressed = false);
-
-      const actionX = width - 80;
-      const actionY = height - 80;
-      const btnB = this.createButton(actionX - (buttonRadius * 2.5), actionY, buttonRadius, 'B', () => this.bPressed = true, () => this.bPressed = false, 0xff5555);
-      const btnA = this.createButton(actionX, actionY, buttonRadius, 'A', () => this.aPressed = true, () => this.aPressed = false, 0x55ff55);
-      const btnAuto = this.createToggleButton(actionX - (buttonRadius * 2.5), actionY - (buttonRadius * 2.5), buttonRadius * 0.65, (toggled) => this.autoToggled = toggled);
-
-      this.add([upBtn, downBtn, leftBtn, rightBtn, btnB, btnA, btnAuto]);
-      this.controls.push(upBtn, downBtn, leftBtn, rightBtn, btnB, btnA, btnAuto);
-    } else if (this.controlType === 'lr-thrust') {
-      // Asteroids: Left/Right rotate bottom-left, Thrust bottom-right
-      const btnY = height - 80;
-      const leftX = 70;
-      const rightX = leftX + (buttonRadius * 2.5);
-
-      const btnLeft = this.createButton(leftX, btnY, buttonRadius, '◀', () => this.leftPressed = true, () => this.leftPressed = false, 0x00ccff);
-      const btnRight = this.createButton(rightX, btnY, buttonRadius, '▶', () => this.rightPressed = true, () => this.rightPressed = false, 0x00ccff);
-      
-      const actionX = width - 80;
-      const btnThrust = this.createButton(actionX, btnY, buttonRadius, 'THRUST', () => this.upPressed = true, () => this.upPressed = false, 0xffcc33);
-      const btnFire = this.createButton(actionX - (buttonRadius * 2.5), btnY, buttonRadius, 'FIRE', () => this.bPressed = true, () => this.bPressed = false, 0xff5555);
-      const btnAuto = this.createToggleButton(actionX, btnY - (buttonRadius * 2.5), buttonRadius * 0.65, (toggled) => this.autoToggled = toggled);
-
-      this.add([btnLeft, btnRight, btnFire, btnThrust, btnAuto]);
-      this.controls.push(btnLeft, btnRight, btnFire, btnThrust, btnAuto);
-    } else if (this.controlType === 'lr-shoot') {
-      // Space Invaders: Left/Right bottom-left, Shoot bottom-right
-      const btnY = height - 80;
-      const leftX = 70;
-      const rightX = leftX + (buttonRadius * 2.5);
-
-      const btnLeft = this.createButton(leftX, btnY, buttonRadius, '◀', () => this.leftPressed = true, () => this.leftPressed = false, 0x00ccff);
-      const btnRight = this.createButton(rightX, btnY, buttonRadius, '▶', () => this.rightPressed = true, () => this.rightPressed = false, 0x00ccff);
-      
-      const actionX = width - 80;
-      const btnShoot = this.createButton(actionX, btnY, buttonRadius, 'FIRE', () => this.aPressed = true, () => this.aPressed = false, 0xff5555);
-
-      this.add([btnLeft, btnRight, btnShoot]);
-      this.controls.push(btnLeft, btnRight, btnShoot);
-    }
+    this.refreshHardwareState();
   }
 
   public resetPressed() {
+    this.pointerStates.clear();
+    this.pointerLeft = false;
+    this.pointerRight = false;
+    this.pointerUp = false;
+    this.pointerDown = false;
+    this.pointerA = false;
+    this.pointerB = false;
+    this.pulsedA = false;
     this.leftPressed = false;
     this.rightPressed = false;
     this.upPressed = false;
@@ -100,110 +77,115 @@ export class TouchControls extends Phaser.GameObjects.Container {
     this.bPressed = false;
   }
 
-  public isInControlZone(pointer: Phaser.Input.Pointer) {
+  public isInControlZone(_pointer: Phaser.Input.Pointer) {
+    return false;
+  }
+
+  private handlePointerDown(pointer: Phaser.Input.Pointer) {
+    void requestMotionAccess();
+    pulseHaptic(8);
+    this.pointerStates.set(pointer.id, {
+      startX: pointer.x,
+      startY: pointer.y,
+      x: pointer.x,
+      y: pointer.y,
+      startTime: this.scene.time.now
+    });
+    this.applyPointerIntent();
+  }
+
+  private handlePointerMove(pointer: Phaser.Input.Pointer) {
+    const state = this.pointerStates.get(pointer.id);
+    if (!state) return;
+    state.x = pointer.x;
+    state.y = pointer.y;
+    this.applyPointerIntent();
+  }
+
+  private handlePointerUp(pointer: Phaser.Input.Pointer) {
+    const state = this.pointerStates.get(pointer.id);
+    if (state) {
+      this.captureReleaseGesture(state);
+    }
+    this.pointerStates.delete(pointer.id);
+    this.applyPointerIntent();
+  }
+
+  private captureReleaseGesture(state: PointerState) {
+    if (this.controlType !== 'dpad-ab') return;
+
+    const dy = state.y - state.startY;
+    const dt = this.scene.time.now - state.startTime;
+    if (dy < -42 && dt < 420) {
+      this.pulseJump();
+    }
+  }
+
+  private applyPointerIntent() {
+    this.pointerLeft = false;
+    this.pointerRight = false;
+    this.pointerUp = false;
+    this.pointerDown = false;
+    this.pointerA = false;
+    this.pointerB = false;
+
+    const primary = this.pointerStates.values().next().value as PointerState | undefined;
+    if (!primary) {
+      this.refreshHardwareState();
+      return;
+    }
+
     const { width, height } = this.scene.scale;
-    const controlBand = Math.max(110, Math.floor(Math.min(width, height) * 0.22));
-    return pointer.y >= height - controlBand;
-  }
+    const dx = primary.x - primary.startX;
+    const dy = primary.y - primary.startY;
+    const horizontalDeadZone = Math.max(16, width * 0.035);
+    const verticalDeadZone = Math.max(18, height * 0.035);
+    const pointerCount = this.pointerStates.size;
 
-  private createButton(
-    x: number,
-    y: number,
-    radius: number,
-    label: string,
-    onDown: () => void,
-    onUp: () => void,
-    color: number = 0xffffff
-  ): Phaser.GameObjects.Container {
-    const container = this.scene.add.container(x, y);
-    container.setScrollFactor(0);
-    container.setDepth(1000);
+    if (this.controlType === 'lr-shoot') {
+      this.pointerA = true;
+      this.pointerLeft = dx < -horizontalDeadZone || primary.x < width * 0.42;
+      this.pointerRight = dx > horizontalDeadZone || primary.x > width * 0.58;
+    } else if (this.controlType === 'lr-thrust') {
+      this.pointerLeft = dx < -horizontalDeadZone;
+      this.pointerRight = dx > horizontalDeadZone;
+      this.pointerUp = dy < -verticalDeadZone || primary.y < height * 0.46;
+      this.pointerB = pointerCount > 1;
+    } else {
+      this.pointerLeft = dx < -horizontalDeadZone;
+      this.pointerRight = dx > horizontalDeadZone;
+      this.pointerUp = dy < -verticalDeadZone;
+      this.pointerDown = dy > verticalDeadZone;
+      this.pointerB = pointerCount > 0;
 
-    const circle = this.scene.add.circle(0, 0, radius, color, 0.15);
-    circle.setStrokeStyle(2, color, 0.5);
-
-    // Hit area 1.5x larger than visual
-    const hitArea = new Phaser.Geom.Circle(0, 0, radius * 1.5);
-    circle.setInteractive(hitArea, Phaser.Geom.Circle.Contains);
-
-    const text = this.scene.add.text(0, 0, label, {
-      fontSize: radius > 22 ? '14px' : '10px',
-      fontFamily: 'monospace',
-      color: '#ffffff',
-      align: 'center'
-    });
-    text.setOrigin(0.5);
-
-    container.add([circle, text]);
-
-    circle.on('pointerdown', (_pointer: Phaser.Input.Pointer, _localX: number, _localY: number, event: Phaser.Types.Input.EventData) => {
-      circle.setFillStyle(color, 0.4);
-      onDown();
-      event.stopPropagation();
-    });
-
-    const release = () => {
-      circle.setFillStyle(color, 0.15);
-      onUp();
-    };
-
-    circle.on('pointerup', release);
-    circle.on('pointerupoutside', release);
-    circle.on('pointerout', release);
-
-    return container;
-  }
-
-  private createToggleButton(
-    x: number,
-    y: number,
-    radius: number,
-    onToggle: (toggled: boolean) => void
-  ): Phaser.GameObjects.Container {
-    const container = this.scene.add.container(x, y);
-    container.setScrollFactor(0);
-    container.setDepth(1000);
-
-    let toggled = this.autoToggled;
-    const colorOn = 0x55ff55;
-    const colorOff = 0xff5555;
-
-    const circle = this.scene.add.circle(0, 0, radius, toggled ? colorOn : colorOff, 0.2);
-    circle.setStrokeStyle(2, toggled ? colorOn : colorOff, 0.6);
-
-    // Hit area 1.5x larger than visual
-    const hitArea = new Phaser.Geom.Circle(0, 0, radius * 1.5);
-    circle.setInteractive(hitArea, Phaser.Geom.Circle.Contains);
-
-    const text = this.scene.add.text(0, 0, toggled ? 'AUTO' : 'MAN', {
-      fontSize: '8px',
-      fontFamily: 'monospace',
-      color: '#ffffff'
-    });
-    text.setOrigin(0.5);
-
-    container.add([circle, text]);
-
-    const updateVisuals = () => {
-      if (toggled) {
-        circle.setFillStyle(colorOn, 0.2);
-        circle.setStrokeStyle(2, colorOn, 0.6);
-        text.setText('AUTO');
-      } else {
-        circle.setFillStyle(colorOff, 0.2);
-        circle.setStrokeStyle(2, colorOff, 0.6);
-        text.setText('MAN');
+      if (this.pointerUp && this.scene.time.now - this.lastJumpPulseAt > 360) {
+        this.pulseJump();
       }
-    };
+    }
 
-    circle.on('pointerdown', (_pointer: Phaser.Input.Pointer, _localX: number, _localY: number, event: Phaser.Types.Input.EventData) => {
-      toggled = !toggled;
-      this.autoToggled = toggled;
-      updateVisuals();
-      onToggle(toggled);
-      event.stopPropagation();
+    this.refreshHardwareState();
+  }
+
+  private refreshHardwareState() {
+    const tilt = getTiltIntent(10);
+    const tiltCanSteer = tilt.active && this.pointerStates.size === 0;
+
+    this.leftPressed = this.pointerLeft || (tiltCanSteer && tilt.left);
+    this.rightPressed = this.pointerRight || (tiltCanSteer && tilt.right);
+    this.upPressed = this.pointerUp || (tiltCanSteer && tilt.up);
+    this.downPressed = this.pointerDown || (tiltCanSteer && tilt.down);
+    this.aPressed = this.pointerA || this.pulsedA;
+    this.bPressed = this.pointerB;
+  }
+
+  private pulseJump() {
+    this.lastJumpPulseAt = this.scene.time.now;
+    this.pulsedA = true;
+    this.aPressed = true;
+    pulseHaptic(10);
+    this.scene.time.delayedCall(110, () => {
+      this.pulsedA = false;
+      this.aPressed = false;
     });
-
-    return container;
   }
 }
