@@ -5,3 +5,7 @@ node_modules/
 dist/
 scratch/live-*.png
 scratch/touch-*.png
+scratch/mobile-playtest.js
+scratch/mobile-playtest/
+scratch/mobile-state-playtest.js
+scratch/mobile-state-playtest/

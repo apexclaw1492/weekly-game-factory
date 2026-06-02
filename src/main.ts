@@ -44,6 +44,7 @@ const config: Phaser.Types.Core.GameConfig = {
 };
 
 const game = new Phaser.Game(config);
+(window as any).__WGF_GAME__ = game;
 
 function activeScene(): Phaser.Scene | undefined {
   return game.scene.getScenes(true)[0];
@@ -140,6 +141,7 @@ function handleGameTouchStart(id: number, point: GlobalTapPoint) {
   if (!scene) return;
   const sceneAny = scene as any;
 
+  sceneAny.beginExternalPointer?.(id, point.x, point.y);
   activeTouchControls()?.beginExternalPointer?.(id, point.x, point.y);
 
   if (scene.scene.key === 'CosmicCargoScene' && !sceneAny.isWaitingToStart && !sceneAny.isGameOver && !sceneAny.isLevelComplete) {
@@ -149,6 +151,7 @@ function handleGameTouchStart(id: number, point: GlobalTapPoint) {
 }
 
 function handleGameTouchMove(id: number, point: GlobalTapPoint) {
+  (activeScene() as any)?.moveExternalPointer?.(id, point.x, point.y);
   activeTouchControls()?.moveExternalPointer?.(id, point.x, point.y);
 }
 
@@ -157,6 +160,7 @@ function handleGameTouchEnd(id: number, point: GlobalTapPoint) {
   const sceneAny = scene as any;
   const start = touchStarts.get(id);
 
+  sceneAny?.endExternalPointer?.(id, point.x, point.y);
   activeTouchControls()?.endExternalPointer?.(id);
 
   if (scene?.scene.key === 'CosmicCargoScene') {
