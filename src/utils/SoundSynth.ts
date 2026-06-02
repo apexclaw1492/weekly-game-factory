@@ -1,14 +1,27 @@
 export class SoundSynth {
   private static audioCtx: AudioContext | null = null;
 
-  private static getContext(): AudioContext {
+  private static createContext(): AudioContext {
     if (!this.audioCtx) {
       this.audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
     }
-    if (this.audioCtx.state === 'suspended') {
-      this.audioCtx.resume();
-    }
     return this.audioCtx;
+  }
+
+  static unlock(): void {
+    try {
+      const ctx = this.createContext();
+      if (ctx.state === 'suspended') {
+        void ctx.resume().catch(() => undefined);
+      }
+    } catch {
+      // Audio is optional; gameplay must never depend on it.
+    }
+  }
+
+  private static getContext(): AudioContext | null {
+    const ctx = this.createContext();
+    return ctx.state === 'running' ? ctx : null;
   }
 
   static playTone(
@@ -19,6 +32,7 @@ export class SoundSynth {
   ): void {
     try {
       const ctx = this.getContext();
+      if (!ctx) return;
       const osc = ctx.createOscillator();
       const gainNode = ctx.createGain();
 

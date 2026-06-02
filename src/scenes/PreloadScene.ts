@@ -26,6 +26,11 @@ export class PreloadScene extends Phaser.Scene {
     const progressBg = this.add.rectangle(width / 2, height / 2 + 40, 240, 8, 0x111122);
     progressBg.setStrokeStyle(1, 0x333366);
     const progressBar = this.add.rectangle(width / 2 - 120, height / 2 + 40, 0, 8, 0x00ccff).setOrigin(0, 0.5);
+    const tapText = this.add.text(width / 2, height / 2 + 68, 'TAP TO ENTER', {
+      fontSize: '10px',
+      fontFamily: 'monospace',
+      color: '#00ccff'
+    }).setOrigin(0.5);
 
     const steps = [
       { progress: 0.15, status: 'BOOTING WEEKLY GAME FACTORY...' },
@@ -33,15 +38,36 @@ export class PreloadScene extends Phaser.Scene {
       { progress: 0.55, status: 'CALIBRATING PHYSICAL CONSTANTS...' },
       { progress: 0.75, status: 'LOADING PORTABLE GAME COMPILATION...' },
       { progress: 0.90, status: 'UNSHACKLING SOUND HARMONICS...' },
-      { progress: 1.00, status: 'SYSTEM READY. PRESS START.' }
+      { progress: 1.00, status: 'SYSTEM READY. TAP TO START.' }
     ];
 
     let currentStepIndex = 0;
+    let finished = false;
+
+    const finishPreload = () => {
+      if (finished) return;
+      finished = true;
+      this.tweens.killTweensOf(progressBar);
+      this.input.off('pointerdown', finishPreload);
+      this.scene.start('HubScene');
+    };
+
+    this.input.on('pointerdown', finishPreload);
+    tapText.setAlpha(0.45);
+    this.tweens.add({
+      targets: tapText,
+      alpha: 1,
+      duration: 520,
+      yoyo: true,
+      repeat: -1
+    });
 
     const runNextStep = () => {
+      if (finished) return;
+
       if (currentStepIndex >= steps.length) {
         this.time.delayedCall(400, () => {
-          this.scene.start('HubScene');
+          finishPreload();
         });
         return;
       }
@@ -54,6 +80,7 @@ export class PreloadScene extends Phaser.Scene {
         width: 240 * step.progress,
         duration: 250 + Math.random() * 200,
         onComplete: () => {
+          if (finished) return;
           currentStepIndex++;
           this.time.delayedCall(100, runNextStep);
         }

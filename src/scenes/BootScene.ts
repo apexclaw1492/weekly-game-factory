@@ -18,7 +18,7 @@ export class BootScene extends Phaser.Scene {
   create() {
     // Unlock Audio Context on first user click or touch (iOS Safari restriction)
     const unlockAudio = () => {
-      SoundSynth.playTone(440, 0.001, 'sine', 0);
+      SoundSynth.unlock();
       window.removeEventListener('click', unlockAudio);
       window.removeEventListener('touchstart', unlockAudio);
     };
