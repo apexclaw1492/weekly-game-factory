@@ -167,16 +167,16 @@ export class TouchControls extends Phaser.GameObjects.Container {
 
     if (this.controlType === 'lr-shoot') {
       this.pointerA = true;
-      this.pointerLeft = dx < -horizontalDeadZone || primary.x < width * 0.42;
-      this.pointerRight = dx > horizontalDeadZone || primary.x > width * 0.58;
+      this.pointerLeft = dx < -horizontalDeadZone || primary.x < width * 0.46;
+      this.pointerRight = dx > horizontalDeadZone || primary.x > width * 0.54;
     } else if (this.controlType === 'lr-thrust') {
-      this.pointerLeft = dx < -horizontalDeadZone;
-      this.pointerRight = dx > horizontalDeadZone;
-      this.pointerUp = dy < -verticalDeadZone || primary.y < height * 0.46;
+      this.pointerLeft = dx < -horizontalDeadZone || primary.x < width * 0.46;
+      this.pointerRight = dx > horizontalDeadZone || primary.x > width * 0.54;
+      this.pointerUp = true;
       this.pointerB = pointerCount > 1;
     } else {
-      this.pointerLeft = dx < -horizontalDeadZone;
-      this.pointerRight = dx > horizontalDeadZone;
+      this.pointerLeft = dx < -horizontalDeadZone || primary.x < width * 0.46;
+      this.pointerRight = dx > horizontalDeadZone || primary.x > width * 0.54;
       this.pointerUp = dy < -verticalDeadZone;
       this.pointerDown = dy > verticalDeadZone;
       this.pointerB = pointerCount > 0;

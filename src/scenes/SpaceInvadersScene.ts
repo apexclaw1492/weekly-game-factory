@@ -169,7 +169,7 @@ export class SpaceInvadersScene extends Phaser.Scene {
     }
 
     // Load Touch controls for mobile viewports
-    if (this.sys.game.device.input.touch) {
+    if (this.sys.game.device.input.touch || width < 700 || height < 520) {
       this.touchControls = new TouchControls(this, 'lr-shoot');
     }
 
@@ -302,7 +302,7 @@ export class SpaceInvadersScene extends Phaser.Scene {
     this.player.setVelocityX(vx);
 
     // --- PLAYER AUTO-FIRE (Keyboard Space or touch button) ---
-    if (this.spaceKey.isDown || this.touchControls?.aPressed) {
+    if (this.spaceKey.isDown || this.touchControls?.aPressed || Boolean(this.touchControls)) {
       this.firePlayerBullet();
     }
 

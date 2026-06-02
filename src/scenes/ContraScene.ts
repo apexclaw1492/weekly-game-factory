@@ -168,7 +168,7 @@ export class ContraScene extends Phaser.Scene {
       this.jumpKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X);
     }
 
-    if (this.sys.game.device.input.touch) {
+    if (this.sys.game.device.input.touch || width < 700 || height < 520) {
       this.touchControls = new TouchControls(this, 'dpad-ab');
     }
 

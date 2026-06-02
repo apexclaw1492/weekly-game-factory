@@ -121,7 +121,7 @@ export class AsteroidsScene extends Phaser.Scene {
       this.hyperspaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.H);
     }
 
-    if (this.sys.game.device.input.touch) {
+    if (this.sys.game.device.input.touch || width < 700 || height < 520) {
       this.touchControls = new TouchControls(this, 'lr-thrust', true);
     }
 
