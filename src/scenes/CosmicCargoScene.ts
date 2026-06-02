@@ -1,7 +1,7 @@
 import Phaser from 'phaser';
 import { SoundSynth } from '../utils/SoundSynth';
 import { getMobileLayout } from '../utils/MobileLayout';
-import { getTiltIntent, pulseHaptic, requestMotionAccess } from '../utils/MobileHardware';
+import { getTiltIntent, pulseHaptic } from '../utils/MobileHardware';
 
 enum GravityDir {
   UP = 0,
@@ -189,8 +189,6 @@ export class CosmicCargoScene extends Phaser.Scene {
     });
 
     this.input.on('pointerdown', () => {
-      void requestMotionAccess();
-
       if (this.isWaitingToStart) {
         this.startGame();
       } else if (this.isGameOver) {

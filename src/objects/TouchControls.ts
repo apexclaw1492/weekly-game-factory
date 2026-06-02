@@ -1,5 +1,5 @@
 import Phaser from 'phaser';
-import { getTiltIntent, pulseHaptic, requestMotionAccess } from '../utils/MobileHardware';
+import { getTiltIntent, pulseHaptic } from '../utils/MobileHardware';
 
 type ControlType = 'dpad-ab' | 'lr-thrust' | 'lr-shoot';
 
@@ -81,33 +81,56 @@ export class TouchControls extends Phaser.GameObjects.Container {
     return false;
   }
 
+  public beginExternalPointer(id: number, x: number, y: number) {
+    this.applyPointerDown(id, x, y);
+  }
+
+  public moveExternalPointer(id: number, x: number, y: number) {
+    this.applyPointerMove(id, x, y);
+  }
+
+  public endExternalPointer(id: number) {
+    this.applyPointerUp(id);
+  }
+
   private handlePointerDown(pointer: Phaser.Input.Pointer) {
-    void requestMotionAccess();
+    this.applyPointerDown(pointer.id, pointer.x, pointer.y);
+  }
+
+  private handlePointerMove(pointer: Phaser.Input.Pointer) {
+    this.applyPointerMove(pointer.id, pointer.x, pointer.y);
+  }
+
+  private handlePointerUp(pointer: Phaser.Input.Pointer) {
+    this.applyPointerUp(pointer.id);
+  }
+
+  private applyPointerDown(id: number, x: number, y: number) {
     pulseHaptic(8);
-    this.pointerStates.set(pointer.id, {
-      startX: pointer.x,
-      startY: pointer.y,
-      x: pointer.x,
-      y: pointer.y,
+    this.pointerStates.set(id, {
+      startX: x,
+      startY: y,
+      x,
+      y,
       startTime: this.scene.time.now
     });
     this.applyPointerIntent();
   }
 
-  private handlePointerMove(pointer: Phaser.Input.Pointer) {
-    const state = this.pointerStates.get(pointer.id);
+  private applyPointerMove(id: number, x: number, y: number) {
+    const state = this.pointerStates.get(id);
     if (!state) return;
-    state.x = pointer.x;
-    state.y = pointer.y;
+    state.x = x;
+    state.y = y;
     this.applyPointerIntent();
   }
 
-  private handlePointerUp(pointer: Phaser.Input.Pointer) {
-    const state = this.pointerStates.get(pointer.id);
+  private applyPointerUp(id: number) {
+    const state = this.pointerStates.get(id);
     if (state) {
       this.captureReleaseGesture(state);
     }
-    this.pointerStates.delete(pointer.id);
+    this.pointerStates.delete(id);
     this.applyPointerIntent();
   }
 
