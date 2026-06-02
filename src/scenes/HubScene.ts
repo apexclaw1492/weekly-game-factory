@@ -3,6 +3,7 @@ import {
   BONUS_GAME_COUNT,
   GAME_BACKLOG_IDEA_COUNT,
   GAME_DEFINITIONS,
+  CERTIFIED_GAME_COUNT,
   PUBLISHED_WEEK_COUNT,
   type GameDefinition
 } from '../data/gameCatalog';
@@ -15,6 +16,7 @@ export class HubScene extends Phaser.Scene {
   private titleText!: Phaser.GameObjects.Text;
   private subtitleText!: Phaser.GameObjects.Text;
   private bgGrad!: Phaser.GameObjects.Graphics;
+  private cardInputReadyAt = 0;
 
   constructor() {
     super('HubScene');
@@ -23,6 +25,10 @@ export class HubScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
     this.stars = [];
+    this.cardInputReadyAt = Math.max(
+      performance.now() + 450,
+      Number((window as any).__WGF_HUB_CARD_INPUT_BLOCKED_UNTIL) || 0
+    );
 
     // 1. Create starfield background
     this.starfield = this.add.graphics();
@@ -141,11 +147,14 @@ export class HubScene extends Phaser.Scene {
 
     // Card background
     const bg = this.add.rectangle(0, 0, w, h, 0x111126);
-    bg.setStrokeStyle(1.5, game.color, 0.4);
+    const certified = game.certificationStatus === 'certified';
+    const baseAlpha = certified ? 0.4 : 0.18;
+    bg.setStrokeStyle(1.5, game.color, baseAlpha);
+    if (!certified) bg.setAlpha(0.58);
     container.add(bg);
 
     // Glowing left border
-    const border = this.add.rectangle(-w / 2 + 2.5, 0, 5, h, game.color);
+    const border = this.add.rectangle(-w / 2 + 2.5, 0, 5, h, game.color, certified ? 1 : 0.35);
     container.add(border);
 
     // Text & graphics inside card
@@ -167,7 +176,14 @@ export class HubScene extends Phaser.Scene {
         color: '#00ccff'
       }).setOrigin(0, 0.5);
 
-      container.add([icon, title, subtitle]);
+      const status = this.add.text(w / 2 - 12, 18, game.certificationLabel, {
+        fontSize: '8px',
+        fontFamily: 'monospace',
+        color: certified ? '#74ffb4' : '#ffcc66',
+        fontStyle: 'bold'
+      }).setOrigin(1, 0.5);
+
+      container.add([icon, title, subtitle, status]);
     } else {
       // Full Card layout for landscape
       const icon = this.add.text(-w / 2 + 35, -20, game.icon, { fontSize: '32px' }).setOrigin(0.5);
@@ -192,13 +208,21 @@ export class HubScene extends Phaser.Scene {
         wordWrap: { width: w - 30 }
       }).setOrigin(0, 0.5);
 
-      container.add([icon, title, weekText, descText]);
+      const status = this.add.text(w / 2 - 15, -38, game.certificationLabel, {
+        fontSize: '9px',
+        fontFamily: 'monospace',
+        color: certified ? '#74ffb4' : '#ffcc66',
+        fontStyle: 'bold'
+      }).setOrigin(1, 0.5);
+
+      container.add([icon, title, weekText, descText, status]);
     }
 
     // Set container input interactive
     bg.setInteractive({ useHandCursor: true });
     
     bg.on('pointerover', () => {
+      if (!certified) return;
       this.tweens.add({
         targets: container,
         scaleX: 1.03,
@@ -210,6 +234,7 @@ export class HubScene extends Phaser.Scene {
     });
 
     bg.on('pointerout', () => {
+      if (!certified) return;
       this.tweens.add({
         targets: container,
         scaleX: 1.0,
@@ -220,6 +245,17 @@ export class HubScene extends Phaser.Scene {
     });
 
     bg.on('pointerdown', () => {
+      if (performance.now() < this.cardInputReadyAt) return;
+
+      if (!certified) {
+        SoundSynth.playTone(220, 0.08, 'square', 0.025);
+        bg.setStrokeStyle(2, 0xffcc66, 0.7);
+        this.time.delayedCall(180, () => {
+          bg.setStrokeStyle(1.5, game.color, baseAlpha);
+        });
+        return;
+      }
+
       SoundSynth.playTone(800, 0.1, 'sine', 0.05);
       
       // Flash card background before switching
@@ -260,8 +296,8 @@ export class HubScene extends Phaser.Scene {
     const gap = width < 450 ? 80 : 130;
 
     // Render 4 stats items
-    const stat1 = this.add.text(-gap * 1.5, -10, `PUBLISHED: ${GAME_DEFINITIONS.length}`, valueStyle).setOrigin(0.5);
-    const stat1L = this.add.text(-gap * 1.5, 10, 'Games Total', labelStyle).setOrigin(0.5);
+    const stat1 = this.add.text(-gap * 1.5, -10, `READY: ${CERTIFIED_GAME_COUNT}`, valueStyle).setOrigin(0.5);
+    const stat1L = this.add.text(-gap * 1.5, 10, 'Certified', labelStyle).setOrigin(0.5);
 
     const stat2 = this.add.text(-gap * 0.5, -10, `WEEKS: ${PUBLISHED_WEEK_COUNT}`, valueStyle).setOrigin(0.5);
     const stat2L = this.add.text(-gap * 0.5, 10, 'Production', labelStyle).setOrigin(0.5);

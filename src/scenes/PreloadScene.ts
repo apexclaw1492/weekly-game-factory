@@ -44,15 +44,20 @@ export class PreloadScene extends Phaser.Scene {
     let currentStepIndex = 0;
     let finished = false;
 
-    const finishPreload = () => {
+    const finishPreload = (blockHubCards: boolean) => {
       if (finished) return;
       finished = true;
+      if (blockHubCards) {
+        (window as any).__WGF_HUB_CARD_INPUT_BLOCKED_UNTIL = performance.now() + 650;
+      }
       this.tweens.killTweensOf(progressBar);
-      this.input.off('pointerdown', finishPreload);
+      this.input.off('pointerdown', finishFromPointer);
       this.scene.start('HubScene');
     };
 
-    this.input.on('pointerdown', finishPreload);
+    const finishFromPointer = () => finishPreload(true);
+
+    this.input.on('pointerdown', finishFromPointer);
     tapText.setAlpha(0.45);
     this.tweens.add({
       targets: tapText,
@@ -67,7 +72,7 @@ export class PreloadScene extends Phaser.Scene {
 
       if (currentStepIndex >= steps.length) {
         this.time.delayedCall(400, () => {
-          finishPreload();
+          finishPreload(false);
         });
         return;
       }

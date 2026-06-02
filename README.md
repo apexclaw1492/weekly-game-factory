@@ -30,7 +30,13 @@
 npm run dev
 npm run build
 npm run preview
+npm run smoke
+npm run touch:f1
 ```
+
+## Rebuild Docs
+
+The mobile-first rebuild plan lives in `docs/rebuild/README.md`. Start there for the master PRD, input architecture, QA plan, backlog, status board, and subagent playbook.
 
 ## Latest Game
 

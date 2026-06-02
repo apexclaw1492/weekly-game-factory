@@ -46,6 +46,20 @@ const config: Phaser.Types.Core.GameConfig = {
 const game = new Phaser.Game(config);
 (window as any).__WGF_GAME__ = game;
 
+let hubCardInputBlockedUntil = 0;
+
+function setHubCardInputBlockedUntil(time: number) {
+  hubCardInputBlockedUntil = Math.max(hubCardInputBlockedUntil, time);
+  (window as any).__WGF_HUB_CARD_INPUT_BLOCKED_UNTIL = hubCardInputBlockedUntil;
+}
+
+function getHubCardInputBlockedUntil() {
+  return Math.max(
+    hubCardInputBlockedUntil,
+    Number((window as any).__WGF_HUB_CARD_INPUT_BLOCKED_UNTIL) || 0
+  );
+}
+
 function activeScene(): Phaser.Scene | undefined {
   return game.scene.getScenes(true)[0];
 }
@@ -65,7 +79,9 @@ function launchHubCard(scene: Phaser.Scene, point: GlobalTapPoint) {
       const insideX = point.x >= cardX - cardW / 2 && point.x <= cardX + cardW / 2;
       const insideY = point.y >= cardY - cardH / 2 && point.y <= cardY + cardH / 2;
       if (insideX && insideY) {
-        scene.scene.start(GAME_DEFINITIONS[index].sceneKey);
+        if (GAME_DEFINITIONS[index].certificationStatus === 'certified') {
+          scene.scene.start(GAME_DEFINITIONS[index].sceneKey);
+        }
         return true;
       }
     }
@@ -88,7 +104,9 @@ function launchHubCard(scene: Phaser.Scene, point: GlobalTapPoint) {
     const insideX = point.x >= cardX - cardW / 2 && point.x <= cardX + cardW / 2;
     const insideY = point.y >= cardY - cardH / 2 && point.y <= cardY + cardH / 2;
     if (insideX && insideY) {
-      scene.scene.start(GAME_DEFINITIONS[index].sceneKey);
+      if (GAME_DEFINITIONS[index].certificationStatus === 'certified') {
+        scene.scene.start(GAME_DEFINITIONS[index].sceneKey);
+      }
       return true;
     }
   }
@@ -102,11 +120,13 @@ function bridgeTap(point: GlobalTapPoint) {
 
   const key = scene.scene.key;
   if (key === 'BootScene' || key === 'PreloadScene') {
+    setHubCardInputBlockedUntil(performance.now() + 650);
     scene.scene.start('HubScene');
     return;
   }
 
   if (key === 'HubScene') {
+    if (performance.now() < getHubCardInputBlockedUntil()) return;
     launchHubCard(scene, point);
     return;
   }

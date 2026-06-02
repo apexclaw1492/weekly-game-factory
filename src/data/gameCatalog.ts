@@ -10,6 +10,8 @@ export interface GameDefinition {
   weekLabel: string;
   weekNumber?: number;
   isBonus?: boolean;
+  certificationStatus: 'certified' | 'in-rebuild';
+  certificationLabel: string;
   icon: string;
   sceneKey: string;
   sceneClass: new () => Phaser.Scene;
@@ -25,6 +27,8 @@ export const GAME_DEFINITIONS: readonly GameDefinition[] = [
     title: 'F1 Space Invaders',
     weekLabel: 'Week 0',
     weekNumber: 0,
+    certificationStatus: 'certified',
+    certificationLabel: 'CERTIFIED TOUCH',
     icon: '🏎️',
     sceneKey: 'SpaceInvadersScene',
     sceneClass: SpaceInvadersScene,
@@ -36,6 +40,8 @@ export const GAME_DEFINITIONS: readonly GameDefinition[] = [
     title: 'Cosmic Cargo',
     weekLabel: 'Week 1',
     weekNumber: 1,
+    certificationStatus: 'in-rebuild',
+    certificationLabel: 'IN REBUILD',
     icon: '🚀',
     sceneKey: 'CosmicCargoScene',
     sceneClass: CosmicCargoScene,
@@ -47,6 +53,8 @@ export const GAME_DEFINITIONS: readonly GameDefinition[] = [
     title: 'Contra Bonus',
     weekLabel: 'Bonus',
     isBonus: true,
+    certificationStatus: 'in-rebuild',
+    certificationLabel: 'IN REBUILD',
     icon: '⚔️',
     sceneKey: 'ContraScene',
     sceneClass: ContraScene,
@@ -58,6 +66,8 @@ export const GAME_DEFINITIONS: readonly GameDefinition[] = [
     title: 'Asteroid Belt',
     weekLabel: 'Week 2',
     weekNumber: 2,
+    certificationStatus: 'in-rebuild',
+    certificationLabel: 'IN REBUILD',
     icon: '☄️',
     sceneKey: 'AsteroidsScene',
     sceneClass: AsteroidsScene,
@@ -68,3 +78,4 @@ export const GAME_DEFINITIONS: readonly GameDefinition[] = [
 
 export const PUBLISHED_WEEK_COUNT = GAME_DEFINITIONS.filter((game) => game.weekNumber !== undefined).length;
 export const BONUS_GAME_COUNT = GAME_DEFINITIONS.filter((game) => game.isBonus).length;
+export const CERTIFIED_GAME_COUNT = GAME_DEFINITIONS.filter((game) => game.certificationStatus === 'certified').length;

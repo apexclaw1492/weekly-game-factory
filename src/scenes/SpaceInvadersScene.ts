@@ -457,6 +457,32 @@ export class SpaceInvadersScene extends Phaser.Scene {
     this.endMobileTouch();
   }
 
+  public getGameplayStateForQA() {
+    return {
+      sceneKey: this.scene.key,
+      lifecycle: this.isWaitingToStart
+        ? 'start'
+        : this.isGameOver
+          ? 'gameOver'
+          : this.isLevelComplete
+            ? 'levelComplete'
+            : 'playing',
+      orientation: this.scale.height >= this.scale.width ? 'portrait' : 'landscape',
+      player: {
+        x: this.player?.x ?? null,
+        y: this.player?.y ?? null,
+        vx: this.player?.body?.velocity?.x ?? null,
+        vy: this.player?.body?.velocity?.y ?? null,
+        alive: Boolean(this.player?.active)
+      },
+      score: this.score,
+      lives: this.lives,
+      primaryActionCount: this.bullets?.countActive?.(true) ?? 0,
+      enemyOrHazardCount: this.enemies?.countActive?.(true) ?? 0,
+      messages: []
+    };
+  }
+
   private beginMobileTouch(x: number) {
     this.mobileTouchActive = true;
     this.mobileTargetX = Phaser.Math.Clamp(x, 24, this.scale.width - 24);

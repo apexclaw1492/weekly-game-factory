@@ -9,3 +9,5 @@ scratch/mobile-playtest.js
 scratch/mobile-playtest/
 scratch/mobile-state-playtest.js
 scratch/mobile-state-playtest/
+scratch/probe-hub-*.png
+scratch/probe-hub-taps.js

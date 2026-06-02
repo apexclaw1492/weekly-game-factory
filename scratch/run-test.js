@@ -9,10 +9,10 @@ const VIEWPORTS = [
 ];
 
 const GAMES = [
-  { id: 'f1', name: 'F1 Space Invaders', index: 0, keys: ['Space', 'ArrowLeft', 'ArrowRight', 'Space'] },
-  { id: 'cargo', name: 'Cosmic Cargo', index: 1, keys: ['ArrowUp', 'ArrowLeft', 'Space'] },
-  { id: 'contra', name: 'Contra Bonus', index: 2, keys: ['ArrowRight', 'Space', 'KeyX'] },
-  { id: 'asteroids', name: 'Asteroid Belt', index: 3, keys: ['ArrowUp', 'ArrowLeft', 'Space'] }
+  { id: 'f1', name: 'F1 Space Invaders', index: 0, sceneKey: 'SpaceInvadersScene', certified: true, keys: ['Space', 'ArrowLeft', 'ArrowRight', 'Space'] },
+  { id: 'cargo', name: 'Cosmic Cargo', index: 1, sceneKey: 'CosmicCargoScene', certified: false, keys: ['ArrowUp', 'ArrowLeft', 'Space'] },
+  { id: 'contra', name: 'Contra Bonus', index: 2, sceneKey: 'ContraScene', certified: false, keys: ['ArrowRight', 'Space', 'KeyX'] },
+  { id: 'asteroids', name: 'Asteroid Belt', index: 3, sceneKey: 'AsteroidsScene', certified: false, keys: ['ArrowUp', 'ArrowLeft', 'Space'] }
 ];
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -63,6 +63,20 @@ async function canvasInfo(page) {
   });
 }
 
+async function activeSceneKey(page) {
+  return page.evaluate(() => {
+    const game = window.__WGF_GAME__;
+    return game?.scene?.getScenes?.(true)?.[0]?.scene?.key ?? null;
+  });
+}
+
+async function waitForScene(page, sceneKey) {
+  await page.waitForFunction((expectedSceneKey) => {
+    const game = window.__WGF_GAME__;
+    return game?.scene?.getScenes?.(true)?.[0]?.scene?.key === expectedSceneKey;
+  }, { timeout: 6000 }, sceneKey);
+}
+
 async function runSmoke() {
   const browser = await puppeteer.launch({
     headless: true,
@@ -90,32 +104,45 @@ async function runSmoke() {
       for (const game of GAMES) {
         messages.length = 0;
 
-        await page.goto(BASE_URL, { waitUntil: 'networkidle0' });
-        await delay(3000);
+        console.error(`smoke ${viewport.name}: ${game.name}`);
+
+        await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
+        await waitForScene(page, 'HubScene');
+        await delay(250);
         const hubFingerprint = fingerprint(await page.screenshot());
 
         const point = cardPoint(viewport, game.index);
         await page.mouse.click(point.x, point.y);
-        await delay(1400);
+        await delay(game.certified ? 1200 : 450);
+        const sceneAfterLaunch = await activeSceneKey(page);
         const launchFingerprint = fingerprint(await page.screenshot({
           path: `scratch/live-smoke-${viewport.name}-${game.id}-launch.png`
         }));
 
-        await page.mouse.click(viewport.width / 2, viewport.height / 2);
-        for (const key of game.keys) {
-          await page.keyboard.press(key);
-          await delay(120);
+        let playFingerprint = launchFingerprint;
+        let sceneAfterPlay = sceneAfterLaunch;
+
+        if (game.certified) {
+          await page.mouse.click(viewport.width / 2, viewport.height / 2);
+          for (const key of game.keys) {
+            await page.keyboard.press(key);
+            await delay(120);
+          }
+          await delay(1800);
+          sceneAfterPlay = await activeSceneKey(page);
+          playFingerprint = fingerprint(await page.screenshot({
+            path: `scratch/live-smoke-${viewport.name}-${game.id}-play.png`
+          }));
         }
-        await delay(1800);
-        const playFingerprint = fingerprint(await page.screenshot({
-          path: `scratch/live-smoke-${viewport.name}-${game.id}-play.png`
-        }));
 
         results.push({
           viewport: viewport.name,
           game: game.name,
-          launched: launchFingerprint !== hubFingerprint,
-          respondedAfterStart: playFingerprint !== launchFingerprint,
+          certified: game.certified,
+          sceneAfterLaunch,
+          sceneAfterPlay,
+          launched: game.certified ? sceneAfterLaunch === game.sceneKey : sceneAfterLaunch === 'HubScene',
+          respondedAfterStart: game.certified ? playFingerprint !== launchFingerprint : true,
           canvas: await canvasInfo(page),
           messages: [...messages]
         });

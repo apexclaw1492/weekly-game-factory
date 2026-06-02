@@ -10,6 +10,19 @@ async function currentState(page) {
     const scene = game?.scene?.getScenes?.(true)?.[0];
     if (!scene) return { sceneKey: null };
 
+    if (typeof scene.getGameplayStateForQA === 'function') {
+      const state = scene.getGameplayStateForQA();
+      return {
+        sceneKey: state.sceneKey,
+        waiting: state.lifecycle === 'start',
+        playerX: state.player?.x ?? null,
+        playerVelocityX: state.player?.vx ?? null,
+        bulletCount: state.primaryActionCount,
+        enemyCount: state.enemyOrHazardCount,
+        score: state.score
+      };
+    }
+
     return {
       sceneKey: scene.scene?.key ?? null,
       waiting: scene.isWaitingToStart,

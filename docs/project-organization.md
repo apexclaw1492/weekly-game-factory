@@ -23,6 +23,13 @@ This repo is the weekly browser arcade hub. Nearby folders in `/Users/apexclaw/P
 
 ## Product Requirements
 
+- `docs/rebuild/README.md`: read order for the mobile-first rebuild control docs.
+- `docs/rebuild/master-prd.md`: master product requirements, certification rules, and release policy.
+- `docs/rebuild/mobile-input-architecture.md`: shared hardware-first input contract for all games.
+- `docs/rebuild/qa-and-playtest-plan.md`: local, browser-player, QA, manual iPhone, and live-site verification gates.
+- `docs/rebuild/backlog.md`: prioritized rebuild backlog with acceptance criteria.
+- `docs/rebuild/status-board.md`: current certification status and next milestones.
+- `docs/rebuild/subagent-playbook.md`: design, browser-player, and QA subagent responsibilities.
 - `docs/prd/arcade-modernization-roadmap.md`: shared touchscreen, orientation, lifecycle, and testing requirements.
 - `docs/prd/f1-space-invaders-prd.md`: Space Invaders/F1 game requirements.
 - `docs/prd/asteroid-belt-prd.md`: Asteroids game requirements.
