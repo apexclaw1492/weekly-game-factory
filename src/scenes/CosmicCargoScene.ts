@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { SoundSynth } from '../utils/SoundSynth';
+import { getMobileLayout, isInBottomControlBand } from '../utils/MobileLayout';
 
 enum GravityDir {
   UP = 0,
@@ -39,6 +40,7 @@ export class CosmicCargoScene extends Phaser.Scene {
   private hiScoreText!: Phaser.GameObjects.Text;
   private backBtn!: Phaser.GameObjects.Text;
   private boostBtn?: Phaser.GameObjects.Text;
+  private gravityButtons: Phaser.GameObjects.Text[] = [];
 
   private starfield!: Phaser.GameObjects.Graphics;
   private stars: Array<{ x: number; y: number; speed: number; alpha: number }> = [];
@@ -146,7 +148,7 @@ export class CosmicCargoScene extends Phaser.Scene {
     }).setOrigin(0.5);
     this.stateText.setShadow(0, 0, '#ff6b35', 10, true, true);
 
-    this.hintText = this.add.text(width / 2, height / 2 + 20, 'SWIPE OR ARROWS TO FLIP GRAVITY\nTAP OR SPACE TO BOOST\n\nTAP TO START', {
+    this.hintText = this.add.text(width / 2, height / 2 + 20, 'CHOOSE GRAVITY OR SWIPE\nBOOST BUTTON OR SPACE\n\nTAP TO START', {
       fontSize: '13px',
       fontFamily: 'monospace',
       color: '#ffffff',
@@ -174,7 +176,8 @@ export class CosmicCargoScene extends Phaser.Scene {
       this.scene.start('HubScene');
     });
 
-    if (this.sys.game.device.input.touch) {
+    if (this.shouldShowMobileControls()) {
+      this.createGravityControls();
       this.boostBtn = this.add.text(width - 35, height - 82, 'BOOST', {
         fontSize: '13px',
         fontFamily: 'monospace',
@@ -190,6 +193,7 @@ export class CosmicCargoScene extends Phaser.Scene {
         event.stopPropagation();
       });
     }
+    this.layoutMobileControls();
 
     // Handle screen resizing
     this.scale.on('resize', this.handleResize, this);
@@ -199,8 +203,7 @@ export class CosmicCargoScene extends Phaser.Scene {
 
     this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       // Tap outside buttons starts game
-      const { height } = this.scale;
-      if (pointer.y < height - 95) {
+      if (!isInBottomControlBand(this, pointer)) {
         if (this.isWaitingToStart) this.startGame();
         else if (this.isGameOver) this.scene.restart();
         else if (this.isLevelComplete) this.nextLevel();
@@ -213,6 +216,7 @@ export class CosmicCargoScene extends Phaser.Scene {
 
   private handleResize() {
     const { width, height } = this.scale;
+    const layout = getMobileLayout(this);
 
     // Reposition UI
     this.levelText.setPosition(width - 20, 20);
@@ -222,7 +226,8 @@ export class CosmicCargoScene extends Phaser.Scene {
     this.hintText.setPosition(width / 2, height / 2 + 20);
     this.hiScoreText.setPosition(width / 2, height / 2 + 100);
     this.backBtn.setPosition(width - 20, height - 30);
-    this.boostBtn?.setPosition(width - 35, height - 82);
+    this.boostBtn?.setPosition(width - layout.rightPad, layout.controlCenterY);
+    this.layoutMobileControls();
 
     // Update starfield
     this.starfield.clear();
@@ -382,11 +387,9 @@ export class CosmicCargoScene extends Phaser.Scene {
       const dist = Math.sqrt(dx * dx + dy * dy);
 
       if (this.isWaitingToStart || this.isGameOver || this.isLevelComplete) return;
+      if (isInBottomControlBand(this, pointer)) return;
 
-      if (dist < 15 && dt < 200) {
-        // Simple tap = Boost!
-        this.useBoost();
-      } else if (dist > 30 && dt < 400) {
+      if (dist > 30 && dt < 400) {
         // Swipe to shift gravity
         if (Math.abs(dx) > Math.abs(dy)) {
           this.updateGravity(dx > 0 ? GravityDir.RIGHT : GravityDir.LEFT);
@@ -453,7 +456,8 @@ export class CosmicCargoScene extends Phaser.Scene {
   }
 
   private generateLevel() {
-    const { width, height } = this.scale;
+    const { width } = this.scale;
+    const layout = getMobileLayout(this);
     this.asteroids.clear(true, true);
     this.cargoPods.clear(true, true);
     this.portalText.setText('PORTAL: LOCKED').setColor('#ff8844');
@@ -473,7 +477,7 @@ export class CosmicCargoScene extends Phaser.Scene {
       while (!safe && attempts < 100) {
         attempts++;
         x = 60 + Math.random() * (width - 120);
-        y = 105 + Math.random() * Math.max(1, height - 225);
+        y = layout.playTop + Math.random() * Math.max(1, layout.playBottom - layout.playTop);
         safe = this.isSafeSpawn(x, y, 24, placed);
       }
       this.cargoPods.create(x, y, 'cargo-pod');
@@ -488,7 +492,7 @@ export class CosmicCargoScene extends Phaser.Scene {
       while (!safe && attempts < 100) {
         attempts++;
         x = 50 + Math.random() * (width - 100);
-        y = 105 + Math.random() * Math.max(1, height - 225);
+        y = layout.playTop + Math.random() * Math.max(1, layout.playBottom - layout.playTop);
         safe = this.isSafeSpawn(x, y, 36, placed);
       }
       
@@ -507,10 +511,69 @@ export class CosmicCargoScene extends Phaser.Scene {
   }
 
   private isSafeSpawn(x: number, y: number, radius: number, placed: Array<{ x: number; y: number; radius: number }>) {
-    const { width, height } = this.scale;
-    if (x < 35 || x > width - 35 || y < 95 || y > height - 115) return false;
+    const layout = getMobileLayout(this);
+    if (x < 35 || x > layout.width - 35 || y < layout.playTop || y > layout.playBottom) return false;
 
     return placed.every(item => Phaser.Math.Distance.Between(x, y, item.x, item.y) > radius + item.radius);
+  }
+
+  private shouldShowMobileControls() {
+    const { width, height } = this.scale;
+    return this.sys.game.device.input.touch || width < 700 || height < 520;
+  }
+
+  private createGravityControls() {
+    const configs = [
+      { label: 'UP', dir: GravityDir.UP },
+      { label: 'LEFT', dir: GravityDir.LEFT },
+      { label: 'RIGHT', dir: GravityDir.RIGHT },
+      { label: 'DOWN', dir: GravityDir.DOWN }
+    ];
+
+    this.gravityButtons = configs.map(config => {
+      const button = this.add.text(0, 0, config.label, {
+        fontSize: '10px',
+        fontFamily: 'monospace',
+        color: '#ffffff',
+        backgroundColor: '#124466',
+        padding: { x: 8, y: 7 }
+      }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+      button.on('pointerdown', (_pointer: Phaser.Input.Pointer, _localX: number, _localY: number, event: Phaser.Types.Input.EventData) => {
+        if (!this.isWaitingToStart && !this.isGameOver && !this.isLevelComplete) {
+          this.updateGravity(config.dir);
+        }
+        event.stopPropagation();
+      });
+
+      return button;
+    });
+  }
+
+  private layoutMobileControls() {
+    if (this.gravityButtons.length === 0 && !this.boostBtn) return;
+
+    const layout = getMobileLayout(this);
+    const cx = layout.leftPad + layout.buttonSize * 1.35;
+    const cy = layout.controlCenterY;
+    const gap = layout.buttonSize * 0.95;
+
+    const positions = [
+      { x: cx, y: cy - gap },
+      { x: cx - gap, y: cy },
+      { x: cx + gap, y: cy },
+      { x: cx, y: cy + gap }
+    ];
+
+    this.gravityButtons.forEach((button, index) => {
+      const position = positions[index];
+      button.setPosition(position.x, position.y);
+      button.setDepth(1000);
+      button.setScrollFactor(0);
+    });
+
+    this.boostBtn?.setDepth(1000);
+    this.boostBtn?.setScrollFactor(0);
   }
 
   private collectCargo(_shipObj: any, podObj: any) {
