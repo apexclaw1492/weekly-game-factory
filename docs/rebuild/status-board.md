@@ -10,7 +10,7 @@ Last updated: June 3, 2026
 | Epic 2: Shared Runtime | **WGF-010 — Input Runtime** (InputRuntime.ts) | ✅ Done |
 | Epic 2: Shared Runtime | **WGF-010 — Integration with main.ts** | ❌ Not started |
 | Epic 2: Shared Runtime | **WGF-011 — Scene Lifecycle Contract** (GameLifecycle.ts + LifecycleManager.ts) | ✅ Done |
-| Epic 2: Shared Runtime | **WGF-012 — Viewport Layout Service** | ❌ Not started |
+| Epic 2: Shared Runtime | **WGF-012 — Viewport Layout Service** (ViewportLayoutService.ts) | ✅ Done |
 | Epic 3: F1 Conversion | **WGF-020 — Convert F1 to Shared Runtime** | ❌ Not started |
 | Epic 3: F1 | **WGF-022 — F1 Touch Certification Test** | ❌ Not started |
 | Epic 4-6 | Cargo, Contra, Asteroids rebuilds | ❌ Blocked by Epic 2 |

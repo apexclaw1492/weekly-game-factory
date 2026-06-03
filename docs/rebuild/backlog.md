@@ -67,7 +67,7 @@ Acceptance:
 - Every game implements start, play, pause, retry, back, reset, and cleanup through shared helpers.
 - Active gameplay touches cannot trigger start/retry/next/back by accident.
 
-### WGF-012: Build Viewport Layout Service
+### ✅ WGF-012: Viewport Layout Service **(DONE)**
 
 Priority: P0
 
