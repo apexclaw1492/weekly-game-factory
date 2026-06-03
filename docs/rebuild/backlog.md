@@ -58,7 +58,7 @@ Acceptance:
 - Held input clears on release, resize, scene transition, and visibility change.
 - No scene owns raw DOM touch listeners.
 
-### WGF-011: Build Scene Lifecycle Contract
+### ✅ WGF-011: Scene Lifecycle Contract **(DONE)**
 
 Priority: P0
 
