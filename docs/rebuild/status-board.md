@@ -1,67 +1,53 @@
-# Mobile Rebuild Status Board
+# Status Board — Weekly Game Factory Rebuild
 
-Last updated: 2026-06-02, v1.3.6 implementation slice
+Last updated: June 3, 2026
 
-## Certification Summary
+## Overall Progress
 
-| Game | Status | Reason |
-| --- | --- | --- |
-| F1 Space Invaders | Provisionally certified | Local touch test proves start, movement, firing, enemy hit, score update, and no page errors. Needs deployed v1.3.6 confirmation, shared runtime conversion, and full arcade fidelity before final certification. |
-| Cosmic Cargo | Not certified | Browser-player agent found fuel unchanged, gravity unchanged, and scene returning to waiting state after touch gestures. |
-| Contra Bonus | Not certified | Movement partially works, but shooting is inconsistent and landscape return-to-hub failed. |
-| Asteroid Belt | Not certified | Movement happens, but action control is unclear and player can lose lives during a simple test gesture. |
+| Phase | Ticket | Status |
+|-------|--------|--------|
+| Epic 2: Shared Runtime | **WGF-010 — Input Types** (ArcadeInputFrame.ts) | ✅ Done |
+| Epic 2: Shared Runtime | **WGF-010 — Input Runtime** (InputRuntime.ts) | ✅ Done |
+| Epic 2: Shared Runtime | **WGF-010 — Integration with main.ts** | ❌ Not started |
+| Epic 2: Shared Runtime | **WGF-011 — Scene Lifecycle Contract** | ❌ Not started |
+| Epic 2: Shared Runtime | **WGF-012 — Viewport Layout Service** | ❌ Not started |
+| Epic 3: F1 Conversion | **WGF-020 — Convert F1 to Shared Runtime** | ❌ Not started |
+| Epic 3: F1 | **WGF-022 — F1 Touch Certification Test** | ❌ Not started |
+| Epic 4-6 | Cargo, Contra, Asteroids rebuilds | ❌ Blocked by Epic 2 |
 
-## Current Known P0 Issues
+## Game Status
 
-- Shared input runtime is not implemented yet.
-- Cosmic Cargo does not prove boost, gravity, or objective progress through touch.
-- Contra landscape touch play and return-to-hub are unreliable.
-- Asteroids touch action is not controlled enough for certification.
-- The app lacks one shared input runtime and one shared lifecycle contract.
+| Game | Local Render | Local Touch | Live Site | Notes |
+|------|-------------|-------------|-----------|-------|
+| F1 Space Invaders | ✅ | ✅ Provisional | ❌ Not verified | Uses old TouchControls, not InputRuntime |
+| Cosmic Cargo | ✅ | ✅ Provisional | ❌ Not verified | Uses old TouchControls |
+| Contra Bonus | ✅ | ✅ Provisional | ❌ Not verified | Uses old TouchControls |
+| Asteroid Belt | ✅ | ✅ Provisional | ❌ Not verified | Uses old TouchControls |
 
-## Current Release Recommendation
+## Legend
 
-- Keep F1 available as the only playable flagship.
-- Mark Cosmic Cargo, Contra Bonus, and Asteroid Belt as "In rebuild" until their mobile certification tests pass.
-- Do not claim all four games are playable until `touch:all` passes against GitHub Pages.
+- ✅ Done / Passing
+- ⚠️ In progress / Partial
+- ❌ Not started / Blocked
 
-## v1.3.6 Local Evidence
+## Tickets (Next Up)
 
-- `npm run hub:routing`: passed. Preload taps at `y=145`, `232`, `319`, `406`, and `700` all stop at `HubScene`; in-rebuild card stays on hub; certified F1 card launches.
-- `npm run smoke`: passed. F1 launches in desktop, phone portrait, and phone landscape; in-rebuild cards stay on hub; no page errors.
-- `npm run touch:f1`: passed. F1 touch play moves, fires, destroys an enemy, and updates score.
+### WGF-011 — Scene Lifecycle Contract
+Create standard hooks that every game scene implements. Each scene must expose:
+- `showStart()` — show start overlay
+- `startGameplay()` — begin active play
+- `pauseGameplay()`, `resumeGameplay()` — toggle pause
+- `resetGameplay()` — full state reset
+- `returnToHub()` — clean transition back
+- `handleArcadeInput(frame: ArcadeInputFrame)` — consume input
+- `getGameplayStateForQA()` — return QA state
 
-## Evidence
+### WGF-012 — Viewport Layout Service
+Responsive layout helper that provides safe-area-aware dimensions and handles orientation changes consistently across all scenes.
 
-F1 deployed test passed on 2026-06-02 against:
-
-```sh
-https://apexclaw1492.github.io/weekly-game-factory/?v=1.3.5
-```
-
-Verified state:
-
-- Scene: `SpaceInvadersScene`
-- Player moved from `x=64.4` to `x=325.7`
-- Enemy count changed from `40` to `39`
-- Score changed from `0` to `10`
-- Page errors: none
-
-Browser-player agent reported failures for the other games using:
-
-```sh
-node scratch/mobile-playtest.js
-node scratch/probe-hub-taps.js
-node scratch/mobile-state-playtest.js
-```
-
-## Next Milestones
-
-1. Fix preload/hub routing.
-2. Add certified/in-rebuild hub state.
-3. Implement shared input runtime.
-4. Convert F1 to shared runtime as reference.
-5. Rebuild and certify Cosmic Cargo.
-6. Rebuild and certify Contra Bonus.
-7. Rebuild and certify Asteroid Belt.
-8. Add `touch:all` and live-site regression gate.
+### WGF-020 — Convert F1 to Shared Runtime
+Refactor SpaceInvadersScene to:
+- Remove old TouchControls dependency
+- Implement Scene Lifecycle Contract
+- Consume ArcadeInputFrame from InputRuntime
+- Remove raw pointer/input listeners

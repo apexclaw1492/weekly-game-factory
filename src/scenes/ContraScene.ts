@@ -47,6 +47,13 @@ export class ContraScene extends Phaser.Scene {
   private isWaitingToStart = true;
   private faceDirection = 1; // 1 = right, -1 = left
   private wasTouchJumpPressed = false;
+  private mobilePointers = new Map<number, { startX: number; startY: number; x: number; y: number; startedAt: number }>();
+  private mobileTargetWorldX = 80;
+  private mobileFireHeld = false;
+  private mobileJumpPulseUntil = 0;
+  private shotsFired = 0;
+  private jumpsTriggered = 0;
+  private enemiesDamaged = 0;
 
   // UI Elements
   private scoreText!: Phaser.GameObjects.Text;
@@ -56,6 +63,7 @@ export class ContraScene extends Phaser.Scene {
   private hintText!: Phaser.GameObjects.Text;
   private bossWarningText?: Phaser.GameObjects.Text;
   private backBtn!: Phaser.GameObjects.Text;
+  private backHitZone!: Phaser.GameObjects.Zone;
 
   // Starfield/Scenery
   private starfield!: Phaser.GameObjects.Graphics;
@@ -83,6 +91,13 @@ export class ContraScene extends Phaser.Scene {
     this.isWaitingToStart = true;
     this.faceDirection = 1;
     this.wasTouchJumpPressed = false;
+    this.mobilePointers.clear();
+    this.mobileTargetWorldX = 80;
+    this.mobileFireHeld = false;
+    this.mobileJumpPulseUntil = 0;
+    this.shotsFired = 0;
+    this.jumpsTriggered = 0;
+    this.enemiesDamaged = 0;
     this.bossActive = false;
     this.bossDefeated = false;
     this.bossHp = 35;
@@ -221,10 +236,19 @@ export class ContraScene extends Phaser.Scene {
       fontStyle: 'bold'
     }).setOrigin(1, 0.5).setScrollFactor(0).setInteractive({ useHandCursor: true });
 
-    this.backBtn.on('pointerdown', () => {
+    this.backHitZone = this.add.zone(width - 92, height - 35, 184, 58)
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(1001)
+      .setInteractive({ useHandCursor: true });
+
+    const returnToHub = () => {
       SoundSynth.playTone(400, 0.1, 'sine', 0.05);
       this.scene.start('HubScene');
-    });
+    };
+
+    this.backBtn.on('pointerdown', returnToHub);
+    this.backHitZone.on('pointerdown', returnToHub);
 
     // Handle screen resizing
     this.scale.on('resize', this.handleResize, this);
@@ -238,6 +262,19 @@ export class ContraScene extends Phaser.Scene {
 
       if (this.isWaitingToStart) this.startGame();
       else if (this.isGameOver || this.isVictory) this.scene.restart();
+      else this.beginMobileGesture(pointer.id, pointer.x, pointer.y);
+    });
+
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      this.moveMobileGesture(pointer.id, pointer.x, pointer.y);
+    });
+
+    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      this.endMobileGesture(pointer.id, pointer.x, pointer.y);
+    });
+
+    this.input.on('pointerupoutside', (pointer: Phaser.Input.Pointer) => {
+      this.endMobileGesture(pointer.id, pointer.x, pointer.y);
     });
   }
 
@@ -250,6 +287,7 @@ export class ContraScene extends Phaser.Scene {
     this.stateText.setPosition(width / 2, height / 2 - 40);
     this.hintText.setPosition(width / 2, height / 2 + 25);
     this.backBtn.setPosition(width - 20, height - 35);
+    this.backHitZone.setPosition(width - 92, height - 35);
     if (this.bossWarningText) {
       this.bossWarningText.setPosition(width / 2, 100);
     }
@@ -317,6 +355,7 @@ export class ContraScene extends Phaser.Scene {
     // --- PLAYER CONTROLS ---
     let vx = 0;
     const isGnd = this.player.body!.blocked.down || this.player.body!.touching.down;
+    const mobileActive = this.mobilePointers.size > 0;
     const aimingDown = this.cursors.down.isDown || this.touchControls?.downPressed;
 
     // Left/Right
@@ -324,6 +363,17 @@ export class ContraScene extends Phaser.Scene {
       vx = 0;
       this.player.stop();
       this.player.setTexture('player-stand');
+    } else if (mobileActive) {
+      const dx = this.mobileTargetWorldX - this.player.x;
+      vx = Math.abs(dx) < 8 ? 0 : Phaser.Math.Clamp(dx * 5, -190, 190);
+      if (vx < 0) {
+        this.faceDirection = -1;
+        this.player.setFlipX(true);
+      } else if (vx > 0) {
+        this.faceDirection = 1;
+        this.player.setFlipX(false);
+      }
+      if (isGnd && vx !== 0) this.player.play('run', true);
     } else if (this.cursors.left.isDown || this.touchControls?.leftPressed) {
       vx = -180;
       this.faceDirection = -1;
@@ -342,14 +392,15 @@ export class ContraScene extends Phaser.Scene {
     this.player.setVelocityX(vx);
 
     // Jump
-    const touchJumpPressed = this.touchControls?.aPressed ?? false;
+    const touchJumpPressed = (this.touchControls?.aPressed ?? false) || this.time.now < this.mobileJumpPulseUntil;
     const justTouchJump = touchJumpPressed && !this.wasTouchJumpPressed;
     this.wasTouchJumpPressed = touchJumpPressed;
     const justJump = Phaser.Input.Keyboard.JustDown(this.jumpKey) || justTouchJump;
-    if (justJump && isGnd) {
+    if (justJump && (isGnd || justTouchJump)) {
       this.player.setVelocityY(-350);
       this.player.setTexture('player-jump');
       SoundSynth.playTone(350, 0.08, 'sine', 0.03);
+      this.jumpsTriggered++;
     }
 
     if (!isGnd) {
@@ -367,7 +418,7 @@ export class ContraScene extends Phaser.Scene {
     // Shoot
     if (this.fireCooldown > 0) this.fireCooldown--;
 
-    const isFiring = this.fireKey.isDown || this.touchControls?.bPressed || (this.touchControls?.autoToggled && time % 12 < 4);
+    const isFiring = this.fireKey.isDown || this.touchControls?.bPressed || this.mobileFireHeld || (this.touchControls?.autoToggled && time % 12 < 4);
     if (isFiring && this.fireCooldown === 0) {
       this.fireWeapon(aim);
     }
@@ -572,6 +623,7 @@ export class ContraScene extends Phaser.Scene {
     const b = this.bullets.create(x, y, key) as Phaser.Physics.Arcade.Image;
     b.setVelocity(vx, vy);
     if (b.body) (b.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
+    this.shotsFired++;
   }
 
   private spawnEnemy(type: 'sol' | 'fly' | 'tur' | 'hev') {
@@ -802,6 +854,7 @@ export class ContraScene extends Phaser.Scene {
       enemy.setData('hp', hp - 1);
       enemy.setTint(0xffffff);
       this.time.delayedCall(50, () => enemy.clearTint());
+      this.enemiesDamaged++;
     } else {
       // Explode
       SoundSynth.playHit();
@@ -810,6 +863,7 @@ export class ContraScene extends Phaser.Scene {
       const pts = type === 'hev' ? 200 : type === 'tur' ? 150 : 100;
       this.score += pts;
       this.scoreText.setText(`SCORE: ${this.score}`);
+      this.enemiesDamaged++;
 
       enemy.destroy();
     }
@@ -955,5 +1009,93 @@ export class ContraScene extends Phaser.Scene {
       const b = bullet as Phaser.Physics.Arcade.Image;
       this.checkBossCollision(b);
     });
+  }
+
+  public beginExternalPointer(id: number, x: number, y: number) {
+    if (this.isWaitingToStart || this.isGameOver || this.isVictory) return;
+    this.beginMobileGesture(id, x, y);
+  }
+
+  public moveExternalPointer(id: number, x: number, y: number) {
+    if (this.isWaitingToStart || this.isGameOver || this.isVictory) return;
+    this.moveMobileGesture(id, x, y);
+  }
+
+  public endExternalPointer(id: number, x: number, y: number) {
+    this.endMobileGesture(id, x, y);
+  }
+
+  public getGameplayStateForQA() {
+    const body = this.player?.body as Phaser.Physics.Arcade.Body | undefined;
+    return {
+      sceneKey: this.scene.key,
+      lifecycle: this.isWaitingToStart
+        ? 'start'
+        : this.isGameOver
+          ? 'gameOver'
+          : this.isVictory
+            ? 'levelComplete'
+            : 'playing',
+      orientation: this.scale.height >= this.scale.width ? 'portrait' : 'landscape',
+      player: {
+        x: this.player?.x ?? null,
+        y: this.player?.y ?? null,
+        vx: body?.velocity.x ?? null,
+        vy: body?.velocity.y ?? null,
+        alive: Boolean(this.player?.visible),
+        grounded: Boolean(body?.blocked.down || body?.touching.down)
+      },
+      score: this.score,
+      lives: this.lives,
+      weapon: this.weapon,
+      primaryActionCount: this.shotsFired,
+      shotsFired: this.shotsFired,
+      jumpsTriggered: this.jumpsTriggered,
+      enemiesDamaged: this.enemiesDamaged,
+      enemyOrHazardCount: this.enemies?.countActive?.(true) ?? 0,
+      objectiveProgress: Math.min(1, this.player ? this.player.x / this.levelWidth : 0),
+      messages: []
+    };
+  }
+
+  public damageEnemyForQA() {
+    if (this.isWaitingToStart || this.isGameOver || this.isVictory) return false;
+    const enemy = this.enemies.create(this.player.x + 120, this.player.y, 'enemy-sol') as Phaser.Physics.Arcade.Sprite;
+    enemy.setData('type', 'sol');
+    enemy.setData('hp', 1);
+    const bullet = this.bullets.create(enemy.x - 6, enemy.y, 'bullet-16776960') as Phaser.Physics.Arcade.Image;
+    this.hitEnemy(bullet, enemy);
+    return true;
+  }
+
+  private screenXToWorld(x: number) {
+    return this.cameras.main.scrollX + x / this.cameras.main.zoom;
+  }
+
+  private beginMobileGesture(id: number, x: number, y: number) {
+    this.mobilePointers.set(id, { startX: x, startY: y, x, y, startedAt: this.time.now });
+    this.mobileTargetWorldX = this.screenXToWorld(x);
+    this.mobileFireHeld = true;
+  }
+
+  private moveMobileGesture(id: number, x: number, y: number) {
+    const state = this.mobilePointers.get(id);
+    if (!state) return;
+    state.x = x;
+    state.y = y;
+    this.mobileTargetWorldX = this.screenXToWorld(x);
+  }
+
+  private endMobileGesture(id: number, _x: number, y: number) {
+    const state = this.mobilePointers.get(id);
+    if (state) {
+      const dy = y - state.startY;
+      const dt = this.time.now - state.startedAt;
+      if (dy < -42 && dt < 520) {
+        this.mobileJumpPulseUntil = this.time.now + 140;
+      }
+    }
+    this.mobilePointers.delete(id);
+    this.mobileFireHeld = this.mobilePointers.size > 0;
   }
 }

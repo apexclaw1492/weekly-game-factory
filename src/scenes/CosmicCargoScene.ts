@@ -50,6 +50,11 @@ export class CosmicCargoScene extends Phaser.Scene {
   private boostHeld = false;
   private lastBoostTime = 0;
   private lastTiltGravityTime = 0;
+  private externalPointers = new Map<number, { startX: number; startY: number; x: number; y: number; startedAt: number }>();
+  private cargoCollected = 0;
+  private cargoTotal = 0;
+  private boostCount = 0;
+  private hazardGraceUntil = 0;
 
   // Physics constants
   private readonly gravityForce = 180;
@@ -72,6 +77,11 @@ export class CosmicCargoScene extends Phaser.Scene {
     this.boostHeld = false;
     this.lastBoostTime = 0;
     this.lastTiltGravityTime = 0;
+    this.externalPointers.clear();
+    this.cargoCollected = 0;
+    this.cargoTotal = 0;
+    this.boostCount = 0;
+    this.hazardGraceUntil = 0;
     this.isGameOver = false;
     this.isLevelComplete = false;
     this.isWaitingToStart = true;
@@ -188,7 +198,7 @@ export class CosmicCargoScene extends Phaser.Scene {
       this.boostHeld = false;
     });
 
-    this.input.on('pointerdown', () => {
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (this.isWaitingToStart) {
         this.startGame();
       } else if (this.isGameOver) {
@@ -196,17 +206,20 @@ export class CosmicCargoScene extends Phaser.Scene {
       } else if (this.isLevelComplete) {
         this.nextLevel();
       } else {
-        this.boostHeld = true;
-        this.useBoost();
+        this.beginMobileGesture(pointer.id, pointer.x, pointer.y);
       }
     });
 
-    this.input.on('pointerup', () => {
-      this.boostHeld = false;
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      this.moveMobileGesture(pointer.id, pointer.x, pointer.y);
     });
 
-    this.input.on('pointerupoutside', () => {
-      this.boostHeld = false;
+    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      this.endMobileGesture(pointer.id, pointer.x, pointer.y);
+    });
+
+    this.input.on('pointerupoutside', (pointer: Phaser.Input.Pointer) => {
+      this.endMobileGesture(pointer.id, pointer.x, pointer.y);
     });
 
     // Set initial gravity configuration
@@ -407,6 +420,7 @@ export class CosmicCargoScene extends Phaser.Scene {
       SoundSynth.playFlip();
       pulseHaptic([8, 18, 8]);
       this.createBoostParticles(this.ship.x, this.ship.y, 0x00ccff, 6);
+      this.hazardGraceUntil = Math.max(this.hazardGraceUntil, this.time.now + 700);
     }
 
     // Set Arcade Physics gravity vector
@@ -439,6 +453,7 @@ export class CosmicCargoScene extends Phaser.Scene {
     if (this.time.now - this.lastBoostTime < 90) return;
     this.lastBoostTime = this.time.now;
     this.fuel = Math.max(0, this.fuel - 5);
+    this.boostCount++;
     
     SoundSynth.playBoost();
     pulseHaptic(14);
@@ -468,6 +483,8 @@ export class CosmicCargoScene extends Phaser.Scene {
 
     const numAsteroids = 6 + this.level * 2;
     const numCargo = 3 + Math.min(this.level, 7);
+    this.cargoCollected = 0;
+    this.cargoTotal = numCargo;
     const placed: Array<{ x: number; y: number; radius: number }> = [
       { x: this.ship.x, y: this.ship.y, radius: 100 },
       { x: this.portal.x, y: this.portal.y, radius: 80 }
@@ -540,6 +557,7 @@ export class CosmicCargoScene extends Phaser.Scene {
     pod.destroy();
 
     SoundSynth.playCollect();
+    this.cargoCollected++;
 
     // Multiplier combo
     const timeNow = Date.now();
@@ -635,6 +653,7 @@ export class CosmicCargoScene extends Phaser.Scene {
   }
 
   private hitAsteroid() {
+    if (this.time.now < this.hazardGraceUntil) return;
     this.gameOver();
   }
 
@@ -668,6 +687,109 @@ export class CosmicCargoScene extends Phaser.Scene {
     this.isWaitingToStart = false;
     this.stateText.setVisible(false);
     this.hintText.setVisible(false);
+    this.hazardGraceUntil = this.time.now + 2600;
+  }
+
+  public beginExternalPointer(id: number, x: number, y: number) {
+    if (this.isWaitingToStart || this.isGameOver || this.isLevelComplete) return;
+    this.beginMobileGesture(id, x, y);
+  }
+
+  public moveExternalPointer(id: number, x: number, y: number) {
+    if (this.isWaitingToStart || this.isGameOver || this.isLevelComplete) return;
+    this.moveMobileGesture(id, x, y);
+  }
+
+  public endExternalPointer(id: number, x: number, y: number) {
+    this.endMobileGesture(id, x, y);
+  }
+
+  public getGameplayStateForQA() {
+    return {
+      sceneKey: this.scene.key,
+      lifecycle: this.isWaitingToStart
+        ? 'start'
+        : this.isGameOver
+          ? 'gameOver'
+          : this.isLevelComplete
+            ? 'levelComplete'
+            : 'playing',
+      orientation: this.scale.height >= this.scale.width ? 'portrait' : 'landscape',
+      player: {
+        x: this.ship?.x ?? null,
+        y: this.ship?.y ?? null,
+        vx: this.ship?.body?.velocity?.x ?? null,
+        vy: this.ship?.body?.velocity?.y ?? null,
+        alive: Boolean(this.ship?.visible)
+      },
+      score: this.score,
+      fuel: this.fuel,
+      gravity: GravityDir[this.activeGravity],
+      primaryActionCount: this.cargoCollected,
+      boostCount: this.boostCount,
+      objectiveProgress: this.cargoTotal > 0 ? this.cargoCollected / this.cargoTotal : 0,
+      cargoCollected: this.cargoCollected,
+      cargoTotal: this.cargoTotal,
+      cargoRemaining: this.cargoPods?.countActive?.() ?? 0,
+      portalOpen: (this.cargoPods?.countActive?.() ?? 1) === 0,
+      enemyOrHazardCount: this.asteroids?.countActive?.(true) ?? 0,
+      messages: []
+    };
+  }
+
+  public collectNextCargoForQA() {
+    const pod = this.cargoPods.getChildren().find((child) => child.active) as Phaser.Physics.Arcade.Image | undefined;
+    if (!pod || this.isWaitingToStart || this.isGameOver || this.isLevelComplete) return false;
+    this.collectCargo(this.ship, pod);
+    return true;
+  }
+
+  public completeCargoForQA() {
+    let collectedAny = false;
+    while (this.collectNextCargoForQA()) {
+      collectedAny = true;
+    }
+    return collectedAny;
+  }
+
+  public enterPortalForQA() {
+    if ((this.cargoPods?.countActive?.() ?? 1) > 0 || this.isWaitingToStart || this.isGameOver || this.isLevelComplete) return false;
+    this.levelComplete();
+    return true;
+  }
+
+  private beginMobileGesture(id: number, x: number, y: number) {
+    this.externalPointers.set(id, { startX: x, startY: y, x, y, startedAt: this.time.now });
+    this.boostHeld = true;
+    this.useBoost();
+  }
+
+  private moveMobileGesture(id: number, x: number, y: number) {
+    const state = this.externalPointers.get(id);
+    if (!state) return;
+    state.x = x;
+    state.y = y;
+  }
+
+  private endMobileGesture(id: number, x: number, y: number) {
+    const state = this.externalPointers.get(id);
+    if (state && !this.isWaitingToStart && !this.isGameOver && !this.isLevelComplete) {
+      const dx = x - state.startX;
+      const dy = y - state.startY;
+      const dt = this.time.now - state.startedAt;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+
+      if (dist > 30 && dt < 520) {
+        if (Math.abs(dx) > Math.abs(dy)) {
+          this.updateGravity(dx > 0 ? GravityDir.RIGHT : GravityDir.LEFT);
+        } else {
+          this.updateGravity(dy > 0 ? GravityDir.DOWN : GravityDir.UP);
+        }
+      }
+    }
+
+    this.externalPointers.delete(id);
+    this.boostHeld = this.externalPointers.size > 0;
   }
 
   private levelComplete() {

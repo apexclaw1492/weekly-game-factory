@@ -131,6 +131,11 @@ function bridgeTap(point: GlobalTapPoint) {
     return;
   }
 
+  if (isGlobalBackPoint(point)) {
+    scene.scene.start('HubScene');
+    return;
+  }
+
   const sceneAny = scene as any;
   if (sceneAny.isWaitingToStart && typeof sceneAny.startGame === 'function') {
     sceneAny.startGame();
@@ -144,6 +149,10 @@ function bridgeTap(point: GlobalTapPoint) {
 let lastBridgeTapAt = 0;
 let touchStartedAt = 0;
 const touchStarts = new Map<number, GlobalTapPoint & { time: number }>();
+
+function isGlobalBackPoint(point: GlobalTapPoint) {
+  return point.x >= window.innerWidth - 190 && point.y >= window.innerHeight - 85;
+}
 
 function handleBridgeTap(point: GlobalTapPoint) {
   const now = performance.now();
@@ -161,13 +170,13 @@ function handleGameTouchStart(id: number, point: GlobalTapPoint) {
   if (!scene) return;
   const sceneAny = scene as any;
 
+  if (!['BootScene', 'PreloadScene', 'HubScene'].includes(scene.scene.key) && isGlobalBackPoint(point)) {
+    scene.scene.start('HubScene');
+    return;
+  }
+
   sceneAny.beginExternalPointer?.(id, point.x, point.y);
   activeTouchControls()?.beginExternalPointer?.(id, point.x, point.y);
-
-  if (scene.scene.key === 'CosmicCargoScene' && !sceneAny.isWaitingToStart && !sceneAny.isGameOver && !sceneAny.isLevelComplete) {
-    sceneAny.boostHeld = true;
-    sceneAny.useBoost?.();
-  }
 }
 
 function handleGameTouchMove(id: number, point: GlobalTapPoint) {
@@ -183,23 +192,7 @@ function handleGameTouchEnd(id: number, point: GlobalTapPoint) {
   sceneAny?.endExternalPointer?.(id, point.x, point.y);
   activeTouchControls()?.endExternalPointer?.(id);
 
-  if (scene?.scene.key === 'CosmicCargoScene') {
-    sceneAny.boostHeld = false;
-    if (start && !sceneAny.isWaitingToStart && !sceneAny.isGameOver && !sceneAny.isLevelComplete) {
-      const dx = point.x - start.x;
-      const dy = point.y - start.y;
-      const dt = performance.now() - start.time;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      if (dist > 30 && dt < 450 && typeof sceneAny.updateGravity === 'function') {
-        if (Math.abs(dx) > Math.abs(dy)) {
-          sceneAny.updateGravity(dx > 0 ? 3 : 2);
-        } else {
-          sceneAny.updateGravity(dy > 0 ? 1 : 0);
-        }
-      }
-    }
-  }
+  void start;
 }
 
 window.addEventListener('touchstart', (event) => {

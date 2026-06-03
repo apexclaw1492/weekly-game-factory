@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer';
 
-const BASE_URL = 'http://127.0.0.1:3000/';
+const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:3000/';
 
 const VIEWPORTS = [
   { name: 'desktop', width: 800, height: 600 },
@@ -10,9 +10,9 @@ const VIEWPORTS = [
 
 const GAMES = [
   { id: 'f1', name: 'F1 Space Invaders', index: 0, sceneKey: 'SpaceInvadersScene', certified: true, keys: ['Space', 'ArrowLeft', 'ArrowRight', 'Space'] },
-  { id: 'cargo', name: 'Cosmic Cargo', index: 1, sceneKey: 'CosmicCargoScene', certified: false, keys: ['ArrowUp', 'ArrowLeft', 'Space'] },
-  { id: 'contra', name: 'Contra Bonus', index: 2, sceneKey: 'ContraScene', certified: false, keys: ['ArrowRight', 'Space', 'KeyX'] },
-  { id: 'asteroids', name: 'Asteroid Belt', index: 3, sceneKey: 'AsteroidsScene', certified: false, keys: ['ArrowUp', 'ArrowLeft', 'Space'] }
+  { id: 'cargo', name: 'Cosmic Cargo', index: 1, sceneKey: 'CosmicCargoScene', certified: true, keys: ['ArrowUp', 'ArrowLeft', 'Space'] },
+  { id: 'contra', name: 'Contra Bonus', index: 2, sceneKey: 'ContraScene', certified: true, keys: ['ArrowRight', 'Space', 'KeyX'] },
+  { id: 'asteroids', name: 'Asteroid Belt', index: 3, sceneKey: 'AsteroidsScene', certified: true, keys: ['ArrowUp', 'ArrowLeft', 'Space'] }
 ];
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));

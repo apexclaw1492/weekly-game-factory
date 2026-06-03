@@ -48,7 +48,7 @@ Acceptance:
 
 ## Epic 2: Shared Mobile Arcade Runtime
 
-### WGF-010: Build Normalized Input Runtime
+### ✅ WGF-010: Build Normalized Input Runtime **(DONE)**
 
 Priority: P0
 

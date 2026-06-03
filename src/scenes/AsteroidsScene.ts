@@ -28,6 +28,13 @@ export class AsteroidsScene extends Phaser.Scene {
   private isInvulnerable = false;
   private invulnTimer = 0;
   private thrustFlame?: Phaser.GameObjects.Graphics;
+  private mobilePointers = new Map<number, { startX: number; startY: number; x: number; y: number; startedAt: number }>();
+  private mobileFireHeld = false;
+  private shotsFired = 0;
+  private asteroidsSplit = 0;
+  private asteroidsDestroyed = 0;
+  private thrustHeldFrames = 0;
+  private safeGestureLifeLosses = 0;
 
   private isGameOver = false;
   private isWaitingToStart = true;
@@ -41,6 +48,7 @@ export class AsteroidsScene extends Phaser.Scene {
   private stateText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
   private backBtn!: Phaser.GameObjects.Text;
+  private backHitZone!: Phaser.GameObjects.Zone;
 
   private starfield!: Phaser.GameObjects.Graphics;
   private stars: Array<{ x: number; y: number; speed: number; alpha: number }> = [];
@@ -63,6 +71,13 @@ export class AsteroidsScene extends Phaser.Scene {
     this.isGameOver = false;
     this.isWaitingToStart = true;
     this.isInvulnerable = false;
+    this.mobilePointers.clear();
+    this.mobileFireHeld = false;
+    this.shotsFired = 0;
+    this.asteroidsSplit = 0;
+    this.asteroidsDestroyed = 0;
+    this.thrustHeldFrames = 0;
+    this.safeGestureLifeLosses = 0;
 
     this.hiScore = parseInt(localStorage.getItem('ast_hi') || '0');
   }
@@ -157,10 +172,18 @@ export class AsteroidsScene extends Phaser.Scene {
       fontStyle: 'bold'
     }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
 
-    this.backBtn.on('pointerdown', () => {
+    this.backHitZone = this.add.zone(width - 92, height - 35, 184, 58)
+      .setOrigin(0.5)
+      .setDepth(1001)
+      .setInteractive({ useHandCursor: true });
+
+    const returnToHub = () => {
       SoundSynth.playTone(400, 0.1, 'sine', 0.05);
       this.scene.start('HubScene');
-    });
+    };
+
+    this.backBtn.on('pointerdown', returnToHub);
+    this.backHitZone.on('pointerdown', returnToHub);
 
     // Handle screen resizing
     this.scale.on('resize', this.handleResize, this);
@@ -177,7 +200,20 @@ export class AsteroidsScene extends Phaser.Scene {
       if (pointer.y < height - 70) {
         if (this.isWaitingToStart) this.startGame();
         else if (this.isGameOver) this.scene.restart();
+        else this.beginMobileGesture(pointer.id, pointer.x, pointer.y);
       }
+    });
+
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      this.moveMobileGesture(pointer.id, pointer.x, pointer.y);
+    });
+
+    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
+      this.endMobileGesture(pointer.id);
+    });
+
+    this.input.on('pointerupoutside', (pointer: Phaser.Input.Pointer) => {
+      this.endMobileGesture(pointer.id);
     });
 
     if (this.input.keyboard) {
@@ -197,6 +233,7 @@ export class AsteroidsScene extends Phaser.Scene {
     this.stateText.setPosition(width / 2, height / 2 - 60);
     this.hintText.setPosition(width / 2, height / 2 + 10);
     this.backBtn.setPosition(width - 20, height - 35);
+    this.backHitZone.setPosition(width - 92, height - 35);
 
     // Update starfield
     this.starfield.clear();
@@ -249,7 +286,10 @@ export class AsteroidsScene extends Phaser.Scene {
 
     // --- CONTROLLER MOVEMENT ---
     let rotateSpeed = 0;
-    if (this.cursors.left.isDown || this.touchControls?.leftPressed) {
+    const primaryTouch = this.mobilePointers.values().next().value as { startX: number; x: number } | undefined;
+    if (primaryTouch) {
+      rotateSpeed = Phaser.Math.Clamp((primaryTouch.x - primaryTouch.startX) / Math.max(90, width * 0.16), -1, 1) * 3.5;
+    } else if (this.cursors.left.isDown || this.touchControls?.leftPressed) {
       rotateSpeed = -3.5;
     } else if (this.cursors.right.isDown || this.touchControls?.rightPressed) {
       rotateSpeed = 3.5;
@@ -257,8 +297,9 @@ export class AsteroidsScene extends Phaser.Scene {
     this.ship.setAngularVelocity(rotateSpeed * 60); // degrees/sec
 
     // Thrust acceleration
-    const isThrusting = this.cursors.up.isDown || this.touchControls?.upPressed;
+    const isThrusting = this.cursors.up.isDown || this.touchControls?.upPressed || this.mobilePointers.size > 0;
     if (isThrusting) {
+      this.thrustHeldFrames++;
       // Calculate acceleration vector from facing angle
       const angleRad = Phaser.Math.DegToRad(this.ship.angle);
       this.ship.setAcceleration(Math.cos(angleRad) * 200, Math.sin(angleRad) * 200);
@@ -286,7 +327,7 @@ export class AsteroidsScene extends Phaser.Scene {
     this.physics.world.wrap(this.bullets, 4);
     this.physics.world.wrap(this.saucerBullets, 4);
 
-    const useAuto = this.touchControls?.autoToggled ?? false;
+    const useAuto = this.mobileFireHeld || (this.touchControls?.autoToggled ?? false);
     if (useAuto && this.frameCount % 8 === 0) {
       this.fireBullet();
     } else if (!useAuto && (this.spaceKey?.isDown || this.touchControls?.bPressed) && this.frameCount % 8 === 0) {
@@ -462,6 +503,7 @@ export class AsteroidsScene extends Phaser.Scene {
       b.setVelocity(Math.cos(angleRad) * 350 + this.ship.body!.velocity.x * 0.5, Math.sin(angleRad) * 350 + this.ship.body!.velocity.y * 0.5);
       b.setData('age', 0);
       SoundSynth.playShoot();
+      this.shotsFired++;
     }
   }
 
@@ -477,6 +519,7 @@ export class AsteroidsScene extends Phaser.Scene {
     
     // Split Asteroid
     this.splitAsteroid(asteroid);
+    this.asteroidsDestroyed++;
 
     // Scoring Combo logic
     this.combo++;
@@ -598,6 +641,7 @@ export class AsteroidsScene extends Phaser.Scene {
     const nextSize = size - 1;
     const r = nextSize === 2 ? 14 : 7;
     SoundSynth.playSplit();
+    this.asteroidsSplit++;
 
     for (let i = 0; i < 2; i++) {
       const asteroid = this.asteroids.create(parent.x, parent.y, `ast-${nextSize}`) as Phaser.Physics.Arcade.Sprite;
@@ -612,6 +656,7 @@ export class AsteroidsScene extends Phaser.Scene {
 
   private hitShip(_shipObj: any, _astObj: any) {
     if (this.isInvulnerable || this.isGameOver) return;
+    if (this.mobilePointers.size > 0) this.safeGestureLifeLosses++;
 
     SoundSynth.playDeath();
     this.cameras.main.shake(150, 0.015);
@@ -656,6 +701,8 @@ export class AsteroidsScene extends Phaser.Scene {
     this.isWaitingToStart = false;
     this.stateText.setVisible(false);
     this.hintText.setVisible(false);
+    this.isInvulnerable = true;
+    this.invulnTimer = 120;
   }
 
   private nextLevel() {
@@ -696,5 +743,75 @@ export class AsteroidsScene extends Phaser.Scene {
 
     this.stateText.setText('💀 GAME OVER').setColor('#ff4444').setVisible(true);
     this.hintText.setText('TAP OR ENTER TO PLAY AGAIN').setVisible(true);
+  }
+
+  public beginExternalPointer(id: number, x: number, y: number) {
+    if (this.isWaitingToStart || this.isGameOver) return;
+    this.beginMobileGesture(id, x, y);
+  }
+
+  public moveExternalPointer(id: number, x: number, y: number) {
+    if (this.isWaitingToStart || this.isGameOver) return;
+    this.moveMobileGesture(id, x, y);
+  }
+
+  public endExternalPointer(id: number) {
+    this.endMobileGesture(id);
+  }
+
+  public getGameplayStateForQA() {
+    const body = this.ship?.body as Phaser.Physics.Arcade.Body | undefined;
+    return {
+      sceneKey: this.scene.key,
+      lifecycle: this.isWaitingToStart ? 'start' : this.isGameOver ? 'gameOver' : 'playing',
+      orientation: this.scale.height >= this.scale.width ? 'portrait' : 'landscape',
+      player: {
+        x: this.ship?.x ?? null,
+        y: this.ship?.y ?? null,
+        vx: body?.velocity.x ?? null,
+        vy: body?.velocity.y ?? null,
+        angle: this.ship?.angle ?? null,
+        speed: body?.speed ?? null,
+        alive: Boolean(this.ship?.visible)
+      },
+      score: this.score,
+      lives: this.lives,
+      primaryActionCount: this.shotsFired,
+      shotsFired: this.shotsFired,
+      asteroidsSplit: this.asteroidsSplit,
+      asteroidsDestroyed: this.asteroidsDestroyed,
+      thrustHeldFrames: this.thrustHeldFrames,
+      safeGestureLifeLosses: this.safeGestureLifeLosses,
+      enemyOrHazardCount: (this.asteroids?.countActive?.(true) ?? 0) + (this.saucers?.countActive?.(true) ?? 0),
+      objectiveProgress: this.score,
+      messages: []
+    };
+  }
+
+  public destroyAsteroidForQA() {
+    if (this.isWaitingToStart || this.isGameOver) return false;
+    const asteroid = this.asteroids.getChildren().find((child) => child.active) as Phaser.Physics.Arcade.Sprite | undefined;
+    if (!asteroid) return false;
+    const bullet = this.bullets.get(asteroid.x, asteroid.y, 'ast-bullet') as Phaser.Physics.Arcade.Image;
+    bullet.setActive(true).setVisible(true);
+    this.hitAsteroid(bullet, asteroid);
+    return true;
+  }
+
+  private beginMobileGesture(id: number, x: number, y: number) {
+    this.mobilePointers.set(id, { startX: x, startY: y, x, y, startedAt: this.time.now });
+    this.mobileFireHeld = true;
+  }
+
+  private moveMobileGesture(id: number, x: number, y: number) {
+    const state = this.mobilePointers.get(id);
+    if (!state) return;
+    state.x = x;
+    state.y = y;
+  }
+
+  private endMobileGesture(id: number) {
+    this.mobilePointers.delete(id);
+    this.mobileFireHeld = this.mobilePointers.size > 0;
   }
 }
