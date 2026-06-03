@@ -89,7 +89,7 @@ Acceptance:
 
 ## Epic 3: F1 Space Invaders Certification
 
-### WGF-020: Convert F1 To Shared Runtime
+### ✅ WGF-020: Convert F1 to Shared Runtime **(DONE)**
 
 Priority: P0
 

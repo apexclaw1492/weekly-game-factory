@@ -1,8 +1,12 @@
 import Phaser from 'phaser';
-import { TouchControls } from '../objects/TouchControls';
+import { GameLifecycle, LifecycleState } from '../runtime/GameLifecycle';
+import { LifecycleManager } from '../runtime/LifecycleManager';
+import { ArcadeInputFrame } from '../runtime/ArcadeInputFrame';
+import { InputRuntime } from '../runtime/InputRuntime';
 import { SoundSynth } from '../utils/SoundSynth';
 
-export class SpaceInvadersScene extends Phaser.Scene {
+export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
+  readonly sceneKey = 'SpaceInvadersScene';
   private player!: Phaser.Physics.Arcade.Sprite;
   private enemies!: Phaser.Physics.Arcade.Group;
   private bullets!: Phaser.Physics.Arcade.Group;
@@ -11,9 +15,8 @@ export class SpaceInvadersScene extends Phaser.Scene {
   private shields!: Phaser.Physics.Arcade.StaticGroup;
   private saucers!: Phaser.Physics.Arcade.Group;
   
-  private touchControls?: TouchControls;
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private spaceKey!: Phaser.Input.Keyboard.Key;
+  public lifecycleManager!: LifecycleManager;
+  public lifecycleState: LifecycleState = 'start';
 
   // Game state
   private level = 1;
@@ -28,9 +31,6 @@ export class SpaceInvadersScene extends Phaser.Scene {
   private lives = 3;
   private nextSaucerTime = 0;
   private highScores: number[] = [];
-  private mobileTouchActive = false;
-  private mobileTargetX = 0;
-  private mobileFireGraceUntil = 0;
 
   // UI
   private scoreText!: Phaser.GameObjects.Text;
@@ -66,9 +66,7 @@ export class SpaceInvadersScene extends Phaser.Scene {
     this.enemyDir = 1;
     this.lives = 3;
     this.nextSaucerTime = 0;
-    this.mobileTouchActive = false;
-    this.mobileTargetX = 0;
-    this.mobileFireGraceUntil = 0;
+    this.lifecycleState = 'start';
     this.isGameOver = false;
     this.isLevelComplete = false;
     this.isWaitingToStart = true;
@@ -168,17 +166,6 @@ export class SpaceInvadersScene extends Phaser.Scene {
     this.physics.add.overlap(this.enemyBullets, this.player, this.hitPlayer, undefined, this);
     this.physics.add.overlap(this.powerUps, this.player, this.collectPowerUp, undefined, this);
 
-    // 6. Controls
-    if (this.input.keyboard) {
-      this.cursors = this.input.keyboard.createCursorKeys();
-      this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    }
-
-    // Load Touch controls for mobile viewports
-    if (this.sys.game.device.input.touch || width < 700 || height < 520) {
-      this.touchControls = new TouchControls(this, 'lr-shoot');
-    }
-
     // 7. UI setup
     this.scoreText = this.add.text(20, 20, 'SCORE: 0', { fontSize: '18px', fontFamily: 'monospace', color: '#ffffff' });
     this.levelText = this.add.text(width - 20, 20, 'LEVEL 1', { fontSize: '18px', fontFamily: 'monospace', color: '#8888a0' }).setOrigin(1, 0);
@@ -215,47 +202,29 @@ export class SpaceInvadersScene extends Phaser.Scene {
       fontFamily: 'monospace',
       color: '#ff4444',
       fontStyle: 'bold'
-    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+    }).setOrigin(1, 0.5);
 
+    // Get runtime from global (set by main.ts)
+    const runtime = (window as any).__WGF_INPUT_RUNTIME as InputRuntime;
+    if (runtime) {
+      runtime.blockHubInputUntil(performance.now() + 100);
+    }
+
+    this.lifecycleManager = new LifecycleManager(this, runtime);
+
+    // Back button
+    this.backBtn.setInteractive({ useHandCursor: true });
     this.backBtn.on('pointerdown', () => {
       SoundSynth.playTone(400, 0.1, 'sine', 0.05);
       this.scene.start('HubScene');
     });
 
+    this.showStart();
+
     // Handle screen resizing
     this.scale.on('resize', this.handleResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off('resize', this.handleResize, this);
-      this.touchControls?.resetPressed();
-    });
-
-    // Start trigger
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (this.touchControls?.isInControlZone(pointer)) return;
-
-      if (this.isWaitingToStart) {
-        this.startGame();
-      } else if (this.isGameOver) {
-        this.scene.restart();
-      } else if (this.isLevelComplete) {
-        this.nextLevel();
-      } else {
-        this.beginMobileTouch(pointer.x);
-      }
-    });
-
-    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      if (!this.isWaitingToStart && !this.isGameOver && !this.isLevelComplete && pointer.isDown) {
-        this.moveMobileTouch(pointer.x);
-      }
-    });
-
-    this.input.on('pointerup', () => {
-      this.endMobileTouch();
-    });
-
-    this.input.on('pointerupoutside', () => {
-      this.endMobileTouch();
     });
   }
 
@@ -276,11 +245,6 @@ export class SpaceInvadersScene extends Phaser.Scene {
       star.x = Math.random() * width;
       star.y = Math.random() * height;
     });
-
-    // Resize touch controls
-    if (this.touchControls) {
-      this.touchControls.resize();
-    }
 
     // Reposition player
     if (this.player) {
@@ -307,25 +271,35 @@ export class SpaceInvadersScene extends Phaser.Scene {
       this.starfield.fillRect(star.x, star.y, 1.5, 1.5);
     });
 
-    if (this.isWaitingToStart || this.isGameOver || this.isLevelComplete) {
-      this.player.setVelocityX(0);
-      return;
-    }
+    // Route through lifecycle manager
+    if (!this.lifecycleManager) return;
+    const state = this.lifecycleManager.update(time);
+    if (state !== 'playing') return;
+
+    // Read input frame
+    const runtime = (window as any).__WGF_INPUT_RUNTIME as InputRuntime;
+    if (!runtime) return;
+    const frame = runtime.readFrame();
 
     // --- PLAYER MOVEMENT ---
     let vx = 0;
-    if (this.mobileTouchActive || this.time.now < this.mobileFireGraceUntil) {
-      const dx = this.mobileTargetX - this.player.x;
-      vx = Math.abs(dx) < 6 ? 0 : Phaser.Math.Clamp(dx * 8, -this.playerSpeed * 1.25, this.playerSpeed * 1.25);
-    } else if (this.cursors.left.isDown || this.touchControls?.leftPressed) {
+    if (frame.actions.left.held) {
       vx = -this.playerSpeed;
-    } else if (this.cursors.right.isDown || this.touchControls?.rightPressed) {
+    } else if (frame.actions.right.held) {
       vx = this.playerSpeed;
+    }
+    // Touch drag fallback
+    if (!frame.actions.left.held && !frame.actions.right.held) {
+      if (frame.gestures.dragVectorX < -0.1) {
+        vx = frame.gestures.dragVectorX * this.playerSpeed;
+      } else if (frame.gestures.dragVectorX > 0.1) {
+        vx = frame.gestures.dragVectorX * this.playerSpeed;
+      }
     }
     this.player.setVelocityX(vx);
 
     // --- PLAYER FIRE ---
-    if (this.spaceKey.isDown || this.touchControls?.aPressed || this.mobileTouchActive || this.time.now < this.mobileFireGraceUntil) {
+    if (frame.actions.fire.held || frame.gestures.hold) {
       this.firePlayerBullet();
     }
 
@@ -436,43 +410,69 @@ export class SpaceInvadersScene extends Phaser.Scene {
     }
   }
 
-  private startGame() {
+  public showStart(): void {
+    this.isWaitingToStart = true;
+    this.lifecycleState = 'start';
+    this.stateText.setVisible(true);
+    this.stateText.setText('F1 SPACE INVADERS').setColor('#00ccff');
+    this.hintText.setVisible(true);
+    this.hintText.setText('TAP OR SPACE TO START\n\nPHONE: DRAG OR TILT TO AIM, HOLD TO FIRE\nDESKTOP: ARROWS + SPACE');
+  }
+
+  public startGameplay(): void {
+    if (this.isLevelComplete) {
+      this.nextLevel();
+      this.lifecycleState = 'playing';
+      return;
+    }
     this.isWaitingToStart = false;
+    this.lifecycleState = 'playing';
     this.stateText.setVisible(false);
     this.hintText.setVisible(false);
-    this.mobileTargetX = this.player.x;
   }
 
-  public beginExternalPointer(_id: number, x: number, _y: number) {
-    if (this.isWaitingToStart || this.isGameOver || this.isLevelComplete) return;
-    this.beginMobileTouch(x);
+  public pauseGameplay(): void {
+    // Not implemented for F1 — no pause mechanic
   }
 
-  public moveExternalPointer(_id: number, x: number, _y: number) {
-    if (this.isWaitingToStart || this.isGameOver || this.isLevelComplete) return;
-    this.moveMobileTouch(x);
+  public resumeGameplay(): void {
+    // Not implemented for F1
   }
 
-  public endExternalPointer() {
-    this.endMobileTouch();
+  public resetGameplay(): void {
+    // Full scene restart via Phaser
+    this.scene.restart();
+  }
+
+  public returnToHub(): void {
+    SoundSynth.playTone(400, 0.1, 'sine', 0.05);
+    this.scene.start('HubScene');
+  }
+
+  public handleArcadeInput(_frame: ArcadeInputFrame): void {
+    // Not using buffered input for F1
+  }
+
+  public destroySceneResources(): void {
+    this.stars = [];
   }
 
   public getGameplayStateForQA() {
     return {
       sceneKey: this.scene.key,
-      lifecycle: this.isWaitingToStart
+      lifecycle: (this.lifecycleState === 'start'
         ? 'start'
         : this.isGameOver
           ? 'gameOver'
           : this.isLevelComplete
             ? 'levelComplete'
-            : 'playing',
-      orientation: this.scale.height >= this.scale.width ? 'portrait' : 'landscape',
+            : 'playing') as any,
+      orientation: (this.scale.height >= this.scale.width ? 'portrait' : 'landscape') as 'portrait' | 'landscape',
       player: {
-        x: this.player?.x ?? null,
-        y: this.player?.y ?? null,
-        vx: this.player?.body?.velocity?.x ?? null,
-        vy: this.player?.body?.velocity?.y ?? null,
+        x: this.player?.x ?? 0,
+        y: this.player?.y ?? 0,
+        vx: this.player?.body?.velocity?.x,
+        vy: this.player?.body?.velocity?.y,
         alive: Boolean(this.player?.active)
       },
       score: this.score,
@@ -483,27 +483,9 @@ export class SpaceInvadersScene extends Phaser.Scene {
     };
   }
 
-  private beginMobileTouch(x: number) {
-    this.mobileTouchActive = true;
-    this.mobileTargetX = Phaser.Math.Clamp(x, 24, this.scale.width - 24);
-    this.mobileFireGraceUntil = this.time.now + 140;
-    this.firePlayerBullet();
-  }
-
-  private moveMobileTouch(x: number) {
-    this.mobileTouchActive = true;
-    this.mobileTargetX = Phaser.Math.Clamp(x, 24, this.scale.width - 24);
-    this.mobileFireGraceUntil = this.time.now + 140;
-  }
-
-  private endMobileTouch() {
-    this.mobileTouchActive = false;
-    this.mobileFireGraceUntil = this.time.now + 140;
-  }
-
   private firePlayerBullet() {
     const timeNow = this.time.now;
-    const isMobileFire = this.mobileTouchActive || this.time.now < this.mobileFireGraceUntil || Boolean(this.touchControls);
+    const isMobileFire = true; // Always allow mobile fire rate/count since we use normalized input
     if (timeNow - this.lastShotTime < (isMobileFire ? 165 : 280)) return;
     if (this.bullets.countActive(true) >= (isMobileFire ? 4 : 1)) return;
     this.lastShotTime = timeNow;
@@ -680,6 +662,7 @@ export class SpaceInvadersScene extends Phaser.Scene {
 
   private levelComplete() {
     this.isLevelComplete = true;
+    this.lifecycleState = 'levelComplete';
     this.stateText.setText('LEVEL COMPLETE!').setColor('#55ff55').setVisible(true);
     this.hintText.setText('TAP OR SPACE FOR NEXT LEVEL').setVisible(true);
 
@@ -705,6 +688,7 @@ export class SpaceInvadersScene extends Phaser.Scene {
   private gameOver() {
     if (this.isGameOver) return;
     this.isGameOver = true;
+    this.lifecycleState = 'gameOver';
 
     SoundSynth.playDeath();
     this.createExplosionParticles(this.player.x, this.player.y, 0xff0000);

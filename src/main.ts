@@ -46,6 +46,22 @@ const config: Phaser.Types.Core.GameConfig = {
 const game = new Phaser.Game(config);
 (window as any).__WGF_GAME__ = game;
 
+(async () => {
+  const canvas = document.querySelector('canvas');
+  if (!canvas) return;
+  const { InputRuntime } = await import('./runtime/InputRuntime');
+  const runtime = new InputRuntime(canvas);
+  (window as any).__WGF_INPUT_RUNTIME = runtime;
+
+  const enableMotion = () => {
+    runtime.requestMotionPermission().catch(() => {});
+    document.removeEventListener('pointerdown', enableMotion);
+    document.removeEventListener('touchstart', enableMotion);
+  };
+  document.addEventListener('pointerdown', enableMotion);
+  document.addEventListener('touchstart', enableMotion);
+})();
+
 let hubCardInputBlockedUntil = 0;
 
 function setHubCardInputBlockedUntil(time: number) {
