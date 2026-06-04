@@ -1,6 +1,9 @@
 import Phaser from 'phaser';
-import { TouchControls } from '../objects/TouchControls';
 import { SoundSynth } from '../utils/SoundSynth';
+import { GameLifecycle, LifecycleState } from "../runtime/GameLifecycle";
+import { LifecycleManager } from "../runtime/LifecycleManager";
+import { ArcadeInputFrame, GameplayQAState } from "../runtime/ArcadeInputFrame";
+import { InputRuntime } from "../runtime/InputRuntime";
 
 interface EnemySpawn {
   tx: number;
@@ -9,7 +12,11 @@ interface EnemySpawn {
   triggered: boolean;
 }
 
-export class ContraScene extends Phaser.Scene {
+export class ContraScene extends Phaser.Scene implements GameLifecycle {
+  readonly sceneKey = "ContraScene";
+  private lifecycleManager!: LifecycleManager;
+  public lifecycleState: LifecycleState = "start";
+
   private player!: Phaser.Physics.Arcade.Sprite;
   private platforms!: Phaser.Physics.Arcade.StaticGroup;
   private bullets!: Phaser.Physics.Arcade.Group;
@@ -30,12 +37,6 @@ export class ContraScene extends Phaser.Scene {
   private bossDir = -1;
   private bossFlashFrames = 0;
 
-  // Controllers
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private fireKey!: Phaser.Input.Keyboard.Key;
-  private jumpKey!: Phaser.Input.Keyboard.Key;
-  private touchControls?: TouchControls;
-
   // Game state
   private lives = 3;
   private score = 0;
@@ -44,13 +45,7 @@ export class ContraScene extends Phaser.Scene {
   private invulnerabilityFrames = 0;
   private isGameOver = false;
   private isVictory = false;
-  private isWaitingToStart = true;
   private faceDirection = 1; // 1 = right, -1 = left
-  private wasTouchJumpPressed = false;
-  private mobilePointers = new Map<number, { startX: number; startY: number; x: number; y: number; startedAt: number }>();
-  private mobileTargetWorldX = 80;
-  private mobileFireHeld = false;
-  private mobileJumpPulseUntil = 0;
   private shotsFired = 0;
   private jumpsTriggered = 0;
   private enemiesDamaged = 0;
@@ -88,19 +83,14 @@ export class ContraScene extends Phaser.Scene {
     this.invulnerabilityFrames = 0;
     this.isGameOver = false;
     this.isVictory = false;
-    this.isWaitingToStart = true;
     this.faceDirection = 1;
-    this.wasTouchJumpPressed = false;
-    this.mobilePointers.clear();
-    this.mobileTargetWorldX = 80;
-    this.mobileFireHeld = false;
-    this.mobileJumpPulseUntil = 0;
     this.shotsFired = 0;
     this.jumpsTriggered = 0;
     this.enemiesDamaged = 0;
     this.bossActive = false;
     this.bossDefeated = false;
     this.bossHp = 35;
+    this.lifecycleState = "start";
 
     // Set spawn coordinates (multiply original scale triggers by 1.25 for Phaser scale)
     const rawWaves = [
@@ -176,17 +166,6 @@ export class ContraScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player, true, 0.1, 0, -100, 60);
     this.applyCameraLayout();
 
-    // 6. Controllers
-    if (this.input.keyboard) {
-      this.cursors = this.input.keyboard.createCursorKeys();
-      this.fireKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-      this.jumpKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.X);
-    }
-
-    if (this.sys.game.device.input.touch || width < 700 || height < 520) {
-      this.touchControls = new TouchControls(this, 'dpad-ab');
-    }
-
     // 7. Dynamic Static capsule items
     // Generate capsule texture first
     if (!this.textures.exists('capsule')) {
@@ -234,47 +213,26 @@ export class ContraScene extends Phaser.Scene {
       fontFamily: 'monospace',
       color: '#ff4444',
       fontStyle: 'bold'
-    }).setOrigin(1, 0.5).setScrollFactor(0).setInteractive({ useHandCursor: true });
+    }).setOrigin(1, 0.5).setScrollFactor(0);
 
     this.backHitZone = this.add.zone(width - 92, height - 35, 184, 58)
       .setOrigin(0.5)
       .setScrollFactor(0)
-      .setDepth(1001)
-      .setInteractive({ useHandCursor: true });
+      .setDepth(1001);
 
-    const returnToHub = () => {
-      SoundSynth.playTone(400, 0.1, 'sine', 0.05);
-      this.scene.start('HubScene');
-    };
-
-    this.backBtn.on('pointerdown', returnToHub);
-    this.backHitZone.on('pointerdown', returnToHub);
+    const runtime = (window as any).__WGF_INPUT_RUNTIME as InputRuntime;
+    if (runtime) runtime.blockHubInputUntil(performance.now() + 100);
+    this.lifecycleManager = new LifecycleManager(this, runtime);
+    this.backBtn.setInteractive({ useHandCursor: true });
+    this.backBtn.on("pointerdown", () => { SoundSynth.playTone(400, 0.1, "sine", 0.05); this.scene.start("HubScene"); });
+    this.backHitZone.setInteractive({ useHandCursor: true });
+    this.backHitZone.on("pointerdown", () => { SoundSynth.playTone(400, 0.1, "sine", 0.05); this.scene.start("HubScene"); });
+    this.showStart();
 
     // Handle screen resizing
     this.scale.on('resize', this.handleResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off('resize', this.handleResize, this);
-      this.touchControls?.resetPressed();
-    });
-
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (this.touchControls?.isInControlZone(pointer)) return;
-
-      if (this.isWaitingToStart) this.startGame();
-      else if (this.isGameOver || this.isVictory) this.scene.restart();
-      else this.beginMobileGesture(pointer.id, pointer.x, pointer.y);
-    });
-
-    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      this.moveMobileGesture(pointer.id, pointer.x, pointer.y);
-    });
-
-    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      this.endMobileGesture(pointer.id, pointer.x, pointer.y);
-    });
-
-    this.input.on('pointerupoutside', (pointer: Phaser.Input.Pointer) => {
-      this.endMobileGesture(pointer.id, pointer.x, pointer.y);
     });
   }
 
@@ -298,15 +256,14 @@ export class ContraScene extends Phaser.Scene {
       star.x = Math.random() * width;
       star.y = Math.random() * (height - 200);
     });
-
-    // Resize touch controls
-    if (this.touchControls) {
-      this.touchControls.resize();
-    }
   }
 
   update(time: number) {
     const { width, height } = this.scale;
+    const runtime = (window as any).__WGF_INPUT_RUNTIME as InputRuntime;
+    if (!runtime) return;
+
+    this.lifecycleManager.update(time);
 
     // Background Stars movement
     this.starfield.clear();
@@ -317,10 +274,12 @@ export class ContraScene extends Phaser.Scene {
       this.starfield.fillRect(sx < 0 ? sx + width : sx, star.y, 1.5, 1.5);
     });
 
-    if (this.isWaitingToStart || this.isGameOver || this.isVictory) {
+    if (this.lifecycleState !== 'playing') {
       this.player.setVelocityX(0);
       return;
     }
+
+    const frame = runtime.readFrame();
 
     // Decay invulnerability frames
     if (this.invulnerabilityFrames > 0) {
@@ -355,31 +314,19 @@ export class ContraScene extends Phaser.Scene {
     // --- PLAYER CONTROLS ---
     let vx = 0;
     const isGnd = this.player.body!.blocked.down || this.player.body!.touching.down;
-    const mobileActive = this.mobilePointers.size > 0;
-    const aimingDown = this.cursors.down.isDown || this.touchControls?.downPressed;
+    const aimingDown = frame.actions.down.held || (frame.gestures.dragVectorY > 0.2);
 
     // Left/Right
     if (aimingDown && isGnd) {
       vx = 0;
       this.player.stop();
       this.player.setTexture('player-stand');
-    } else if (mobileActive) {
-      const dx = this.mobileTargetWorldX - this.player.x;
-      vx = Math.abs(dx) < 8 ? 0 : Phaser.Math.Clamp(dx * 5, -190, 190);
-      if (vx < 0) {
-        this.faceDirection = -1;
-        this.player.setFlipX(true);
-      } else if (vx > 0) {
-        this.faceDirection = 1;
-        this.player.setFlipX(false);
-      }
-      if (isGnd && vx !== 0) this.player.play('run', true);
-    } else if (this.cursors.left.isDown || this.touchControls?.leftPressed) {
+    } else if (frame.actions.left.held) {
       vx = -180;
       this.faceDirection = -1;
       this.player.setFlipX(true);
       if (isGnd) this.player.play('run', true);
-    } else if (this.cursors.right.isDown || this.touchControls?.rightPressed) {
+    } else if (frame.actions.right.held) {
       vx = 180;
       this.faceDirection = 1;
       this.player.setFlipX(false);
@@ -392,11 +339,8 @@ export class ContraScene extends Phaser.Scene {
     this.player.setVelocityX(vx);
 
     // Jump
-    const touchJumpPressed = (this.touchControls?.aPressed ?? false) || this.time.now < this.mobileJumpPulseUntil;
-    const justTouchJump = touchJumpPressed && !this.wasTouchJumpPressed;
-    this.wasTouchJumpPressed = touchJumpPressed;
-    const justJump = Phaser.Input.Keyboard.JustDown(this.jumpKey) || justTouchJump;
-    if (justJump && (isGnd || justTouchJump)) {
+    const justJump = frame.actions.jump.justPressed || frame.gestures.swipeUp;
+    if (justJump && isGnd) {
       this.player.setVelocityY(-350);
       this.player.setTexture('player-jump');
       SoundSynth.playTone(350, 0.08, 'sine', 0.03);
@@ -409,7 +353,8 @@ export class ContraScene extends Phaser.Scene {
 
     // Aim calculations
     let aim = 0; // 0 = straight, -1 = diagonal up, -2 = up, 1 = diagonal down, 2 = down
-    if (this.cursors.up.isDown || this.touchControls?.upPressed) {
+    const aimingUp = frame.actions.up.held || (frame.gestures.dragVectorY < -0.2);
+    if (aimingUp) {
       aim = (vx !== 0) ? -1 : -2;
     } else if (aimingDown) {
       aim = (!isGnd && vx !== 0) ? 1 : !isGnd ? 2 : 0;
@@ -418,7 +363,7 @@ export class ContraScene extends Phaser.Scene {
     // Shoot
     if (this.fireCooldown > 0) this.fireCooldown--;
 
-    const isFiring = this.fireKey.isDown || this.touchControls?.bPressed || this.mobileFireHeld || (this.touchControls?.autoToggled && time % 12 < 4);
+    const isFiring = frame.actions.fire.held;
     if (isFiring && this.fireCooldown === 0) {
       this.fireWeapon(aim);
     }
@@ -525,10 +470,33 @@ export class ContraScene extends Phaser.Scene {
     });
   }
 
-  private startGame() {
-    this.isWaitingToStart = false;
+  showStart(): void {
+    this.lifecycleState = "start";
+    this.stateText.setText('CONTRA MISSION').setVisible(true);
+    this.hintText.setVisible(true);
+  }
+
+  startGameplay(): void {
+    this.lifecycleState = "playing";
     this.stateText.setVisible(false);
     this.hintText.setVisible(false);
+  }
+
+  pauseGameplay(): void {
+    this.lifecycleState = "paused";
+  }
+
+  resumeGameplay(): void {
+    this.lifecycleState = "playing";
+  }
+
+  resetGameplay(): void {
+    this.scene.restart();
+  }
+
+  returnToHub(): void {
+    SoundSynth.playTone(400, 0.1, "sine", 0.05);
+    this.scene.start("HubScene");
   }
 
   private applyCameraLayout() {
@@ -949,6 +917,7 @@ export class ContraScene extends Phaser.Scene {
 
   private gameOver() {
     this.isGameOver = true;
+    this.lifecycleState = "gameOver";
     this.player.setVisible(false);
     this.stateText.setText('MISSION FAILED').setColor('#ff3333').setVisible(true);
     this.hintText.setText('TAP TO RETRY').setVisible(true);
@@ -981,6 +950,7 @@ export class ContraScene extends Phaser.Scene {
     this.bossDefeated = true;
     this.bossActive = false;
     this.isVictory = true;
+    this.lifecycleState = "levelComplete";
 
     // Clear hp elements
     this.bossHpBar.clear();
@@ -1011,25 +981,11 @@ export class ContraScene extends Phaser.Scene {
     });
   }
 
-  public beginExternalPointer(id: number, x: number, y: number) {
-    if (this.isWaitingToStart || this.isGameOver || this.isVictory) return;
-    this.beginMobileGesture(id, x, y);
-  }
-
-  public moveExternalPointer(id: number, x: number, y: number) {
-    if (this.isWaitingToStart || this.isGameOver || this.isVictory) return;
-    this.moveMobileGesture(id, x, y);
-  }
-
-  public endExternalPointer(id: number, x: number, y: number) {
-    this.endMobileGesture(id, x, y);
-  }
-
-  public getGameplayStateForQA() {
+  public getGameplayStateForQA(): GameplayQAState {
     const body = this.player?.body as Phaser.Physics.Arcade.Body | undefined;
     return {
       sceneKey: this.scene.key,
-      lifecycle: this.isWaitingToStart
+      lifecycle: this.lifecycleState === 'start'
         ? 'start'
         : this.isGameOver
           ? 'gameOver'
@@ -1038,20 +994,15 @@ export class ContraScene extends Phaser.Scene {
             : 'playing',
       orientation: this.scale.height >= this.scale.width ? 'portrait' : 'landscape',
       player: {
-        x: this.player?.x ?? null,
-        y: this.player?.y ?? null,
-        vx: body?.velocity.x ?? null,
-        vy: body?.velocity.y ?? null,
+        x: this.player?.x ?? 0,
+        y: this.player?.y ?? 0,
+        vx: body?.velocity.x ?? 0,
+        vy: body?.velocity.y ?? 0,
         alive: Boolean(this.player?.visible),
-        grounded: Boolean(body?.blocked.down || body?.touching.down)
       },
       score: this.score,
       lives: this.lives,
-      weapon: this.weapon,
       primaryActionCount: this.shotsFired,
-      shotsFired: this.shotsFired,
-      jumpsTriggered: this.jumpsTriggered,
-      enemiesDamaged: this.enemiesDamaged,
       enemyOrHazardCount: this.enemies?.countActive?.(true) ?? 0,
       objectiveProgress: Math.min(1, this.player ? this.player.x / this.levelWidth : 0),
       messages: []
@@ -1059,7 +1010,7 @@ export class ContraScene extends Phaser.Scene {
   }
 
   public damageEnemyForQA() {
-    if (this.isWaitingToStart || this.isGameOver || this.isVictory) return false;
+    if (this.lifecycleState !== 'playing') return false;
     const enemy = this.enemies.create(this.player.x + 120, this.player.y, 'enemy-sol') as Phaser.Physics.Arcade.Sprite;
     enemy.setData('type', 'sol');
     enemy.setData('hp', 1);
@@ -1068,34 +1019,11 @@ export class ContraScene extends Phaser.Scene {
     return true;
   }
 
-  private screenXToWorld(x: number) {
-    return this.cameras.main.scrollX + x / this.cameras.main.zoom;
+  handleArcadeInput(_frame: ArcadeInputFrame): void {
+    // Already handled in update via window runtime
   }
 
-  private beginMobileGesture(id: number, x: number, y: number) {
-    this.mobilePointers.set(id, { startX: x, startY: y, x, y, startedAt: this.time.now });
-    this.mobileTargetWorldX = this.screenXToWorld(x);
-    this.mobileFireHeld = true;
-  }
-
-  private moveMobileGesture(id: number, x: number, y: number) {
-    const state = this.mobilePointers.get(id);
-    if (!state) return;
-    state.x = x;
-    state.y = y;
-    this.mobileTargetWorldX = this.screenXToWorld(x);
-  }
-
-  private endMobileGesture(id: number, _x: number, y: number) {
-    const state = this.mobilePointers.get(id);
-    if (state) {
-      const dy = y - state.startY;
-      const dt = this.time.now - state.startedAt;
-      if (dy < -42 && dt < 520) {
-        this.mobileJumpPulseUntil = this.time.now + 140;
-      }
-    }
-    this.mobilePointers.delete(id);
-    this.mobileFireHeld = this.mobilePointers.size > 0;
+  destroySceneResources(): void {
+    this.stars = [];
   }
 }

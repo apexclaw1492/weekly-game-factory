@@ -8,12 +8,16 @@ Last updated: June 3, 2026
 |-------|--------|--------|
 | Epic 2: Shared Runtime | **WGF-010 — Input Types** (ArcadeInputFrame.ts) | ✅ Done |
 | Epic 2: Shared Runtime | **WGF-010 — Input Runtime** (InputRuntime.ts) | ✅ Done |
-| Epic 2: Shared Runtime | **WGF-010 — Integration with main.ts** | ❌ Not started |
+| Epic 2: Shared Runtime | **WGF-010 — Integration with main.ts** (rewritten, old handlers removed) | ✅ Done |
 | Epic 2: Shared Runtime | **WGF-011 — Scene Lifecycle Contract** (GameLifecycle.ts + LifecycleManager.ts) | ✅ Done |
 | Epic 2: Shared Runtime | **WGF-012 — Viewport Layout Service** (ViewportLayoutService.ts) | ✅ Done |
 | Epic 3: F1 Conversion | **WGF-020 — Convert F1 to Shared Runtime** (refactored SpaceInvadersScene) | ✅ Done |
 | Epic 3: F1 | **WGF-022 — F1 Touch Certification Test** | ❌ Not started |
-| Epic 4-6 | Cargo, Contra, Asteroids rebuilds | ❌ Blocked by Epic 2 |
+| Epic 4: Cosmic Cargo | **Conversion to shared runtime** | ✅ Done |
+| Epic 5: Contra Bonus | **Conversion to shared runtime** | ✅ Done |
+| Epic 6: Asteroid Belt | **Conversion to shared runtime** | ✅ Done |
+| All | **TouchControls.ts deleted** (no longer needed) | ✅ Done |
+| All | **main.ts old raw handlers removed** (InputRuntime only) | ✅ Done |
 
 ## Game Status
 

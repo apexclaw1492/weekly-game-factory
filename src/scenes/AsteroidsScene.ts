@@ -1,18 +1,20 @@
 import Phaser from 'phaser';
-import { TouchControls } from '../objects/TouchControls';
 import { SoundSynth } from '../utils/SoundSynth';
+import { GameLifecycle, LifecycleState } from "../runtime/GameLifecycle";
+import { LifecycleManager } from "../runtime/LifecycleManager";
+import { ArcadeInputFrame } from "../runtime/ArcadeInputFrame";
+import { InputRuntime } from "../runtime/InputRuntime";
 
-export class AsteroidsScene extends Phaser.Scene {
+export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
+  readonly sceneKey = "AsteroidsScene";
   private ship!: Phaser.Physics.Arcade.Sprite;
   private asteroids!: Phaser.Physics.Arcade.Group;
   private bullets!: Phaser.Physics.Arcade.Group;
   private saucers!: Phaser.Physics.Arcade.Group;
   private saucerBullets!: Phaser.Physics.Arcade.Group;
   
-  private touchControls?: TouchControls;
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private spaceKey!: Phaser.Input.Keyboard.Key;
-  private hyperspaceKey!: Phaser.Input.Keyboard.Key;
+  private lifecycleManager!: LifecycleManager;
+  public lifecycleState: LifecycleState = "start";
 
   // Game state
   private score = 0;
@@ -28,8 +30,6 @@ export class AsteroidsScene extends Phaser.Scene {
   private isInvulnerable = false;
   private invulnTimer = 0;
   private thrustFlame?: Phaser.GameObjects.Graphics;
-  private mobilePointers = new Map<number, { startX: number; startY: number; x: number; y: number; startedAt: number }>();
-  private mobileFireHeld = false;
   private shotsFired = 0;
   private asteroidsSplit = 0;
   private asteroidsDestroyed = 0;
@@ -70,9 +70,8 @@ export class AsteroidsScene extends Phaser.Scene {
     this.frameCount = 0;
     this.isGameOver = false;
     this.isWaitingToStart = true;
+    this.lifecycleState = "start";
     this.isInvulnerable = false;
-    this.mobilePointers.clear();
-    this.mobileFireHeld = false;
     this.shotsFired = 0;
     this.asteroidsSplit = 0;
     this.asteroidsDestroyed = 0;
@@ -129,16 +128,13 @@ export class AsteroidsScene extends Phaser.Scene {
     this.physics.add.overlap(this.ship, this.saucers, this.hitShip, undefined, this);
     this.physics.add.overlap(this.ship, this.saucerBullets, this.hitShip, undefined, this);
 
-    // 6. Controllers
-    if (this.input.keyboard) {
-      this.cursors = this.input.keyboard.createCursorKeys();
-      this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-      this.hyperspaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.H);
+    // 6. Shared Input Runtime
+    const runtime = (window as any).__WGF_INPUT_RUNTIME as InputRuntime;
+    if (runtime) {
+      runtime.blockHubInputUntil(performance.now() + 100);
     }
-
-    if (this.sys.game.device.input.touch || width < 700 || height < 520) {
-      this.touchControls = new TouchControls(this, 'lr-thrust', true);
-    }
+    this.lifecycleManager = new LifecycleManager(this, runtime);
+    this.showStart();
 
     // 7. HUD setup
     this.scoreText = this.add.text(20, 20, 'SCORE: 0', { fontSize: '16px', fontFamily: 'monospace', color: '#00ccff' });
@@ -157,7 +153,7 @@ export class AsteroidsScene extends Phaser.Scene {
     }).setOrigin(0.5);
     this.stateText.setShadow(0, 0, '#00ccff', 10, true, true);
 
-    this.hintText = this.add.text(width / 2, height / 2 + 10, 'PHONE: TILT OR DRAG TO STEER\nSWIPE UP TO THRUST, TWO FINGERS TO BURST FIRE\nDESKTOP: ARROWS + SPACE\n\nTAP OR ENTER TO START', {
+    this.hintText = this.add.text(width / 2, height / 2 + 10, '', {
       fontSize: '13px',
       fontFamily: 'monospace',
       color: '#8888a0',
@@ -177,51 +173,16 @@ export class AsteroidsScene extends Phaser.Scene {
       .setDepth(1001)
       .setInteractive({ useHandCursor: true });
 
-    const returnToHub = () => {
-      SoundSynth.playTone(400, 0.1, 'sine', 0.05);
-      this.scene.start('HubScene');
-    };
-
-    this.backBtn.on('pointerdown', returnToHub);
-    this.backHitZone.on('pointerdown', returnToHub);
+    this.backBtn.on("pointerdown", () => {
+      SoundSynth.playTone(400, 0.1, "sine", 0.05);
+      this.scene.start("HubScene");
+    });
 
     // Handle screen resizing
     this.scale.on('resize', this.handleResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off('resize', this.handleResize, this);
-      this.touchControls?.resetPressed();
-      this.input.keyboard?.off('keydown-ENTER');
     });
-
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (this.touchControls?.isInControlZone(pointer)) return;
-
-      const { height } = this.scale;
-      if (pointer.y < height - 70) {
-        if (this.isWaitingToStart) this.startGame();
-        else if (this.isGameOver) this.scene.restart();
-        else this.beginMobileGesture(pointer.id, pointer.x, pointer.y);
-      }
-    });
-
-    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      this.moveMobileGesture(pointer.id, pointer.x, pointer.y);
-    });
-
-    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      this.endMobileGesture(pointer.id);
-    });
-
-    this.input.on('pointerupoutside', (pointer: Phaser.Input.Pointer) => {
-      this.endMobileGesture(pointer.id);
-    });
-
-    if (this.input.keyboard) {
-      this.input.keyboard.on('keydown-ENTER', () => {
-        if (this.isWaitingToStart) this.startGame();
-        else if (this.isGameOver) this.scene.restart();
-      });
-    }
   }
 
   private handleResize() {
@@ -241,11 +202,6 @@ export class AsteroidsScene extends Phaser.Scene {
       star.x = Math.random() * width;
       star.y = Math.random() * height;
     });
-
-    // Resize touch controls
-    if (this.touchControls) {
-      this.touchControls.resize();
-    }
 
     // Center ship if waiting to start
     if (this.isWaitingToStart && this.ship) {
@@ -269,7 +225,10 @@ export class AsteroidsScene extends Phaser.Scene {
       this.starfield.fillRect(star.x, star.y, 1.5, 1.5);
     });
 
-    if (this.isWaitingToStart || this.isGameOver) {
+    // Route through lifecycle manager
+    if (!this.lifecycleManager) return;
+    const state = this.lifecycleManager.update(performance.now());
+    if (state !== "playing") {
       this.ship.setVelocity(0, 0);
       return;
     }
@@ -284,27 +243,30 @@ export class AsteroidsScene extends Phaser.Scene {
       }
     }
 
+    // Read input frame
+    const runtime = (window as any).__WGF_INPUT_RUNTIME as InputRuntime;
+    if (!runtime) return;
+    const frame = runtime.readFrame();
+
     // --- CONTROLLER MOVEMENT ---
     let rotateSpeed = 0;
-    const primaryTouch = this.mobilePointers.values().next().value as { startX: number; x: number } | undefined;
-    if (primaryTouch) {
-      rotateSpeed = Phaser.Math.Clamp((primaryTouch.x - primaryTouch.startX) / Math.max(90, width * 0.16), -1, 1) * 3.5;
-    } else if (this.cursors.left.isDown || this.touchControls?.leftPressed) {
+    if (frame.gestures.dragVectorX < -0.1) {
+      rotateSpeed = Math.max(-1, frame.gestures.dragVectorX) * 3.5;
+    } else if (frame.gestures.dragVectorX > 0.1) {
+      rotateSpeed = Math.min(1, frame.gestures.dragVectorX) * 3.5;
+    } else if (frame.actions.left.held) {
       rotateSpeed = -3.5;
-    } else if (this.cursors.right.isDown || this.touchControls?.rightPressed) {
+    } else if (frame.actions.right.held) {
       rotateSpeed = 3.5;
     }
-    this.ship.setAngularVelocity(rotateSpeed * 60); // degrees/sec
+    this.ship.setAngularVelocity(rotateSpeed * 60);
 
     // Thrust acceleration
-    const isThrusting = this.cursors.up.isDown || this.touchControls?.upPressed || this.mobilePointers.size > 0;
+    const isThrusting = frame.actions.thrust.held || frame.actions.up.held;
     if (isThrusting) {
       this.thrustHeldFrames++;
-      // Calculate acceleration vector from facing angle
       const angleRad = Phaser.Math.DegToRad(this.ship.angle);
       this.ship.setAcceleration(Math.cos(angleRad) * 200, Math.sin(angleRad) * 200);
-
-      // Render flame behind ship
       this.drawThrustFlame(angleRad);
       SoundSynth.playThrust();
     } else {
@@ -312,7 +274,7 @@ export class AsteroidsScene extends Phaser.Scene {
       this.thrustFlame?.clear().setVisible(false);
     }
 
-    // Limit ship max velocity
+    // Limit ship max velocity (same logic)
     const body = this.ship.body as Phaser.Physics.Arcade.Body;
     const speed = body.speed;
     const maxSpd = 200 + this.level * 8;
@@ -320,24 +282,27 @@ export class AsteroidsScene extends Phaser.Scene {
       this.ship.setVelocity(body.velocity.x / speed * maxSpd, body.velocity.y / speed * maxSpd);
     }
 
-    // Screen Boundary Wrapping
+    // Screen Boundary Wrapping (same)
     this.physics.world.wrap(this.ship, 12);
     this.physics.world.wrap(this.asteroids, 24);
     this.physics.world.wrap(this.saucers, 32);
     this.physics.world.wrap(this.bullets, 4);
     this.physics.world.wrap(this.saucerBullets, 4);
 
-    const useAuto = this.mobileFireHeld || (this.touchControls?.autoToggled ?? false);
-    if (useAuto && this.frameCount % 8 === 0) {
+    // FIRE — use frame actions
+    const autoFire = frame.actions.fire.held || frame.actions.thrust.held;
+    if (autoFire && this.frameCount % 8 === 0) {
       this.fireBullet();
-    } else if (!useAuto && (this.spaceKey?.isDown || this.touchControls?.bPressed) && this.frameCount % 8 === 0) {
+    } else if (frame.actions.fire.justPressed && this.frameCount % 8 === 0) {
       this.fireBullet();
     }
 
-    if (this.hyperspaceKey && Phaser.Input.Keyboard.JustDown(this.hyperspaceKey)) {
+    // Hyperspace
+    if (frame.actions.hyperspace.justPressed) {
       this.useHyperspace();
     }
 
+    // Same saucer logic
     if (this.time.now > this.nextSaucerTime) {
       this.spawnSaucer();
       this.scheduleSaucer();
@@ -345,25 +310,21 @@ export class AsteroidsScene extends Phaser.Scene {
 
     this.updateSaucers();
 
-    // Clean bullets after range threshold (equivalent to original frame count range)
+    // Same bullet cleanup
     this.bullets.getChildren().forEach(bullet => {
       const b = bullet as Phaser.Physics.Arcade.Image;
-      const age = b.getData('age') as number;
-      b.setData('age', age + 1);
-      if (age > 45) {
-        b.destroy();
-      }
+      const age = b.getData("age") as number;
+      b.setData("age", age + 1);
+      if (age > 45) b.destroy();
     });
     this.saucerBullets.getChildren().forEach(bullet => {
       const b = bullet as Phaser.Physics.Arcade.Image;
-      const age = b.getData('age') as number;
-      b.setData('age', age + 1);
-      if (age > 90) {
-        b.destroy();
-      }
+      const age = b.getData("age") as number;
+      b.setData("age", age + 1);
+      if (age > 90) b.destroy();
     });
 
-    // Level complete trigger
+    // Level complete
     if (this.asteroids.countActive() === 0) {
       this.nextLevel();
     }
@@ -656,7 +617,6 @@ export class AsteroidsScene extends Phaser.Scene {
 
   private hitShip(_shipObj: any, _astObj: any) {
     if (this.isInvulnerable || this.isGameOver) return;
-    if (this.mobilePointers.size > 0) this.safeGestureLifeLosses++;
 
     SoundSynth.playDeath();
     this.cameras.main.shake(150, 0.015);
@@ -697,12 +657,45 @@ export class AsteroidsScene extends Phaser.Scene {
     this.time.delayedCall(600, () => particles.destroy());
   }
 
-  private startGame() {
+  showStart(): void {
+    this.isWaitingToStart = true;
+    this.lifecycleState = "start";
+    this.stateText.setVisible(true);
+    this.stateText.setText("ASTEROID BELT").setColor("#00ccff");
+    this.hintText.setVisible(true);
+    this.hintText.setText("TAP TO START\n\nPHONE: TILT OR DRAG TO STEER, HOLD TO THRUST\nDESKTOP: ARROWS + SPACE");
+    if (this.ship) {
+      this.ship.setVisible(true);
+      this.ship.setPosition(this.scale.width / 2, this.scale.height / 2 - 20);
+    }
+  }
+
+  startGameplay(): void {
     this.isWaitingToStart = false;
+    this.lifecycleState = "playing";
     this.stateText.setVisible(false);
     this.hintText.setVisible(false);
     this.isInvulnerable = true;
     this.invulnTimer = 120;
+  }
+
+  pauseGameplay(): void {}
+
+  resumeGameplay(): void {}
+
+  resetGameplay(): void {
+    this.scene.restart();
+  }
+
+  returnToHub(): void {
+    SoundSynth.playTone(400, 0.1, "sine", 0.05);
+    this.scene.start("HubScene");
+  }
+
+  handleArcadeInput(_frame: ArcadeInputFrame): void {}
+
+  destroySceneResources(): void {
+    this.stars = [];
   }
 
   private nextLevel() {
@@ -732,6 +725,7 @@ export class AsteroidsScene extends Phaser.Scene {
 
   private gameOver() {
     this.isGameOver = true;
+    this.lifecycleState = "gameOver";
     this.ship.setVisible(false);
     
     // Save high score
@@ -745,33 +739,23 @@ export class AsteroidsScene extends Phaser.Scene {
     this.hintText.setText('TAP OR ENTER TO PLAY AGAIN').setVisible(true);
   }
 
-  public beginExternalPointer(id: number, x: number, y: number) {
-    if (this.isWaitingToStart || this.isGameOver) return;
-    this.beginMobileGesture(id, x, y);
-  }
-
-  public moveExternalPointer(id: number, x: number, y: number) {
-    if (this.isWaitingToStart || this.isGameOver) return;
-    this.moveMobileGesture(id, x, y);
-  }
-
-  public endExternalPointer(id: number) {
-    this.endMobileGesture(id);
-  }
-
   public getGameplayStateForQA() {
     const body = this.ship?.body as Phaser.Physics.Arcade.Body | undefined;
     return {
       sceneKey: this.scene.key,
-      lifecycle: this.isWaitingToStart ? 'start' : this.isGameOver ? 'gameOver' : 'playing',
-      orientation: this.scale.height >= this.scale.width ? 'portrait' : 'landscape',
+      lifecycle: (this.lifecycleState === "start"
+        ? "start"
+        : this.isGameOver
+          ? "gameOver"
+          : "playing") as any,
+      orientation: (this.scale.height >= this.scale.width ? 'portrait' : 'landscape') as "portrait" | "landscape",
       player: {
-        x: this.ship?.x ?? null,
-        y: this.ship?.y ?? null,
-        vx: body?.velocity.x ?? null,
-        vy: body?.velocity.y ?? null,
-        angle: this.ship?.angle ?? null,
-        speed: body?.speed ?? null,
+        x: this.ship?.x ?? undefined,
+        y: this.ship?.y ?? undefined,
+        vx: body?.velocity.x ?? undefined,
+        vy: body?.velocity.y ?? undefined,
+        angle: this.ship?.angle ?? undefined,
+        speed: body?.speed ?? undefined,
         alive: Boolean(this.ship?.visible)
       },
       score: this.score,
@@ -796,22 +780,5 @@ export class AsteroidsScene extends Phaser.Scene {
     bullet.setActive(true).setVisible(true);
     this.hitAsteroid(bullet, asteroid);
     return true;
-  }
-
-  private beginMobileGesture(id: number, x: number, y: number) {
-    this.mobilePointers.set(id, { startX: x, startY: y, x, y, startedAt: this.time.now });
-    this.mobileFireHeld = true;
-  }
-
-  private moveMobileGesture(id: number, x: number, y: number) {
-    const state = this.mobilePointers.get(id);
-    if (!state) return;
-    state.x = x;
-    state.y = y;
-  }
-
-  private endMobileGesture(id: number) {
-    this.mobilePointers.delete(id);
-    this.mobileFireHeld = this.mobilePointers.size > 0;
   }
 }

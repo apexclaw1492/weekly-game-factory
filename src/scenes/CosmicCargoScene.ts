@@ -1,7 +1,9 @@
 import Phaser from 'phaser';
 import { SoundSynth } from '../utils/SoundSynth';
-import { getMobileLayout } from '../utils/MobileLayout';
-import { getTiltIntent, pulseHaptic } from '../utils/MobileHardware';
+import { GameLifecycle, LifecycleState } from "../runtime/GameLifecycle";
+import { LifecycleManager } from "../runtime/LifecycleManager";
+import { ArcadeInputFrame } from "../runtime/ArcadeInputFrame";
+import { InputRuntime } from "../runtime/InputRuntime";
 
 enum GravityDir {
   UP = 0,
@@ -10,15 +12,16 @@ enum GravityDir {
   RIGHT = 3
 }
 
-export class CosmicCargoScene extends Phaser.Scene {
+export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
+  readonly sceneKey = "CosmicCargoScene";
   private ship!: Phaser.Physics.Arcade.Sprite;
   private asteroids!: Phaser.Physics.Arcade.Group;
   private cargoPods!: Phaser.Physics.Arcade.StaticGroup;
   private portal!: Phaser.Physics.Arcade.Image;
 
   // Controllers
-  private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
-  private spaceKey!: Phaser.Input.Keyboard.Key;
+  lifecycleManager!: LifecycleManager;
+  lifecycleState: LifecycleState = "start";
 
   // Game state
   private level = 1;
@@ -46,11 +49,8 @@ export class CosmicCargoScene extends Phaser.Scene {
 
   private isGameOver = false;
   private isLevelComplete = false;
-  private isWaitingToStart = true;
-  private boostHeld = false;
   private lastBoostTime = 0;
   private lastTiltGravityTime = 0;
-  private externalPointers = new Map<number, { startX: number; startY: number; x: number; y: number; startedAt: number }>();
   private cargoCollected = 0;
   private cargoTotal = 0;
   private boostCount = 0;
@@ -74,17 +74,15 @@ export class CosmicCargoScene extends Phaser.Scene {
     this.fuel = 100;
     this.activeGravity = GravityDir.DOWN;
     this.nearMissFlash = 0;
-    this.boostHeld = false;
     this.lastBoostTime = 0;
     this.lastTiltGravityTime = 0;
-    this.externalPointers.clear();
     this.cargoCollected = 0;
     this.cargoTotal = 0;
     this.boostCount = 0;
     this.hazardGraceUntil = 0;
     this.isGameOver = false;
     this.isLevelComplete = false;
-    this.isWaitingToStart = true;
+    this.lifecycleState = "start";
   }
 
   create() {
@@ -130,15 +128,6 @@ export class CosmicCargoScene extends Phaser.Scene {
     // Keep asteroids colliding with each other and ship
     this.physics.add.collider(this.asteroids, this.asteroids);
     this.physics.add.collider(this.ship, this.asteroids, this.hitAsteroid, undefined, this);
-
-    // 8. Keyboards
-    if (this.input.keyboard) {
-      this.cursors = this.input.keyboard.createCursorKeys();
-      this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
-    }
-
-    // Setup gravity swipe/tap input gestures
-    this.setupGestures();
 
     // 9. UI setup
     this.scoreText = this.add.text(20, 20, 'SCORE: 0', { fontSize: '16px', fontFamily: 'monospace', color: '#ffffff' });
@@ -191,39 +180,20 @@ export class CosmicCargoScene extends Phaser.Scene {
       this.scene.start('HubScene');
     });
 
+    // Shared Runtime Initialization
+    const runtime = (window as any).__WGF_INPUT_RUNTIME as InputRuntime;
+    if (runtime) runtime.blockHubInputUntil(performance.now() + 100);
+    this.lifecycleManager = new LifecycleManager(this, runtime);
+
     // Handle screen resizing
     this.scale.on('resize', this.handleResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off('resize', this.handleResize, this);
-      this.boostHeld = false;
-    });
-
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      if (this.isWaitingToStart) {
-        this.startGame();
-      } else if (this.isGameOver) {
-        this.scene.restart();
-      } else if (this.isLevelComplete) {
-        this.nextLevel();
-      } else {
-        this.beginMobileGesture(pointer.id, pointer.x, pointer.y);
-      }
-    });
-
-    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
-      this.moveMobileGesture(pointer.id, pointer.x, pointer.y);
-    });
-
-    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      this.endMobileGesture(pointer.id, pointer.x, pointer.y);
-    });
-
-    this.input.on('pointerupoutside', (pointer: Phaser.Input.Pointer) => {
-      this.endMobileGesture(pointer.id, pointer.x, pointer.y);
     });
 
     // Set initial gravity configuration
     this.updateGravity(GravityDir.DOWN);
+    this.showStart();
   }
 
   private handleResize() {
@@ -269,25 +239,12 @@ export class CosmicCargoScene extends Phaser.Scene {
     // Render Fuel Bar
     this.drawFuelBar();
 
-    if (this.isWaitingToStart || this.isGameOver || this.isLevelComplete) {
+    this.lifecycleManager.update(performance.now());
+
+    if (this.lifecycleState !== "playing") {
       this.ship.setVelocity(0, 0);
       return;
     }
-
-    // --- KEYBOARD GRAVITY FLIPS ---
-    if (this.cursors.down.isDown) this.updateGravity(GravityDir.DOWN);
-    else if (this.cursors.up.isDown) this.updateGravity(GravityDir.UP);
-    else if (this.cursors.left.isDown) this.updateGravity(GravityDir.LEFT);
-    else if (this.cursors.right.isDown) this.updateGravity(GravityDir.RIGHT);
-
-    // --- BOOST ---
-    if (Phaser.Input.Keyboard.JustDown(this.spaceKey)) {
-      this.useBoost();
-    }
-    if (this.boostHeld && this.time.now - this.lastBoostTime > 160) {
-      this.useBoost();
-    }
-    this.applyTiltGravity();
 
     // Slow fuel regen
     this.fuel = Math.min(100, this.fuel + 0.03);
@@ -305,6 +262,89 @@ export class CosmicCargoScene extends Phaser.Scene {
         this.cameras.main.setBackgroundColor(0x020111);
       }
     }
+  }
+
+  showStart() {
+    this.lifecycleState = "start";
+    this.stateText.setVisible(true);
+    this.hintText.setVisible(true);
+  }
+
+  startGameplay() {
+    if (this.isLevelComplete) {
+      this.nextLevel();
+      this.lifecycleState = "playing";
+      return;
+    }
+    this.lifecycleState = "playing";
+    this.stateText.setVisible(false);
+    this.hintText.setVisible(false);
+    this.hazardGraceUntil = this.time.now + 2600;
+  }
+
+  pauseGameplay() {
+    this.lifecycleState = "paused";
+    this.physics.pause();
+  }
+
+  resumeGameplay() {
+    this.lifecycleState = "playing";
+    this.physics.resume();
+  }
+
+  resetGameplay() {
+    this.scene.restart();
+  }
+
+  returnToHub() {
+    SoundSynth.playTone(400, 0.1, "sine", 0.05);
+    this.scene.start("HubScene");
+  }
+
+  handleArcadeInput(frame: ArcadeInputFrame) {
+    if (this.lifecycleState !== "playing") return;
+
+    // --- GRAVITY FLIPS ---
+    // Keyboard/D-pad
+    if (frame.actions.down.held) this.updateGravity(GravityDir.DOWN);
+    else if (frame.actions.up.held) this.updateGravity(GravityDir.UP);
+    else if (frame.actions.left.held) this.updateGravity(GravityDir.LEFT);
+    else if (frame.actions.right.held) this.updateGravity(GravityDir.RIGHT);
+
+    // Swipes
+    if (frame.gestures.swipeDown) this.updateGravity(GravityDir.DOWN);
+    else if (frame.gestures.swipeUp) this.updateGravity(GravityDir.UP);
+    else if (frame.gestures.swipeLeft) this.updateGravity(GravityDir.LEFT);
+    else if (frame.gestures.swipeRight) this.updateGravity(GravityDir.RIGHT);
+
+    // Tilt
+    if (this.time.now - this.lastTiltGravityTime > 260) {
+      if (frame.motion.tiltY > 0.3) {
+        this.updateGravity(GravityDir.DOWN);
+        this.lastTiltGravityTime = this.time.now;
+      } else if (frame.motion.tiltY < -0.3) {
+        this.updateGravity(GravityDir.UP);
+        this.lastTiltGravityTime = this.time.now;
+      } else if (frame.motion.tiltX < -0.3) {
+        this.updateGravity(GravityDir.LEFT);
+        this.lastTiltGravityTime = this.time.now;
+      } else if (frame.motion.tiltX > 0.3) {
+        this.updateGravity(GravityDir.RIGHT);
+        this.lastTiltGravityTime = this.time.now;
+      }
+    }
+
+    // --- BOOST ---
+    if (frame.actions.boost.justPressed) {
+      this.useBoost();
+    }
+    if (frame.actions.boost.held && this.time.now - this.lastBoostTime > 160) {
+      this.useBoost();
+    }
+  }
+
+  destroySceneResources() {
+    // Cleanup if needed
   }
 
   private createGameTextures() {
@@ -382,43 +422,12 @@ export class CosmicCargoScene extends Phaser.Scene {
     }
   }
 
-  private setupGestures() {
-    let startX = 0;
-    let startY = 0;
-    let startTime = 0;
-
-    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
-      startX = pointer.x;
-      startY = pointer.y;
-      startTime = this.time.now;
-    });
-
-    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
-      const dx = pointer.x - startX;
-      const dy = pointer.y - startY;
-      const dt = this.time.now - startTime;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      if (this.isWaitingToStart || this.isGameOver || this.isLevelComplete) return;
-
-      if (dist > 30 && dt < 400) {
-        // Swipe to shift gravity
-        if (Math.abs(dx) > Math.abs(dy)) {
-          this.updateGravity(dx > 0 ? GravityDir.RIGHT : GravityDir.LEFT);
-        } else {
-          this.updateGravity(dy > 0 ? GravityDir.DOWN : GravityDir.UP);
-        }
-      }
-    });
-  }
-
   private updateGravity(dir: GravityDir) {
-    if (this.activeGravity === dir && !this.isWaitingToStart) return;
+    if (this.activeGravity === dir && this.lifecycleState !== "start") return;
     this.activeGravity = dir;
 
-    if (!this.isWaitingToStart) {
+    if (this.lifecycleState !== "start") {
       SoundSynth.playFlip();
-      pulseHaptic([8, 18, 8]);
       this.createBoostParticles(this.ship.x, this.ship.y, 0x00ccff, 6);
       this.hazardGraceUntil = Math.max(this.hazardGraceUntil, this.time.now + 700);
     }
@@ -456,7 +465,6 @@ export class CosmicCargoScene extends Phaser.Scene {
     this.boostCount++;
     
     SoundSynth.playBoost();
-    pulseHaptic(14);
 
     // Apply thrust velocity
     let vx = 0;
@@ -475,7 +483,9 @@ export class CosmicCargoScene extends Phaser.Scene {
 
   private generateLevel() {
     const { width } = this.scale;
-    const layout = getMobileLayout(this);
+    const playTop = 100;
+    const playBottom = this.scale.height - 100;
+
     this.asteroids.clear(true, true);
     this.cargoPods.clear(true, true);
     this.portalText.setText('PORTAL: LOCKED').setColor('#ff8844');
@@ -497,7 +507,7 @@ export class CosmicCargoScene extends Phaser.Scene {
       while (!safe && attempts < 100) {
         attempts++;
         x = 60 + Math.random() * (width - 120);
-        y = layout.playTop + Math.random() * Math.max(1, layout.playBottom - layout.playTop);
+        y = playTop + Math.random() * Math.max(1, playBottom - playTop);
         safe = this.isSafeSpawn(x, y, 24, placed);
       }
       this.cargoPods.create(x, y, 'cargo-pod');
@@ -512,7 +522,7 @@ export class CosmicCargoScene extends Phaser.Scene {
       while (!safe && attempts < 100) {
         attempts++;
         x = 50 + Math.random() * (width - 100);
-        y = layout.playTop + Math.random() * Math.max(1, layout.playBottom - layout.playTop);
+        y = playTop + Math.random() * Math.max(1, playBottom - playTop);
         safe = this.isSafeSpawn(x, y, 36, placed);
       }
       
@@ -531,25 +541,11 @@ export class CosmicCargoScene extends Phaser.Scene {
   }
 
   private isSafeSpawn(x: number, y: number, radius: number, placed: Array<{ x: number; y: number; radius: number }>) {
-    const layout = getMobileLayout(this);
-    if (x < 35 || x > layout.width - 35 || y < layout.playTop || y > layout.playBottom) return false;
+    const playTop = 100;
+    const playBottom = this.scale.height - 100;
+    if (x < 35 || x > this.scale.width - 35 || y < playTop || y > playBottom) return false;
 
     return placed.every(item => Phaser.Math.Distance.Between(x, y, item.x, item.y) > radius + item.radius);
-  }
-
-  private applyTiltGravity() {
-    const tilt = getTiltIntent(12);
-    if (!tilt.active || !tilt.dominant || this.time.now - this.lastTiltGravityTime < 260) return;
-
-    const dirByTilt: Record<NonNullable<typeof tilt.dominant>, GravityDir> = {
-      left: GravityDir.LEFT,
-      right: GravityDir.RIGHT,
-      up: GravityDir.UP,
-      down: GravityDir.DOWN
-    };
-
-    this.lastTiltGravityTime = this.time.now;
-    this.updateGravity(dirByTilt[tilt.dominant]);
   }
 
   private collectCargo(_shipObj: any, podObj: any) {
@@ -589,7 +585,7 @@ export class CosmicCargoScene extends Phaser.Scene {
     });
 
     const collected = this.cargoPods.countActive();
-    const total = 3 + Math.min(this.level, 7);
+    const total = this.cargoTotal;
     this.cargoText.setText(`CARGO: ${total - collected}/${total}`);
 
     // Portal glowing effect
@@ -683,43 +679,16 @@ export class CosmicCargoScene extends Phaser.Scene {
     this.time.delayedCall(600, () => particles.destroy());
   }
 
-  private startGame() {
-    this.isWaitingToStart = false;
-    this.stateText.setVisible(false);
-    this.hintText.setVisible(false);
-    this.hazardGraceUntil = this.time.now + 2600;
-  }
-
-  public beginExternalPointer(id: number, x: number, y: number) {
-    if (this.isWaitingToStart || this.isGameOver || this.isLevelComplete) return;
-    this.beginMobileGesture(id, x, y);
-  }
-
-  public moveExternalPointer(id: number, x: number, y: number) {
-    if (this.isWaitingToStart || this.isGameOver || this.isLevelComplete) return;
-    this.moveMobileGesture(id, x, y);
-  }
-
-  public endExternalPointer(id: number, x: number, y: number) {
-    this.endMobileGesture(id, x, y);
-  }
-
   public getGameplayStateForQA() {
     return {
       sceneKey: this.scene.key,
-      lifecycle: this.isWaitingToStart
-        ? 'start'
-        : this.isGameOver
-          ? 'gameOver'
-          : this.isLevelComplete
-            ? 'levelComplete'
-            : 'playing',
-      orientation: this.scale.height >= this.scale.width ? 'portrait' : 'landscape',
+      lifecycle: this.lifecycleState,
+      orientation: (this.scale.height >= this.scale.width ? 'portrait' : 'landscape') as "portrait" | "landscape",
       player: {
-        x: this.ship?.x ?? null,
-        y: this.ship?.y ?? null,
-        vx: this.ship?.body?.velocity?.x ?? null,
-        vy: this.ship?.body?.velocity?.y ?? null,
+        x: this.ship?.x ?? 0,
+        y: this.ship?.y ?? 0,
+        vx: this.ship?.body?.velocity?.x ?? undefined,
+        vy: this.ship?.body?.velocity?.y ?? undefined,
         alive: Boolean(this.ship?.visible)
       },
       score: this.score,
@@ -739,7 +708,7 @@ export class CosmicCargoScene extends Phaser.Scene {
 
   public collectNextCargoForQA() {
     const pod = this.cargoPods.getChildren().find((child) => child.active) as Phaser.Physics.Arcade.Image | undefined;
-    if (!pod || this.isWaitingToStart || this.isGameOver || this.isLevelComplete) return false;
+    if (!pod || this.lifecycleState !== "playing") return false;
     this.collectCargo(this.ship, pod);
     return true;
   }
@@ -753,48 +722,15 @@ export class CosmicCargoScene extends Phaser.Scene {
   }
 
   public enterPortalForQA() {
-    if ((this.cargoPods?.countActive?.() ?? 1) > 0 || this.isWaitingToStart || this.isGameOver || this.isLevelComplete) return false;
+    if ((this.cargoPods?.countActive?.() ?? 1) > 0 || this.lifecycleState !== "playing") return false;
     this.levelComplete();
     return true;
-  }
-
-  private beginMobileGesture(id: number, x: number, y: number) {
-    this.externalPointers.set(id, { startX: x, startY: y, x, y, startedAt: this.time.now });
-    this.boostHeld = true;
-    this.useBoost();
-  }
-
-  private moveMobileGesture(id: number, x: number, y: number) {
-    const state = this.externalPointers.get(id);
-    if (!state) return;
-    state.x = x;
-    state.y = y;
-  }
-
-  private endMobileGesture(id: number, x: number, y: number) {
-    const state = this.externalPointers.get(id);
-    if (state && !this.isWaitingToStart && !this.isGameOver && !this.isLevelComplete) {
-      const dx = x - state.startX;
-      const dy = y - state.startY;
-      const dt = this.time.now - state.startedAt;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-
-      if (dist > 30 && dt < 520) {
-        if (Math.abs(dx) > Math.abs(dy)) {
-          this.updateGravity(dx > 0 ? GravityDir.RIGHT : GravityDir.LEFT);
-        } else {
-          this.updateGravity(dy > 0 ? GravityDir.DOWN : GravityDir.UP);
-        }
-      }
-    }
-
-    this.externalPointers.delete(id);
-    this.boostHeld = this.externalPointers.size > 0;
   }
 
   private levelComplete() {
     if (this.isLevelComplete) return;
     this.isLevelComplete = true;
+    this.lifecycleState = "levelComplete";
 
     // Fuel bonus points
     const bonus = Math.floor(this.fuel) * 10;
@@ -830,6 +766,7 @@ export class CosmicCargoScene extends Phaser.Scene {
   private gameOver() {
     if (this.isGameOver) return;
     this.isGameOver = true;
+    this.lifecycleState = "gameOver";
 
     SoundSynth.playDeath();
     this.createBoostParticles(this.ship.x, this.ship.y, 0xff4444, 25);
