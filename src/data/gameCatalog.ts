@@ -11,12 +11,13 @@ export interface GameDefinition {
   weekNumber?: number;
   isBonus?: boolean;
   certificationStatus: 'certified' | 'in-rebuild';
-  certificationLabel: string;
+  certificationLabel?: string;
   icon: string;
-  sceneKey: string;
-  sceneClass: new () => Phaser.Scene;
+  sceneKey?: string;
+  sceneClass?: new () => Phaser.Scene;
   color: number;
   description: string;
+  url?: string;
 }
 
 export const GAME_BACKLOG_IDEA_COUNT = 88;
@@ -73,6 +74,39 @@ export const GAME_DEFINITIONS: readonly GameDefinition[] = [
     sceneClass: AsteroidsScene,
     color: 0x8899aa,
     description: 'Asteroids shooter clone. Split space rocks and survive.'
+  },
+  {
+    id: '2048',
+    title: '2048',
+    icon: '🔢',
+    weekLabel: 'Curated',
+    url: './games/2048/',
+    color: 0x7766aa,
+    description: 'Merge tiles to reach 2048!',
+    certificationStatus: 'certified',
+    isBonus: true
+  },
+  {
+    id: 'clumsy-bird',
+    title: 'Clumsy Bird',
+    icon: '🐦',
+    weekLabel: 'Curated',
+    url: './games/clumsy-bird/',
+    color: 0x44aa77,
+    description: 'Flappy bird style! Tap to fly.',
+    certificationStatus: 'certified',
+    isBonus: true
+  },
+  {
+    id: 'hextris',
+    title: 'Hextris',
+    icon: '🔷',
+    weekLabel: 'Curated',
+    url: './games/hextris/',
+    color: 0xcc44dd,
+    description: 'Hexagonal twist on Tetris.',
+    certificationStatus: 'certified',
+    isBonus: true
   }
 ];
 

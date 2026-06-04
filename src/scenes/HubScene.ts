@@ -176,7 +176,7 @@ export class HubScene extends Phaser.Scene {
         color: '#00ccff'
       }).setOrigin(0, 0.5);
 
-      const status = this.add.text(w / 2 - 12, 18, game.certificationLabel, {
+      const status = this.add.text(w / 2 - 12, 18, game.certificationLabel || 'CERTIFIED', {
         fontSize: '8px',
         fontFamily: 'monospace',
         color: certified ? '#74ffb4' : '#ffcc66',
@@ -208,7 +208,7 @@ export class HubScene extends Phaser.Scene {
         wordWrap: { width: w - 30 }
       }).setOrigin(0, 0.5);
 
-      const status = this.add.text(w / 2 - 15, -38, game.certificationLabel, {
+      const status = this.add.text(w / 2 - 15, -38, game.certificationLabel || 'CERTIFIED', {
         fontSize: '9px',
         fontFamily: 'monospace',
         color: certified ? '#74ffb4' : '#ffcc66',
@@ -262,7 +262,11 @@ export class HubScene extends Phaser.Scene {
       bg.setFillStyle(game.color, 0.2);
       this.time.delayedCall(100, () => {
         this.scale.off('resize', this.handleResize, this);
-        this.scene.start(game.sceneKey);
+        if (game.url) {
+          window.location.href = game.url;
+        } else if (game.sceneKey) {
+          this.scene.start(game.sceneKey);
+        }
       });
     });
 

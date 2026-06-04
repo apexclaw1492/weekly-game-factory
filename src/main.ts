@@ -32,7 +32,7 @@ const config: Phaser.Types.Core.GameConfig = {
     BootScene,
     PreloadScene,
     HubScene,
-    ...GAME_DEFINITIONS.map((game) => game.sceneClass)
+    ...GAME_DEFINITIONS.map((game) => game.sceneClass).filter((s): s is new () => Phaser.Scene => !!s)
   ]
 };
 
