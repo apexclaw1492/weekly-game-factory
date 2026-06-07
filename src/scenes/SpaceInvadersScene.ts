@@ -283,23 +283,25 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
 
     // --- PLAYER MOVEMENT ---
     let vx = 0;
-    if (frame.actions.left.held) {
-      vx = -this.playerSpeed;
-    } else if (frame.actions.right.held) {
-      vx = this.playerSpeed;
+    // Proportional touch/mouse drag — read dragVectorX directly
+    // This gives smooth 0-to-full-speed control instead of binary snap
+    if (Math.abs(frame.gestures.dragVectorX) > 0.05) {
+      vx = frame.gestures.dragVectorX * this.playerSpeed;
     }
-    // Touch drag fallback
-    if (!frame.actions.left.held && !frame.actions.right.held) {
-      if (frame.gestures.dragVectorX < -0.1) {
-        vx = frame.gestures.dragVectorX * this.playerSpeed;
-      } else if (frame.gestures.dragVectorX > 0.1) {
-        vx = frame.gestures.dragVectorX * this.playerSpeed;
+    // Keyboard-only fallback: binary left/right actions
+    if (!frame.touch.active) {
+      if (frame.actions.left.held) {
+        vx = -this.playerSpeed;
+      } else if (frame.actions.right.held) {
+        vx = this.playerSpeed;
       }
     }
     this.player.setVelocityX(vx);
 
     // --- PLAYER FIRE ---
-    if (frame.actions.fire.held || frame.gestures.hold) {
+    // On mobile/touch: auto-fire continuously while touching the screen
+    // On desktop: Space to fire with keyboard actions
+    if (frame.touch.active || frame.actions.fire.held) {
       this.firePlayerBullet();
     }
 
