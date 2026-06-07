@@ -56,6 +56,14 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
   private boostCount = 0;
   private hazardGraceUntil = 0;
 
+  // Demo & Visual Cues
+  private demoTimer = 0;
+  private demoPhase = 0;       // 0..3 cycling
+  private demoArrow!: Phaser.GameObjects.Graphics;
+  private demoCalloutText!: Phaser.GameObjects.Text;
+  private gravityArrow!: Phaser.GameObjects.Graphics;
+  private gravityArrowAngle = Math.PI / 2;
+
   // Physics constants
   private readonly gravityForce = 180;
   private readonly maxSpeed = 300;
@@ -139,6 +147,17 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     // Fuel Bar
     this.add.text(20, 70, 'FUEL:', { fontSize: '11px', fontFamily: 'monospace', color: '#888888' });
     this.fuelBar = this.add.graphics();
+
+    // Tutorial Demo & Gameplay Visuals
+    this.demoArrow = this.add.graphics();
+    this.gravityArrow = this.add.graphics();
+    this.demoCalloutText = this.add.text(width / 2, height / 2 + 60, "", {
+      fontSize: "14px",
+      fontFamily: "monospace",
+      color: "#00ccff",
+      align: "center",
+      fontStyle: "bold"
+    }).setOrigin(0.5).setAlpha(0);
 
     // 6. Setup level layout
     this.generateLevel();
@@ -239,12 +258,30 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     // Render Fuel Bar
     this.drawFuelBar();
 
+    if (this.lifecycleState === "start") {
+      this.updateDemo();
+      this.lifecycleManager.update(performance.now());
+      return;
+    }
+
     this.lifecycleManager.update(performance.now());
 
     if (this.lifecycleState !== "playing") {
       this.ship.setVelocity(0, 0);
+      this.gravityArrow.clear();
       return;
     }
+
+    // After gameplay logic, draw gravity arrow
+    this.gravityArrow.clear();
+    const arrowLen = 15;
+    const arrowEndX = this.ship.x + Math.sin(this.gravityArrowAngle) * arrowLen;
+    const arrowEndY = this.ship.y + Math.cos(this.gravityArrowAngle) * arrowLen;
+    this.gravityArrow.lineStyle(2, 0x00ccff, 0.5);
+    this.gravityArrow.beginPath();
+    this.gravityArrow.moveTo(this.ship.x, this.ship.y + 12);
+    this.gravityArrow.lineTo(arrowEndX, arrowEndY + 12);
+    this.gravityArrow.strokePath();
 
     // Slow fuel regen
     this.fuel = Math.min(100, this.fuel + 0.03);
@@ -267,7 +304,11 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
   showStart() {
     this.lifecycleState = "start";
     this.stateText.setVisible(true);
+    this.stateText.setText("COSMIC CARGO").setColor("#ff6b35");
     this.hintText.setVisible(true);
+    this.hintText.setText("TAP TO START");
+    this.demoPhase = 0;
+    this.demoTimer = 0;
   }
 
   startGameplay() {
@@ -279,6 +320,8 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     this.lifecycleState = "playing";
     this.stateText.setVisible(false);
     this.hintText.setVisible(false);
+    this.demoCalloutText.setVisible(false);
+    this.demoArrow.clear();
     this.hazardGraceUntil = this.time.now + 2600;
   }
 
@@ -455,6 +498,14 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
         this.gravityText.setText('GRAVITY: RIGHT');
         break;
     }
+
+    // Store gravity arrow angle for drawing in update()
+    switch (dir) {
+      case GravityDir.UP: this.gravityArrowAngle = -Math.PI / 2; break;
+      case GravityDir.DOWN: this.gravityArrowAngle = Math.PI / 2; break;
+      case GravityDir.LEFT: this.gravityArrowAngle = Math.PI; break;
+      case GravityDir.RIGHT: this.gravityArrowAngle = 0; break;
+    }
   }
 
   private useBoost() {
@@ -513,6 +564,19 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
       this.cargoPods.create(x, y, 'cargo-pod');
       placed.push({ x, y, radius: 34 });
     }
+
+    // Add pulsing effect to all cargo pods
+    this.cargoPods.getChildren().forEach((pod) => {
+      this.tweens.add({
+        targets: pod,
+        scale: { from: 1.0, to: 1.15 },
+        yoyo: true,
+        repeat: -1,
+        duration: 800,
+        ease: "Sine.easeInOut"
+      });
+    });
+
     this.cargoText.setText(`CARGO: 0/${numCargo}`);
 
     // Spawns floating asteroids
@@ -780,5 +844,91 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
 
     this.stateText.setText('MISSION FAILED').setColor('#ff4444').setVisible(true);
     this.hintText.setText('TAP TO RETRY').setVisible(true);
+  }
+
+  private updateDemo() {
+    this.demoTimer += 16; // ~60fps increment
+    const phaseDuration = [3000, 2500, 2500, 2500];
+    
+    if (this.demoTimer > phaseDuration[this.demoPhase]) {
+      this.demoTimer = 0;
+      this.demoPhase = (this.demoPhase + 1) % 4;
+    }
+    
+    const progress = this.demoTimer / phaseDuration[this.demoPhase];
+    
+    // Clear and redraw demo arrow
+    this.demoArrow.clear();
+    
+    switch (this.demoPhase) {
+      case 0: // Gravity demo
+        const angle = progress * Math.PI * 2; // Full rotation
+        this.drawDemoArrow(angle);
+        // Simulate ship drift in gravity direction
+        const driftX = Math.sin(angle) * 30;
+        const driftY = Math.cos(angle) * 30;
+        this.ship.setPosition(this.scale.width / 2 + driftX, this.scale.height / 2 + driftY);
+        break;
+      case 1: // Boost demo
+        this.drawDemoArrow(0); // Point down (gravity = DOWN)
+        this.ship.setPosition(this.scale.width / 2, this.scale.height / 2 + (1 - progress) * 60);
+        // Visual boost particles every 300ms
+        if (Math.floor(progress * 8) % 2 === 0) {
+          this.createBoostParticles(this.ship.x, this.ship.y + 10, 0xff6b35, 5);
+        }
+        break;
+      case 2: // Cargo demo
+        this.drawDemoArrow(Math.PI / 2); // Point right
+        // Ship drifts toward cargo area
+        this.ship.setPosition(
+          this.scale.width / 2 + Math.sin(progress * Math.PI) * 80,
+          this.scale.height / 2 + 30
+        );
+        break;
+      case 3: // Portal demo
+        this.drawDemoArrow(-Math.PI / 2); // Point up
+        this.portal.setPosition(this.scale.width - 70, this.scale.height - 70);
+        this.portal.clearTint();
+        this.portal.setScale(1.0 + Math.sin(progress * Math.PI * 2) * 0.15);
+        this.ship.setPosition(
+          this.scale.width - 70 - (1 - progress) * 100,
+          this.scale.height - 70
+        );
+        break;
+    }
+
+    const callouts = [
+      "↕ TILT or SWIPE to flip gravity direction",
+      "✋ HOLD anywhere to BOOST the ship",
+      "💎 Collect ALL cargo pods to unlock exit",
+      "🚪 Reach the portal to complete the level"
+    ];
+    this.demoCalloutText.setText(callouts[this.demoPhase]);
+    this.demoCalloutText.setAlpha(0.5 + Math.sin(progress * Math.PI) * 0.5);
+    this.demoCalloutText.setVisible(true);
+  }
+
+  private drawDemoArrow(angle: number) {
+    const cx = this.ship.x;
+    const cy = this.ship.y - 30;
+    const len = 20;
+    const headLen = 8;
+    const endX = cx + Math.sin(angle) * len;
+    const endY = cy + Math.cos(angle) * len;
+    
+    this.demoArrow.lineStyle(2, 0x00ccff, 0.8);
+    this.demoArrow.beginPath();
+    this.demoArrow.moveTo(cx, cy);
+    this.demoArrow.lineTo(endX, endY);
+    this.demoArrow.strokePath();
+    
+    // Arrowhead
+    this.demoArrow.fillStyle(0x00ccff, 0.9);
+    this.demoArrow.beginPath();
+    this.demoArrow.moveTo(endX, endY);
+    this.demoArrow.lineTo(endX - Math.sin(angle - 0.4) * headLen, endY - Math.cos(angle - 0.4) * headLen);
+    this.demoArrow.lineTo(endX - Math.sin(angle + 0.4) * headLen, endY - Math.cos(angle + 0.4) * headLen);
+    this.demoArrow.closePath();
+    this.demoArrow.fill();
   }
 }
