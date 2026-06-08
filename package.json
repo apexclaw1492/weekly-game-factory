@@ -13,7 +13,8 @@
     "touch:cargo": "node scratch/run-touch-cargo.js",
     "touch:contra": "node scratch/run-touch-contra.js",
     "touch:asteroids": "node scratch/run-touch-asteroids.js",
-    "touch:all": "npm run touch:f1 && npm run touch:cargo && npm run touch:contra && npm run touch:asteroids"
+    "touch:pong": "node scratch/run-touch-pong.js",
+    "touch:all": "npm run touch:f1 && npm run touch:cargo && npm run touch:contra && npm run touch:asteroids && npm run touch:pong"
   },
   "dependencies": {
     "phaser": "^3.80.1"

@@ -3,6 +3,7 @@ import { AsteroidsScene } from '../scenes/AsteroidsScene';
 import { ContraScene } from '../scenes/ContraScene';
 import { CosmicCargoScene } from '../scenes/CosmicCargoScene';
 import { SpaceInvadersScene } from '../scenes/SpaceInvadersScene';
+import { PongScene } from '../scenes/PongScene';
 
 export interface GameDefinition {
   id: string;
@@ -107,6 +108,19 @@ export const GAME_DEFINITIONS: readonly GameDefinition[] = [
     description: 'Hexagonal twist on Tetris.',
     certificationStatus: 'certified',
     isBonus: true
+  },
+  {
+    id: 'red-bull-pong',
+    title: 'Red Bull Pong',
+    weekLabel: 'Week 3',
+    weekNumber: 3,
+    certificationStatus: 'certified',
+    certificationLabel: 'CERTIFIED TOUCH',
+    icon: '🏓',
+    sceneKey: 'PongScene',
+    sceneClass: PongScene,
+    color: 0xEE0000,
+    description: 'F1-inspired high-speed Pong! Beat the AI and win the set.'
   }
 ];
 
