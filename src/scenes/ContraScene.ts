@@ -148,6 +148,9 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     this.player.setCollideWorldBounds(true);
     this.player.setOrigin(0.5);
     this.player.body?.setSize(20, 32);
+    if (this.player.body) {
+      (this.player.body as Phaser.Physics.Arcade.Body).setGravityY(800);
+    }
 
     // Collide player and enemies with platforms
     this.physics.add.collider(this.player, this.platforms);
@@ -424,9 +427,7 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
   }
 
   private createPlatforms() {
-    // Ground
-    this.platforms.create(this.levelWidth / 2, this.groundY + 40, 'ground-block');
-    // Generate Ground Texture dynamically
+    // 1. Generate Textures first so Static Bodies get the right size
     if (!this.textures.exists('ground-block')) {
       const g = this.add.graphics();
       g.fillStyle(0x2a1a0a, 1);
@@ -437,7 +438,6 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
       g.destroy();
     }
 
-    // Thin floating structures
     if (!this.textures.exists('thin-platform')) {
       const g = this.add.graphics();
       g.fillStyle(0x3a2a1a, 1);
@@ -448,7 +448,11 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
       g.destroy();
     }
 
-    // List of platforms
+    // 2. Now create platforms
+    // Ground
+    this.platforms.create(this.levelWidth / 2, this.groundY + 40, 'ground-block');
+
+    // List of thin platforms
     const points = [
       { x: 300, y: this.groundY - 70 },
       { x: 550, y: this.groundY - 120 },
@@ -1003,10 +1007,14 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
       score: this.score,
       lives: this.lives,
       primaryActionCount: this.shotsFired,
+      // The test script expects these specific names:
+      shotsFired: this.shotsFired,
+      jumpsTriggered: this.jumpsTriggered,
+      enemiesDamaged: this.enemiesDamaged,
       enemyOrHazardCount: this.enemies?.countActive?.(true) ?? 0,
       objectiveProgress: Math.min(1, this.player ? this.player.x / this.levelWidth : 0),
       messages: []
-    };
+    } as any;
   }
 
   public damageEnemyForQA() {

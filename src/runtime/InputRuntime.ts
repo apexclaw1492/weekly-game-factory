@@ -2,7 +2,7 @@ import { ArcadeInputFrame, ActionState, emptyFrame, InputRuntimeHandle } from '.
 
 const TAP_MAX_MS = 350;
 const TAP_MAX_DIST = 15;
-const HOLD_MIN_MS = 500;
+const HOLD_MIN_MS = 200;
 const SWIPE_MIN_DIST = 40;
 const SWIPE_MAX_MS = 500;
 const DRAG_MIN_DIST = 15;
@@ -340,7 +340,7 @@ export class InputRuntime implements InputRuntimeHandle {
         justEnded: primary.justEnded,
       };
 
-      if (primary.active && heldMs > HOLD_MIN_MS && dist < TAP_MAX_DIST) {
+      if (primary.active && heldMs > HOLD_MIN_MS) {
         nextFrame.gestures.hold = true;
       }
 
@@ -408,9 +408,9 @@ export class InputRuntime implements InputRuntimeHandle {
     setAction('right', isDown(['ArrowRight', 'KeyD']), wasDown(['ArrowRight', 'KeyD']), 'keyboard');
     setAction('up', isDown(['ArrowUp', 'KeyW']), wasDown(['ArrowUp', 'KeyW']), 'keyboard');
     setAction('down', isDown(['ArrowDown', 'KeyS']), wasDown(['ArrowDown', 'KeyS']), 'keyboard');
-    setAction('fire', isDown(['Space']), wasDown(['Space']), 'keyboard');
+    setAction('fire', isDown(['Space', 'KeyX']), wasDown(['Space', 'KeyX']), 'keyboard');
     setAction('boost', isDown(['ShiftLeft', 'ShiftRight']), wasDown(['ShiftLeft', 'ShiftRight']), 'keyboard');
-    setAction('jump', isDown(['KeyW', 'ArrowUp', 'Space']), wasDown(['KeyW', 'ArrowUp', 'Space']), 'keyboard');
+    setAction('jump', isDown(['KeyW', 'ArrowUp']), wasDown(['KeyW', 'ArrowUp']), 'keyboard');
     setAction('thrust', isDown(['KeyW', 'ArrowUp']), wasDown(['KeyW', 'ArrowUp']), 'keyboard');
     setAction('hyperspace', isDown(['ShiftLeft', 'ShiftRight']), wasDown(['ShiftLeft', 'ShiftRight']), 'keyboard');
 
