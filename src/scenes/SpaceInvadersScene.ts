@@ -14,11 +14,10 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
   private powerUps!: Phaser.Physics.Arcade.Group;
   private shields!: Phaser.Physics.Arcade.StaticGroup;
   private saucers!: Phaser.Physics.Arcade.Group;
-  
+
   public lifecycleManager!: LifecycleManager;
   public lifecycleState: LifecycleState = 'start';
 
-  // Game state
   private level = 1;
   private score = 0;
   private multiplier = 1;
@@ -32,16 +31,16 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
   private nextSaucerTime = 0;
   private highScores: number[] = [];
 
-  // UI
   private scoreText!: Phaser.GameObjects.Text;
   private levelText!: Phaser.GameObjects.Text;
   private livesText!: Phaser.GameObjects.Text;
   private comboText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
+  private controlsText!: Phaser.GameObjects.Text;
   private stateText!: Phaser.GameObjects.Text;
   private hiScoreText!: Phaser.GameObjects.Text;
   private backBtn!: Phaser.GameObjects.Text;
-  
+
   private starfield!: Phaser.GameObjects.Graphics;
   private stars: Array<{ x: number; y: number; speed: number; alpha: number }> = [];
 
@@ -78,7 +77,6 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
   create() {
     const { width, height } = this.scale;
 
-    // 1. Create starfield background
     this.starfield = this.add.graphics();
     for (let i = 0; i < 40; i++) {
       this.stars.push({
@@ -89,7 +87,6 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
       });
     }
 
-    // 2. Physics groups
     this.bullets = this.physics.add.group({
       classType: Phaser.Physics.Arcade.Image,
       maxSize: 8,
@@ -106,7 +103,6 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
     this.shields = this.physics.add.staticGroup();
     this.saucers = this.physics.add.group();
 
-    // Generate bullet and powerup textures once
     if (!this.textures.exists('p-bullet')) {
       const g = this.add.graphics();
       g.fillStyle(0xff0000, 1);
@@ -147,18 +143,15 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
       g.destroy();
     }
 
-    // 3. Player car setup
     this.player = this.physics.add.sprite(width / 2, height - 70, 'player-f1');
     this.player.setCollideWorldBounds(true);
     this.player.setScale(1.2);
 
-    // 4. Enemies setup
     this.enemies = this.physics.add.group();
     this.initEnemies();
     this.initShields();
     this.scheduleSaucer();
 
-    // 5. Physics collisions
     this.physics.add.overlap(this.bullets, this.enemies, this.hitEnemy, undefined, this);
     this.physics.add.overlap(this.bullets, this.saucers, this.hitSaucer, undefined, this);
     this.physics.add.overlap(this.bullets, this.shields, this.erodeShield, undefined, this);
@@ -166,45 +159,46 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
     this.physics.add.overlap(this.enemyBullets, this.player, this.hitPlayer, undefined, this);
     this.physics.add.overlap(this.powerUps, this.player, this.collectPowerUp, undefined, this);
 
-    // 7. UI setup
     this.scoreText = this.add.text(20, 20, 'SCORE: 0', { fontSize: '18px', fontFamily: 'monospace', color: '#ffffff' });
     this.levelText = this.add.text(width - 20, 20, 'LEVEL 1', { fontSize: '18px', fontFamily: 'monospace', color: '#8888a0' }).setOrigin(1, 0);
     this.livesText = this.add.text(width / 2, 20, 'LIVES: 3', { fontSize: '15px', fontFamily: 'monospace', color: '#55ff88' }).setOrigin(0.5, 0);
-    
     this.comboText = this.add.text(20, 45, '', { fontSize: '14px', fontFamily: 'monospace', color: '#ffd700' });
-    
-    // Title overlay
-    this.stateText = this.add.text(width / 2, height / 2 - 50, 'F1 SPACE INVADERS', {
+
+    this.stateText = this.add.text(width / 2, height / 2 - 52, 'F1 SPACE INVADERS', {
       fontSize: '32px',
       fontFamily: 'monospace',
       color: '#00ccff',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
-    this.hintText = this.add.text(width / 2, height / 2 + 20, 'TAP OR SPACE TO START\n\nPHONE: DRAG OR TILT TO AIM, HOLD TO FIRE\nDESKTOP: ARROWS + SPACE', {
+    this.hintText = this.add.text(width / 2, height / 2 + 20, 'TAP OR SPACE TO START\n\nPHONE: DRAG TO MOVE, HOLD TO FIRE\nDESKTOP: LEFT / RIGHT + SPACE', {
       fontSize: '14px',
       fontFamily: 'monospace',
       color: '#ffffff',
       align: 'center'
     }).setOrigin(0.5);
 
-    // Dynamic High Score display
+    this.controlsText = this.add.text(width / 2, height / 2 + 72, 'MOVE: ARROWS OR DRAG | SHOOT: SPACE OR HOLD TOUCH | BACK: TAP IN CORNER', {
+      fontSize: '11px',
+      fontFamily: 'monospace',
+      color: '#88aaff',
+      align: 'center'
+    }).setOrigin(0.5);
+
     const hiScore = this.highScores.length > 0 ? this.highScores[0] : 0;
-    this.hiScoreText = this.add.text(width / 2, height / 2 + 100, `🏆 HI SCORE: ${hiScore}`, {
+    this.hiScoreText = this.add.text(width / 2, height / 2 + 102, `HI SCORE: ${hiScore}`, {
       fontSize: '12px',
       fontFamily: 'monospace',
       color: '#ffd700'
     }).setOrigin(0.5);
 
-    // Back to Hub Button (floating UI)
-    this.backBtn = this.add.text(width - 20, height - 30, '← BACK TO HUB', {
+    this.backBtn = this.add.text(width - 20, height - 30, '<- BACK TO HUB', {
       fontSize: '14px',
       fontFamily: 'monospace',
       color: '#ff4444',
       fontStyle: 'bold'
     }).setOrigin(1, 0.5);
 
-    // Get runtime from global (set by main.ts)
     const runtime = (window as any).__WGF_INPUT_RUNTIME as InputRuntime;
     if (runtime) {
       runtime.blockHubInputUntil(performance.now() + 100);
@@ -212,7 +206,6 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
 
     this.lifecycleManager = new LifecycleManager(this, runtime);
 
-    // Back button
     this.backBtn.setInteractive({ useHandCursor: true });
     this.backBtn.on('pointerdown', () => {
       SoundSynth.playTone(400, 0.1, 'sine', 0.05);
@@ -221,7 +214,6 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
 
     this.showStart();
 
-    // Handle screen resizing
     this.scale.on('resize', this.handleResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off('resize', this.handleResize, this);
@@ -231,22 +223,20 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
   private handleResize() {
     const { width, height } = this.scale;
 
-    // Reposition UI
     this.levelText.setPosition(width - 20, 20);
     this.livesText.setPosition(width / 2, 20);
-    this.stateText.setPosition(width / 2, height / 2 - 50);
+    this.stateText.setPosition(width / 2, height / 2 - 52);
     this.hintText.setPosition(width / 2, height / 2 + 20);
-    this.hiScoreText.setPosition(width / 2, height / 2 + 100);
+    this.controlsText.setPosition(width / 2, height / 2 + 72);
+    this.hiScoreText.setPosition(width / 2, height / 2 + 102);
     this.backBtn.setPosition(width - 20, height - 30);
 
-    // Update starfield
     this.starfield.clear();
     this.stars.forEach(star => {
       star.x = Math.random() * width;
       star.y = Math.random() * height;
     });
 
-    // Reposition player
     if (this.player) {
       this.player.setY(height - 70);
     }
@@ -259,7 +249,6 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
   update(time: number) {
     const { width, height } = this.scale;
 
-    // Background star scrolling
     this.starfield.clear();
     this.stars.forEach(star => {
       star.y += star.speed;
@@ -271,24 +260,18 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
       this.starfield.fillRect(star.x, star.y, 1.5, 1.5);
     });
 
-    // Route through lifecycle manager
     if (!this.lifecycleManager) return;
     const state = this.lifecycleManager.update(time);
     if (state !== 'playing') return;
 
-    // Read input frame
     const runtime = (window as any).__WGF_INPUT_RUNTIME as InputRuntime;
     if (!runtime) return;
     const frame = runtime.readFrame();
 
-    // --- PLAYER MOVEMENT ---
     let vx = 0;
-    // Proportional touch/mouse drag — read dragVectorX directly
-    // This gives smooth 0-to-full-speed control instead of binary snap
     if (Math.abs(frame.gestures.dragVectorX) > 0.05) {
       vx = frame.gestures.dragVectorX * this.playerSpeed;
     }
-    // Keyboard-only fallback: binary left/right actions
     if (!frame.touch.active) {
       if (frame.actions.left.held) {
         vx = -this.playerSpeed;
@@ -298,16 +281,13 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
     }
     this.player.setVelocityX(vx);
 
-    // --- PLAYER FIRE ---
-    // On mobile/touch: auto-fire continuously while touching the screen
-    // On desktop: Space to fire with keyboard actions
-    if (frame.touch.active || frame.actions.fire.held) {
+    const isRealTouch = frame.touch.active && frame.touch.primaryId !== -1;
+    if (isRealTouch || frame.actions.fire.held) {
       this.firePlayerBullet();
     }
 
     this.moveEnemyFormation(time);
 
-    // --- ENEMY SHOOTING ---
     if (time - this.lastEnemyShotTime > 1500) {
       this.fireEnemyBullet();
       this.lastEnemyShotTime = time;
@@ -318,7 +298,6 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
       this.scheduleSaucer();
     }
 
-    // Bullet bounds cleaners
     this.bullets.getChildren().filter(b => (b as Phaser.Physics.Arcade.Image).y < 0).forEach(b => b.destroy());
     this.enemyBullets.getChildren().filter(b => (b as Phaser.Physics.Arcade.Image).y > height).forEach(b => b.destroy());
     this.powerUps.getChildren().filter(p => (p as Phaser.Physics.Arcade.Image).y > height).forEach(p => p.destroy());
@@ -329,7 +308,6 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
       })
       .forEach(s => s.destroy());
 
-    // Combo timer decay
     if (Date.now() - this.lastHitTime > 2000 && this.multiplier > 1) {
       this.multiplier = 1;
       this.comboText.setText('');
@@ -343,7 +321,7 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
     const cols = this.scale.width < 460 ? 8 : 11;
     const spacingX = Math.min(46, (this.scale.width - 80) / Math.max(1, cols - 1));
     const spacingY = 32;
-    
+
     const { width } = this.scale;
     const gridWidth = (cols - 1) * spacingX;
     const startX = (width - gridWidth) / 2;
@@ -418,7 +396,9 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
     this.stateText.setVisible(true);
     this.stateText.setText('F1 SPACE INVADERS').setColor('#00ccff');
     this.hintText.setVisible(true);
-    this.hintText.setText('TAP OR SPACE TO START\n\nPHONE: DRAG OR TILT TO AIM, HOLD TO FIRE\nDESKTOP: ARROWS + SPACE');
+    this.hintText.setText('TAP OR SPACE TO START\n\nPHONE: DRAG TO MOVE, HOLD TO FIRE\nDESKTOP: LEFT / RIGHT + SPACE');
+    this.controlsText.setVisible(true);
+    this.hiScoreText.setVisible(true);
   }
 
   public startGameplay(): void {
@@ -431,18 +411,19 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
     this.lifecycleState = 'playing';
     this.stateText.setVisible(false);
     this.hintText.setVisible(false);
+    this.controlsText.setVisible(false);
+    this.hiScoreText.setVisible(false);
   }
 
   public pauseGameplay(): void {
-    // Not implemented for F1 — no pause mechanic
+    // No pause mechanic for this game.
   }
 
   public resumeGameplay(): void {
-    // Not implemented for F1
+    // No pause mechanic for this game.
   }
 
   public resetGameplay(): void {
-    // Full scene restart via Phaser
     this.scene.restart();
   }
 
@@ -452,7 +433,7 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
   }
 
   public handleArcadeInput(_frame: ArcadeInputFrame): void {
-    // Not using buffered input for F1
+    // This scene reads the runtime frame directly in update().
   }
 
   public destroySceneResources(): void {
@@ -487,9 +468,8 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
 
   private firePlayerBullet() {
     const timeNow = this.time.now;
-    const isMobileFire = true; // Always allow mobile fire rate/count since we use normalized input
-    if (timeNow - this.lastShotTime < (isMobileFire ? 165 : 280)) return;
-    if (this.bullets.countActive(true) >= (isMobileFire ? 4 : 1)) return;
+    if (timeNow - this.lastShotTime < 190) return;
+    if (this.bullets.countActive(true) >= 4) return;
     this.lastShotTime = timeNow;
 
     const bullet = this.bullets.get(this.player.x, this.player.y - 20) as Phaser.Physics.Arcade.Image;
@@ -499,7 +479,6 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
       bullet.setTexture('p-bullet');
       bullet.body?.setSize(4, 12);
       bullet.setVelocityY(-400);
-
       SoundSynth.playShoot();
     }
   }
@@ -537,20 +516,17 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
     const bullet = bulletObj as Phaser.Physics.Arcade.Image;
     const enemy = enemyObj as Phaser.Physics.Arcade.Sprite;
 
-    // Create custom particle burst using Graphics textures
     this.createExplosionParticles(enemy.x, enemy.y, 0xffff00);
-
     bullet.destroy();
     enemy.destroy();
-
     SoundSynth.playHit();
 
     const points = Number(enemy.getData('points')) || 10;
     this.score += points;
     this.scoreText.setText(`SCORE: ${this.score}`);
     this.comboText.setText(`+${points}`);
+    this.lastHitTime = Date.now();
 
-    // Check Win
     if (this.enemies.countActive() === 0) {
       this.levelComplete();
     }
@@ -559,11 +535,10 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
   private collectPowerUp(_playerObj: any, pupObj: any) {
     const pup = pupObj as Phaser.Physics.Arcade.Image;
     pup.destroy();
-    
+
     SoundSynth.playPowerUp();
     this.playerSpeed += 30;
 
-    // Popup text floating up
     const floatText = this.add.text(this.player.x, this.player.y - 20, 'SPEED UP!', {
       fontSize: '11px',
       fontFamily: 'monospace',
@@ -583,7 +558,6 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
   private hitPlayer(_playerObj: any, bulletObj: any) {
     const bullet = bulletObj as Phaser.Physics.Arcade.Image;
     bullet.destroy();
-
     this.loseLife();
   }
 
@@ -658,7 +632,7 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
       lifespan: 600,
       maxParticles: 12
     });
-    
+
     this.time.delayedCall(800, () => particles.destroy());
   }
 
@@ -667,6 +641,8 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
     this.lifecycleState = 'levelComplete';
     this.stateText.setText('LEVEL COMPLETE!').setColor('#55ff55').setVisible(true);
     this.hintText.setText('TAP OR SPACE FOR NEXT LEVEL').setVisible(true);
+    this.controlsText.setVisible(true);
+    this.hiScoreText.setVisible(true);
 
     this.bullets.clear(true, true);
     this.enemyBullets.clear(true, true);
@@ -679,6 +655,8 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
     this.isLevelComplete = false;
     this.stateText.setVisible(false);
     this.hintText.setVisible(false);
+    this.controlsText.setVisible(false);
+    this.hiScoreText.setVisible(false);
 
     this.levelText.setText(`LEVEL ${this.level}`);
     this.enemyDir = 1;
@@ -696,7 +674,6 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
     this.createExplosionParticles(this.player.x, this.player.y, 0xff0000);
     this.player.setVisible(false);
 
-    // Save Score
     this.highScores.push(this.score);
     this.highScores.sort((a, b) => b - a);
     this.highScores = this.highScores.slice(0, 10);
@@ -704,5 +681,7 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
 
     this.stateText.setText('GAME OVER').setColor('#ff4444').setVisible(true);
     this.hintText.setText('TAP OR SPACE TO RETRY').setVisible(true);
+    this.controlsText.setVisible(true);
+    this.hiScoreText.setVisible(true);
   }
 }
