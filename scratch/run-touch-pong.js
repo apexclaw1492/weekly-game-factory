@@ -15,8 +15,8 @@ async function currentState(page) {
       return {
         sceneKey: state.sceneKey,
         waiting: state.lifecycle === 'start',
-        playerY: state.player?.y ?? null,
-        playerVelocityY: state.player?.vy ?? null,
+        playerX: state.player?.x ?? null,
+        playerVelocityX: state.player?.vx ?? null,
         score: state.score
       };
     }
@@ -24,8 +24,8 @@ async function currentState(page) {
     return {
       sceneKey: scene.scene?.key ?? null,
       waiting: scene.lifecycleState === 'start',
-      playerY: scene.leftPaddle?.y ?? null,
-      playerVelocityY: scene.leftPaddle?.body?.velocity?.y ?? null,
+      playerX: scene.bottomPaddle?.x ?? null,
+      playerVelocityX: scene.bottomPaddle?.body?.velocity?.x ?? null,
       score: scene.scorePlayer ?? null
     };
   });
@@ -97,16 +97,16 @@ async function run() {
 
     const started = await currentState(page);
 
-    // Simulate drag movement on left half to move paddle
-    await touchStart(client, 100, 422);
+    // Simulate drag movement on bottom half to move paddle
+    await touchStart(client, 195, 700);
     await delay(200);
-    await touchMove(client, 100, 300); // Move up
+    await touchMove(client, 100, 700); // Move left
     await delay(500);
-    const movingUp = await currentState(page);
+    const movingLeft = await currentState(page);
 
-    await touchMove(client, 100, 600); // Move down
+    await touchMove(client, 300, 700); // Move right
     await delay(500);
-    const movingDown = await currentState(page);
+    const movingRight = await currentState(page);
 
     await touchEnd(client);
     await delay(300);
@@ -114,14 +114,14 @@ async function run() {
 
     const result = {
       started,
-      movingUp,
-      movingDown,
+      movingLeft,
+      movingRight,
       released,
       checks: {
         correctScene: started.sceneKey === 'PongScene',
         startedGameplay: started.waiting === false,
-        movedUp: movingUp.playerVelocityY < 0,
-        movedDown: movingDown.playerVelocityY > 0,
+        movedLeft: movingLeft.playerVelocityX < 0,
+        movedRight: movingRight.playerVelocityX > 0,
         noPageErrors: messages.every((message) => message.type !== 'pageerror' && message.type !== 'error')
       },
       messages
