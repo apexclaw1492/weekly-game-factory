@@ -144,6 +144,15 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
     this.topPaddle.setImmovable(true);
     this.topPaddle.setCollideWorldBounds(true);
 
+    // Explicit physics body sizing for reliable collisions
+    (this.bottomPaddle.body as Phaser.Physics.Arcade.Body).setSize(60, 14);
+    (this.topPaddle.body as Phaser.Physics.Arcade.Body).setSize(60, 14);
+    // Make bodies immovable
+    (this.bottomPaddle.body as Phaser.Physics.Arcade.Body).setImmovable(true);
+    (this.bottomPaddle.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
+    (this.topPaddle.body as Phaser.Physics.Arcade.Body).setImmovable(true);
+    (this.topPaddle.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
+
     // Ball
     this.ball = this.physics.add.sprite(width / 2, height / 2, 'ball');
     this.ball.setBounce(1);
@@ -308,20 +317,24 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
       return;
     }
 
-    const runtime = (window as any).__WGF_INPUT_RUNTIME as InputRuntime;
-    if (!runtime) return;
-    const frame = runtime.readFrame();
-
-    // Player controls (horizontal)
-    let playerVx = 0;
-    if (Math.abs(frame.gestures.dragVectorX) > 0.05 && frame.touch.y > height / 2) {
-      playerVx = frame.gestures.dragVectorX * 400;
-    } else if (frame.actions.left.held) {
-      playerVx = -400;
-    } else if (frame.actions.right.held) {
-      playerVx = 400;
+    // Player controls — Phaser native pointer + keyboard
+    const pointer = this.input.activePointer;
+    const isTouching = pointer.isDown || pointer.wasTouch;
+    
+    if (isTouching && pointer.y > height / 2) {
+      // Touch mode: move paddle to follow finger X position
+      this.bottomPaddle.x = Phaser.Math.Clamp(pointer.x, 30, width - 30);
+      this.bottomPaddle.setVelocityX(0);
+    } else {
+      // Keyboard mode: ArrowLeft / ArrowRight with smooth velocity
+      let playerVx = 0;
+      if (this.input.keyboard!.addKey('LEFT').isDown) {
+        playerVx = -400;
+      } else if (this.input.keyboard!.addKey('RIGHT').isDown) {
+        playerVx = 400;
+      }
+      this.bottomPaddle.setVelocityX(playerVx);
     }
-    this.bottomPaddle.setVelocityX(playerVx);
 
     // AI controls
     this.updateAI(time);
@@ -362,23 +375,27 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
   }
 
   private hitPaddle(_ball: any, _paddle: any) {
+    const paddle = _paddle as Phaser.Physics.Arcade.Sprite;
     this.ballSpeed = Math.min(600, this.ballSpeed * this.ballSpeedIncrement);
     
-    // Reverse Y and add slight random X variation
-    const bounceAngle = (Math.random() - 0.5) * 40;
-    const currentVelocity = new Phaser.Math.Vector2(this.ball.body!.velocity.x, this.ball.body!.velocity.y);
-    const newVelocityY = -currentVelocity.y;
+    // Determine if this is the top or bottom paddle
+    const isTopPaddle = paddle === this.topPaddle;
     
-    this.ball.setVelocity(currentVelocity.x + bounceAngle, newVelocityY);
+    // Compute where on the paddle the ball hit (-1 to 1 from left to right)
+    const hitOffset = (this.ball.x - paddle.x) / (paddle.displayWidth / 2);
+    const clampedOffset = Phaser.Math.Clamp(hitOffset, -0.9, 0.9);
     
-    // Normalize speed
-    const vel = new Phaser.Math.Vector2(this.ball.body!.velocity.x, this.ball.body!.velocity.y);
-    vel.normalize().scale(this.ballSpeed);
-    this.ball.setVelocity(vel.x, vel.y);
-
+    // Bounce angle: steeper near center, angled toward edges
+    const angleRad = clampedOffset * (Math.PI / 4); // max ±45°
+    
+    // New velocity direction
+    const dirY = isTopPaddle ? 1 : -1; // ball goes down after hitting top, up after hitting bottom
+    const newVx = Math.sin(angleRad) * this.ballSpeed;
+    const newVy = Math.cos(angleRad) * this.ballSpeed * dirY;
+    
+    this.ball.setVelocity(newVx, newVy);
+    
     SoundSynth.playHit();
-    
-    // Flash effect
     this.cameras.main.flash(50, 255, 215, 0);
   }
 
