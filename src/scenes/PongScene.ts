@@ -156,7 +156,17 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
     // Ball
     this.ball = this.physics.add.sprite(width / 2, height / 2, 'ball');
     this.ball.setBounce(1);
-    this.ball.setCollideWorldBounds(false);
+    this.ball.setCollideWorldBounds(true);
+    (this.ball.body as Phaser.Physics.Arcade.Body).onWorldBounds = true;
+
+    // World Bounds for side walls (gutters)
+    this.physics.world.setBounds(20, 0, width - 40, height);
+    this.physics.world.setBoundsCollision(true, true, false, false);
+    this.physics.world.on('worldbounds', (body: Phaser.Physics.Arcade.Body) => {
+      if (body.gameObject === this.ball) {
+        SoundSynth.playTone(600, 0.05, 'sine', 0.02);
+      }
+    });
 
     // Collisions
     this.physics.add.collider(this.ball, this.bottomPaddle, this.hitPaddle, undefined, this);
@@ -292,6 +302,8 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
     this.overlayBg.fillStyle(0x000000, 0.85);
     this.overlayBg.fillRect(0, 0, width, height);
     this.funFactBox.setPosition(width / 2, height / 2);
+
+    this.physics.world.setBounds(20, 0, width - 40, height);
   }
 
   update(time: number) {
@@ -338,13 +350,6 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
 
     // AI controls
     this.updateAI(time);
-
-    // Ball bounds check (side walls)
-    if (this.ball.x < 20 || this.ball.x > width - 20) {
-      this.ball.setX(Phaser.Math.Clamp(this.ball.x, 20, width - 20));
-      this.ball.body!.velocity.x *= -1;
-      SoundSynth.playTone(600, 0.05, 'sine', 0.02);
-    }
 
     // Scoring (top/bottom)
     if (this.ball.y < 0) {
