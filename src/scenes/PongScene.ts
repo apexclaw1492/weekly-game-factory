@@ -376,6 +376,7 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
 
   private hitPaddle(_ball: any, _paddle: any) {
     const paddle = _paddle as Phaser.Physics.Arcade.Sprite;
+    const paddleBody = paddle.body as Phaser.Physics.Arcade.Body;
     this.ballSpeed = Math.min(600, this.ballSpeed * this.ballSpeedIncrement);
     
     // Determine if this is the top or bottom paddle
@@ -385,13 +386,27 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
     const hitOffset = (this.ball.x - paddle.x) / (paddle.displayWidth / 2);
     const clampedOffset = Phaser.Math.Clamp(hitOffset, -0.9, 0.9);
     
-    // Bounce angle: steeper near center, angled toward edges
-    const angleRad = clampedOffset * (Math.PI / 4); // max ±45°
+    // Bounce angle: stronger near edges, but never perfectly vertical.
+    const angleRad = clampedOffset * (Math.PI / 3); // max ±60°
     
     // New velocity direction
     const dirY = isTopPaddle ? 1 : -1; // ball goes down after hitting top, up after hitting bottom
-    const newVx = Math.sin(angleRad) * this.ballSpeed;
-    const newVy = Math.cos(angleRad) * this.ballSpeed * dirY;
+    let newVx = Math.sin(angleRad) * this.ballSpeed;
+    let newVy = Math.cos(angleRad) * this.ballSpeed * dirY;
+    
+    // Add a little "spin" from paddle movement so hits feel alive.
+    newVx += paddleBody.velocity.x * 0.18;
+    
+    // Prevent the ball from getting stuck in boring straight vertical rallies.
+    const minAbsVx = Math.max(90, this.ballSpeed * 0.28);
+    if (Math.abs(newVx) < minAbsVx) {
+      const direction = newVx !== 0 ? Math.sign(newVx) : (this.ball.x < this.scale.width / 2 ? -1 : 1);
+      newVx = minAbsVx * direction;
+    }
+
+    // Keep the total speed stable after the horizontal clamp.
+    const maxVy = Math.sqrt(Math.max(1, (this.ballSpeed * this.ballSpeed) - (newVx * newVx)));
+    newVy = Math.sign(newVy) * maxVy;
     
     this.ball.setVelocity(newVx, newVy);
     
@@ -434,10 +449,12 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
     this.ball.setPosition(width / 2, height / 2);
     this.ballSpeed = this.ballInitialSpeed + (this.level * 10);
     
-    // Serve mostly vertical (up or down)
-    const angle = (Math.random() * 40 - 20) * (Math.PI / 180);
+    // Serve with a deliberate diagonal so rallies don't become vertical wall loops.
+    const angleDeg = 25 + Math.random() * 20;
+    const angle = Phaser.Math.DegToRad(angleDeg);
+    const horizontalDir = Math.random() < 0.5 ? -1 : 1;
     const vy = Math.cos(angle) * this.ballSpeed * (serveUp ? -1 : 1);
-    const vx = Math.sin(angle) * this.ballSpeed;
+    const vx = Math.sin(angle) * this.ballSpeed * horizontalDir;
     
     this.ball.setVelocity(vx, vy);
   }
