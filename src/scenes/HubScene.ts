@@ -17,6 +17,12 @@ export class HubScene extends Phaser.Scene {
   private subtitleText!: Phaser.GameObjects.Text;
   private bgGrad!: Phaser.GameObjects.Graphics;
   private cardInputReadyAt = 0;
+  private scrollY = 0;
+  private maxScroll = 0;
+  private dragStartY = 0;
+  private dragStartScroll = 0;
+  private isDragging = false;
+  private scrollIndicator: Phaser.GameObjects.Text | null = null;
 
   constructor() {
     super('HubScene');
@@ -72,6 +78,31 @@ export class HubScene extends Phaser.Scene {
     // 5. Render Stats Box at bottom
     this.renderStats();
 
+    // 6. Setup scroll handling for portrait mode
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      const { width, height } = this.scale;
+      if (height <= width || this.maxScroll <= 0) return;
+      this.isDragging = true;
+      this.dragStartY = pointer.y;
+      this.dragStartScroll = this.scrollY;
+    });
+
+    this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      if (!this.isDragging || this.maxScroll <= 0) return;
+      const delta = pointer.y - this.dragStartY;
+      this.scrollY = Phaser.Math.Clamp(this.dragStartScroll + delta, -this.maxScroll, 0);
+    });
+
+    this.input.on('pointerup', () => {
+      this.isDragging = false;
+    });
+
+    this.scrollIndicator = this.add.text(width / 2, height - 65, '', {
+      fontSize: '12px',
+      fontFamily: 'monospace',
+      color: '#ffffff'
+    }).setOrigin(0.5).setDepth(10).setAlpha(0.6);
+
     // Handle screen resizing
     this.scale.on('resize', this.handleResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
@@ -93,6 +124,34 @@ export class HubScene extends Phaser.Scene {
       this.starfield.fillStyle(0xffffff, star.alpha);
       this.starfield.fillRect(star.x, star.y, 1.5, 1.5);
     });
+
+    // Handle portrait scrolling
+    const isPortrait = height > width;
+    if (isPortrait) {
+      // Update card positions with scrollY offset
+      const startY = 145;
+      const cardH = 75;
+      this.cards.forEach((card, idx) => {
+        card.y = startY + idx * (cardH + 12) + this.scrollY;
+      });
+
+      // Update scroll indicator
+      if (this.scrollIndicator) {
+        if (this.maxScroll > 0 && this.scrollY > -this.maxScroll) {
+          this.scrollIndicator.setText('▼ scroll ▼');
+          this.scrollIndicator.setPosition(width / 2, height - 65);
+          this.scrollIndicator.setVisible(true);
+        } else if (this.maxScroll > 0 && this.scrollY < 0) {
+          this.scrollIndicator.setText('▲');
+          this.scrollIndicator.setPosition(width / 2, 130);
+          this.scrollIndicator.setVisible(true);
+        } else {
+          this.scrollIndicator.setVisible(false);
+        }
+      }
+    } else {
+      if (this.scrollIndicator) this.scrollIndicator.setVisible(false);
+    }
   }
 
   private renderGameCards() {
@@ -112,12 +171,18 @@ export class HubScene extends Phaser.Scene {
 
       GAME_DEFINITIONS.forEach((game, idx) => {
         const cardX = width / 2;
-        const cardY = startY + idx * (cardH + 12);
+        const cardY = startY + idx * (cardH + 12) + this.scrollY;
         const card = this.createGameCard(cardX, cardY, cardW, cardH, game);
         this.cards.push(card);
       });
+
+      // Calculate maxScroll correctly: total cards area - visible height
+      const totalHeight = startY + GAME_DEFINITIONS.length * (cardH + 12);
+      this.maxScroll = Math.max(0, totalHeight + 20 - height);
     } else {
       // 2x2 Grid for Landscape
+      this.maxScroll = 0;
+      this.scrollY = 0;
       const cardW = Math.min((width - 60) / 2, 360);
       const cardH = 120;
 
@@ -341,6 +406,9 @@ export class HubScene extends Phaser.Scene {
     // Re-draw cards and stats
     this.renderGameCards();
     this.renderStats();
+
+    // Re-clamp scrollY to new bounds
+    this.scrollY = Phaser.Math.Clamp(this.scrollY, -this.maxScroll, 0);
   }
 
   private getSubtitleText(width: number) {
