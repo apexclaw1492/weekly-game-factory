@@ -360,19 +360,40 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
   }
 
   private updateAI(time: number) {
-    const delay = this.aiReactionDelay - (this.level * 40);
-    const speed = this.aiBaseSpeed + (this.level * 15);
+    const { width } = this.scale;
+    const delay = Math.max(40, this.aiReactionDelay - (this.level * 40));
+    const speed = this.aiBaseSpeed + (this.level * 20);
     
-    if (time - this.lastAiUpdateTime > Math.max(50, delay)) {
-      this.aiTargetX = this.ball.x;
-      this.aiError = (Math.random() - 0.5) * Math.max(10, 80 - this.level * 6);
+    if (time - this.lastAiUpdateTime > delay) {
+      const ballBody = this.ball.body as Phaser.Physics.Arcade.Body;
+      
+      if (ballBody.velocity.y < 0) {
+        // Ball is coming towards AI - simple destination prediction
+        const distY = Math.abs(this.ball.y - this.topPaddle.y);
+        const timeToHit = distY / Math.max(1, Math.abs(ballBody.velocity.y));
+        let predictedX = this.ball.x + (ballBody.velocity.x * timeToHit);
+        
+        // Clamp prediction within playable bounds to account for wall bounces
+        const margin = 30;
+        if (predictedX < margin) predictedX = margin;
+        if (predictedX > width - margin) predictedX = width - margin;
+        
+        this.aiTargetX = predictedX;
+      } else {
+        // Ball is moving away - track ball X lazily to stay in position
+        this.aiTargetX = width / 2 + (this.ball.x - width / 2) * 0.5;
+      }
+
+      // AI error reduces with level (better accuracy), but remains beatable
+      const errorRange = Math.max(8, 70 - (this.level * 6));
+      this.aiError = (Math.random() - 0.5) * errorRange;
       this.lastAiUpdateTime = time;
     }
 
     const target = this.aiTargetX + this.aiError;
     const diff = target - this.topPaddle.x;
     
-    if (Math.abs(diff) > 10) {
+    if (Math.abs(diff) > 8) {
       this.topPaddle.setVelocityX(speed * Math.sign(diff));
     } else {
       this.topPaddle.setVelocityX(0);
@@ -452,7 +473,7 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
   private resetBall(serveUp: boolean) {
     const { width, height } = this.scale;
     this.ball.setPosition(width / 2, height / 2);
-    this.ballSpeed = this.ballInitialSpeed + (this.level * 10);
+    this.ballSpeed = this.ballInitialSpeed + (this.level * 30);
     
     // Serve with a deliberate diagonal so rallies don't become vertical wall loops.
     const angleDeg = 25 + Math.random() * 20;
