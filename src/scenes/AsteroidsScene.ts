@@ -134,7 +134,6 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
       runtime.blockHubInputUntil(performance.now() + 100);
     }
     this.lifecycleManager = new LifecycleManager(this, runtime);
-    this.showStart();
 
     // 7. HUD setup
     this.scoreText = this.add.text(20, 20, 'SCORE: 0', { fontSize: '16px', fontFamily: 'monospace', color: '#00ccff' });
@@ -159,6 +158,7 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
       color: '#8888a0',
       align: 'center'
     }).setOrigin(0.5);
+    this.showStart();
 
     // Back to Hub Button
     this.backBtn = this.add.text(20, 20, '← BACK TO HUB', {
@@ -262,7 +262,7 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
     this.ship.setAngularVelocity(rotateSpeed * 60);
 
     // Thrust acceleration
-    const isThrusting = frame.actions.thrust.held || frame.actions.up.held;
+    const isThrusting = frame.actions.thrust.held || frame.actions.up.held || (frame.actions.fire.held && frame.actions.fire.source === "touch");
     if (isThrusting) {
       this.thrustHeldFrames++;
       const angleRad = Phaser.Math.DegToRad(this.ship.angle);
@@ -663,7 +663,7 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
     this.stateText.setVisible(true);
     this.stateText.setText("ASTEROID BELT").setColor("#00ccff");
     this.hintText.setVisible(true);
-    this.hintText.setText("TAP TO START\n\nPHONE: TILT OR DRAG TO STEER, HOLD TO THRUST\nDESKTOP: ARROWS + SPACE");
+    this.hintText.setText("TAP TO START\n\nPHONE: DRAG OR TILT TO STEER\nHOLD = THRUST + AUTO-FIRE\n\nDESKTOP: ARROWS + SPACE\nSHIFT = HYPERSPACE");
     if (this.ship) {
       this.ship.setVisible(true);
       this.ship.setPosition(this.scale.width / 2, this.scale.height / 2 - 20);

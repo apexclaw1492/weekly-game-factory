@@ -110,6 +110,17 @@ export const GAME_DEFINITIONS: readonly GameDefinition[] = [
     isBonus: true
   },
   {
+    id: 'pac-man',
+    title: 'Pac-Man',
+    icon: '👾',
+    weekLabel: 'Curated',
+    url: './games/pac-man/',
+    color: 0xffdd00,
+    description: 'Classic Pac-Man! Eat dots, dodge ghosts, and survive.',
+    certificationStatus: 'certified',
+    isBonus: true
+  },
+  {
     id: 'red-bull-pong',
     title: 'Red Bull Pong',
     weekLabel: 'Week 3',
