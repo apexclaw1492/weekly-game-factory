@@ -23,6 +23,15 @@ export class HubScene extends Phaser.Scene {
   private dragStartScroll = 0;
   private isDragging = false;
   private scrollIndicator: Phaser.GameObjects.Text | null = null;
+  private pendingCardTap: {
+    startX: number;
+    startY: number;
+    game: GameDefinition;
+    bg: Phaser.GameObjects.Rectangle;
+    baseAlpha: number;
+    certified: boolean;
+    color: number;
+  } | null = null;
 
   constructor() {
     super('HubScene');
@@ -88,13 +97,42 @@ export class HubScene extends Phaser.Scene {
     });
 
     this.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
+      // Cancel pending card tap if dragged past threshold
+      if (this.pendingCardTap) {
+        const dx = pointer.x - this.pendingCardTap.startX;
+        const dy = pointer.y - this.pendingCardTap.startY;
+        if (Math.sqrt(dx * dx + dy * dy) > 10) {
+          this.pendingCardTap.bg.setFillStyle(0x111126);
+          this.pendingCardTap = null;
+        }
+      }
       if (!this.isDragging || this.maxScroll <= 0) return;
       const delta = pointer.y - this.dragStartY;
       this.scrollY = Phaser.Math.Clamp(this.dragStartScroll + delta, -this.maxScroll, 0);
     });
 
-    this.input.on('pointerup', () => {
+    this.input.on('pointerup', (pointer: Phaser.Input.Pointer) => {
       this.isDragging = false;
+      // Execute pending card tap if within distance threshold
+      if (this.pendingCardTap) {
+        const dx = pointer.x - this.pendingCardTap.startX;
+        const dy = pointer.y - this.pendingCardTap.startY;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const tap = this.pendingCardTap;
+        this.pendingCardTap = null;
+        if (dist <= 10) {
+          // Was a real tap — navigate to game
+          this.scale.off('resize', this.handleResize, this);
+          if (tap.game.url) {
+            window.location.href = tap.game.url;
+          } else if (tap.game.sceneKey) {
+            this.scene.start(tap.game.sceneKey);
+          }
+        } else {
+          // Was a drag — restore card appearance
+          tap.bg.setFillStyle(0x111126);
+        }
+      }
     });
 
     this.scrollIndicator = this.add.text(width / 2, height - 65, '', {
@@ -309,7 +347,7 @@ export class HubScene extends Phaser.Scene {
       bg.setStrokeStyle(1.5, game.color, 0.4);
     });
 
-    bg.on('pointerdown', () => {
+    bg.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
       if (performance.now() < this.cardInputReadyAt) return;
 
       if (!certified) {
@@ -322,17 +360,20 @@ export class HubScene extends Phaser.Scene {
       }
 
       SoundSynth.playTone(800, 0.1, 'sine', 0.05);
-      
-      // Flash card background before switching
+
+      // Flash card background immediately (visual feedback)
       bg.setFillStyle(game.color, 0.2);
-      this.time.delayedCall(100, () => {
-        this.scale.off('resize', this.handleResize, this);
-        if (game.url) {
-          window.location.href = game.url;
-        } else if (game.sceneKey) {
-          this.scene.start(game.sceneKey);
-        }
-      });
+
+      // Record pending tap — will execute on pointerup if not dragged
+      this.pendingCardTap = {
+        startX: pointer.x,
+        startY: pointer.y,
+        game,
+        bg,
+        baseAlpha,
+        certified,
+        color: game.color
+      };
     });
 
     return container;
