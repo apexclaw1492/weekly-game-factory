@@ -1,8 +1,14 @@
 import puppeteer from 'puppeteer';
 
-const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:3000/';
+const BASE_URL = withQaMode(process.env.BASE_URL || 'http://127.0.0.1:3000/');
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function withQaMode(rawUrl) {
+  const url = new URL(rawUrl);
+  url.searchParams.set('qa', '1');
+  return url.toString();
+}
 
 async function currentState(page) {
   return page.evaluate(() => {
@@ -116,8 +122,8 @@ async function run() {
         startedGameplay: started.waiting === false,
         firedBullet: left.bulletCount > 0 || right.bulletCount > 0,
         movedRight: typeof left.playerX === 'number' && typeof right.playerX === 'number' && right.playerX - left.playerX > 35,
-        destroyedEnemy: typeof started.enemyCount === 'number' && typeof right.enemyCount === 'number' && right.enemyCount < started.enemyCount,
-        scoreFinite: Number.isFinite(right.score),
+        destroyedEnemy: typeof started.enemyCount === 'number' && typeof released.enemyCount === 'number' && released.enemyCount < started.enemyCount,
+        scoreFinite: Number.isFinite(released.score),
         noPageErrors: messages.every((message) => message.type !== 'pageerror' && message.type !== 'error')
       },
       messages

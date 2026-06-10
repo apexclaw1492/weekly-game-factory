@@ -1,7 +1,13 @@
 import puppeteer from 'puppeteer';
 
-const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:3000/';
+const BASE_URL = withQaMode(process.env.BASE_URL || 'http://127.0.0.1:3000/');
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function withQaMode(rawUrl) {
+  const url = new URL(rawUrl);
+  url.searchParams.set('qa', '1');
+  return url.toString();
+}
 
 async function currentState(page) {
   return page.evaluate(() => {
@@ -77,8 +83,13 @@ async function runScenario(viewport) {
     await page.touchscreen.tap(viewport.cargoCardX, viewport.cargoCardY);
     await delay(900);
     await page.touchscreen.tap(viewport.width / 2, viewport.height / 2);
-    await delay(350);
-    const started = await currentState(page);
+    await delay(500);
+    let started = await currentState(page);
+    if (started.lifecycle === 'start') {
+      await page.touchscreen.tap(viewport.width / 2, viewport.height / 2);
+      await delay(500);
+      started = await currentState(page);
+    }
 
     await touchStart(client, viewport.width / 2, viewport.height * 0.72);
     await delay(620);
@@ -109,7 +120,7 @@ async function runScenario(viewport) {
     await delay(240);
     const afterPortal = await currentState(page);
 
-    await page.touchscreen.tap(viewport.width - 58, viewport.height - 30);
+    await page.touchscreen.tap(82, 20);
     await delay(550);
     const returnedScene = await sceneKey(page);
 

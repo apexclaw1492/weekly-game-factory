@@ -1,8 +1,14 @@
 import puppeteer from 'puppeteer';
 
-const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:3000/';
+const BASE_URL = withQaMode(process.env.BASE_URL || 'http://127.0.0.1:3000/');
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function withQaMode(rawUrl) {
+  const url = new URL(rawUrl);
+  url.searchParams.set('qa', '1');
+  return url.toString();
+}
 
 async function currentState(page) {
   return page.evaluate(() => {
@@ -86,9 +92,8 @@ async function run() {
     await page.touchscreen.tap(195, 700);
     await delay(1000);
     
-    // Tap the Pong card in the Hub. It's at index 7.
-    // cardY = 145 + 7 * 87 = 754
-    await page.touchscreen.tap(195, 754);
+    // Tap the Pong card in the Hub. It is the fifth native card.
+    await page.touchscreen.tap(195, 493);
     await delay(1000);
     
     // Tap to start the game from 'start' state
@@ -120,8 +125,8 @@ async function run() {
       checks: {
         correctScene: started.sceneKey === 'PongScene',
         startedGameplay: started.waiting === false,
-        movedLeft: movingLeft.playerVelocityX < 0,
-        movedRight: movingRight.playerVelocityX > 0,
+        movedLeft: typeof started.playerX === 'number' && typeof movingLeft.playerX === 'number' && movingLeft.playerX < started.playerX - 40,
+        movedRight: typeof movingLeft.playerX === 'number' && typeof movingRight.playerX === 'number' && movingRight.playerX > movingLeft.playerX + 120,
         noPageErrors: messages.every((message) => message.type !== 'pageerror' && message.type !== 'error')
       },
       messages

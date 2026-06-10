@@ -124,7 +124,7 @@ export class HubScene extends Phaser.Scene {
           // Was a real tap — navigate to game
           this.scale.off('resize', this.handleResize, this);
           if (tap.game.url) {
-            window.location.href = tap.game.url;
+            this.openCatalogUrl(tap.game.url);
           } else if (tap.game.sceneKey) {
             this.scene.start(tap.game.sceneKey);
           }
@@ -218,22 +218,22 @@ export class HubScene extends Phaser.Scene {
       const totalHeight = startY + GAME_DEFINITIONS.length * (cardH + 12);
       this.maxScroll = Math.max(0, totalHeight + 20 - height);
     } else {
-      // 2x2 Grid for Landscape
+      // Responsive grid for landscape
       this.maxScroll = 0;
       this.scrollY = 0;
-      const cardW = Math.min((width - 60) / 2, 360);
-      const cardH = 120;
-
-      const offsets = [
-        { x: -cardW / 2 - 10, y: -cardH / 2 - 10 },
-        { x: cardW / 2 + 10, y: -cardH / 2 - 10 },
-        { x: -cardW / 2 - 10, y: cardH / 2 + 25 },
-        { x: cardW / 2 + 10, y: cardH / 2 + 25 }
-      ];
+      const columns = GAME_DEFINITIONS.length > 4 && width >= 900 ? 3 : 2;
+      const rows = Math.ceil(GAME_DEFINITIONS.length / columns);
+      const cardW = Math.min((width - 30 - (columns - 1) * 20) / columns, 340);
+      const cardH = rows > 2 ? 95 : 120;
+      const gridW = columns * cardW + (columns - 1) * 20;
+      const gridH = rows * cardH + (rows - 1) * 20;
+      const startX = width / 2 - gridW / 2 + cardW / 2;
+      const startY = height / 2 - gridH / 2 + cardH / 2 + 15;
 
       GAME_DEFINITIONS.forEach((game, idx) => {
-        const offset = offsets[idx];
-        const card = this.createGameCard(width / 2 + offset.x, height / 2 + offset.y + 15, cardW, cardH, game);
+        const col = idx % columns;
+        const row = Math.floor(idx / columns);
+        const card = this.createGameCard(startX + col * (cardW + 20), startY + row * (cardH + 20), cardW, cardH, game);
         this.cards.push(card);
       });
     }
@@ -454,5 +454,28 @@ export class HubScene extends Phaser.Scene {
 
   private getSubtitleText(width: number) {
     return width < 420 ? 'A new retro game every Friday.' : 'A new retro game every Friday. Fully optimized.';
+  }
+
+  private openCatalogUrl(rawUrl: string) {
+    const resolvedUrl = this.resolveCatalogUrl(rawUrl);
+    if (!resolvedUrl) {
+      SoundSynth.playTone(180, 0.1, 'square', 0.03);
+      return;
+    }
+    window.location.assign(resolvedUrl);
+  }
+
+  private resolveCatalogUrl(rawUrl: string): string | null {
+    try {
+      const resolved = new URL(rawUrl, window.location.href);
+      const current = new URL(window.location.href);
+      const basePath = current.pathname.replace(/\/(?:index\.html)?$/, '/');
+      if (resolved.origin !== current.origin) return null;
+      if (resolved.protocol !== 'http:' && resolved.protocol !== 'https:') return null;
+      if (!resolved.pathname.startsWith(`${basePath}games/`)) return null;
+      return `${resolved.pathname}${resolved.search}${resolved.hash}`;
+    } catch {
+      return null;
+    }
   }
 }

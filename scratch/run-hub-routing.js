@@ -1,14 +1,46 @@
 import puppeteer from 'puppeteer';
 
-const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:3000/';
+const BASE_URL = withQaMode(process.env.BASE_URL || 'http://127.0.0.1:3000/');
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function withQaMode(rawUrl) {
+  const url = new URL(rawUrl);
+  url.searchParams.set('qa', '1');
+  return url.toString();
+}
 
 const CERTIFIED_CARDS = [
   { name: 'F1 Space Invaders', sceneKey: 'SpaceInvadersScene', portrait: { x: 195, y: 145 }, landscape: { x: 232, y: 140 } },
   { name: 'Cosmic Cargo', sceneKey: 'CosmicCargoScene', portrait: { x: 195, y: 232 }, landscape: { x: 612, y: 140 } },
   { name: 'Contra Bonus', sceneKey: 'ContraScene', portrait: { x: 195, y: 319 }, landscape: { x: 232, y: 295 } },
-  { name: 'Asteroid Belt', sceneKey: 'AsteroidsScene', portrait: { x: 195, y: 406 }, landscape: { x: 612, y: 295 } }
+  { name: 'Asteroid Belt', sceneKey: 'AsteroidsScene', portrait: { x: 195, y: 406 }, landscape: { x: 612, y: 295 } },
+  { name: 'Red Bull Pong', sceneKey: 'PongScene', portrait: { x: 195, y: 493 }, landscape: { x: 232, y: 330 } }
 ];
+
+function cardPoint(viewport, index) {
+  if (viewport.height > viewport.width) {
+    return {
+      x: viewport.width / 2,
+      y: 145 + index * 87
+    };
+  }
+
+  const gameCount = CERTIFIED_CARDS.length;
+  const columns = gameCount > 4 && viewport.width >= 900 ? 3 : 2;
+  const rows = Math.ceil(gameCount / columns);
+  const cardW = Math.min((viewport.width - 30 - (columns - 1) * 20) / columns, 340);
+  const cardH = rows > 2 ? 95 : 120;
+  const gridW = columns * cardW + (columns - 1) * 20;
+  const gridH = rows * cardH + (rows - 1) * 20;
+  const startX = viewport.width / 2 - gridW / 2 + cardW / 2;
+  const startY = viewport.height / 2 - gridH / 2 + cardH / 2 + 15;
+  const col = index % columns;
+  const row = Math.floor(index / columns);
+  return {
+    x: startX + col * (cardW + 20),
+    y: startY + row * (cardH + 20)
+  };
+}
 
 async function sceneKey(page) {
   return page.evaluate(() => {
@@ -62,18 +94,20 @@ async function run() {
     }
 
     const launchResults = [];
-    for (const card of CERTIFIED_CARDS) {
+    for (const [index, card] of CERTIFIED_CARDS.entries()) {
       await enterHub(page, portrait);
-      await page.touchscreen.tap(card.portrait.x, card.portrait.y);
+      const point = cardPoint(portrait, index);
+      await page.touchscreen.tap(point.x, point.y);
       await delay(800);
       launchResults.push({ viewport: 'phone-portrait', game: card.name, sceneKey: await sceneKey(page), expected: card.sceneKey });
     }
 
     const landscape = { width: 844, height: 390 };
     await page.setViewport({ ...landscape, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
-    for (const card of CERTIFIED_CARDS) {
+    for (const [index, card] of CERTIFIED_CARDS.entries()) {
       await enterHub(page, landscape);
-      await page.touchscreen.tap(card.landscape.x, card.landscape.y);
+      const point = cardPoint(landscape, index);
+      await page.touchscreen.tap(point.x, point.y);
       await delay(800);
       launchResults.push({ viewport: 'phone-landscape', game: card.name, sceneKey: await sceneKey(page), expected: card.sceneKey });
     }

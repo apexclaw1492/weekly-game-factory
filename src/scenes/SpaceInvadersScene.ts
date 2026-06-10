@@ -4,6 +4,7 @@ import { LifecycleManager } from '../runtime/LifecycleManager';
 import { ArcadeInputFrame } from '../runtime/ArcadeInputFrame';
 import { InputRuntime } from '../runtime/InputRuntime';
 import { SoundSynth } from '../utils/SoundSynth';
+import { readStoredNumberArray, writeStoredJson } from '../utils/SafeStorage';
 
 export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
   readonly sceneKey = 'SpaceInvadersScene';
@@ -70,8 +71,7 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
     this.isLevelComplete = false;
     this.isWaitingToStart = true;
 
-    const savedScores = localStorage.getItem('f1_scores');
-    this.highScores = savedScores ? JSON.parse(savedScores) : [];
+    this.highScores = readStoredNumberArray('f1_scores', 10);
   }
 
   create() {
@@ -677,7 +677,7 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
     this.highScores.push(this.score);
     this.highScores.sort((a, b) => b - a);
     this.highScores = this.highScores.slice(0, 10);
-    localStorage.setItem('f1_scores', JSON.stringify(this.highScores));
+    writeStoredJson('f1_scores', this.highScores);
 
     this.stateText.setText('GAME OVER').setColor('#ff4444').setVisible(true);
     this.hintText.setText('TAP OR SPACE TO RETRY').setVisible(true);

@@ -37,7 +37,10 @@ const config: Phaser.Types.Core.GameConfig = {
 };
 
 const game = new Phaser.Game(config);
-(window as any).__WGF_GAME__ = game;
+const isDevBuild = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV);
+if (isDevBuild || new URLSearchParams(window.location.search).has('qa')) {
+  (window as any).__WGF_GAME__ = game;
+}
 
 // Create shared input runtime
 (async () => {

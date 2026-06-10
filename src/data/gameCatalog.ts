@@ -77,50 +77,6 @@ export const GAME_DEFINITIONS: readonly GameDefinition[] = [
     description: 'Asteroids shooter clone. Split space rocks and survive.'
   },
   {
-    id: '2048',
-    title: '2048',
-    icon: '🔢',
-    weekLabel: 'Curated',
-    url: './games/2048/',
-    color: 0x7766aa,
-    description: 'Merge tiles to reach 2048!',
-    certificationStatus: 'certified',
-    isBonus: true
-  },
-  {
-    id: 'clumsy-bird',
-    title: 'Clumsy Bird',
-    icon: '🐦',
-    weekLabel: 'Curated',
-    url: './games/clumsy-bird/',
-    color: 0x44aa77,
-    description: 'Flappy bird style! Tap to fly.',
-    certificationStatus: 'certified',
-    isBonus: true
-  },
-  {
-    id: 'hextris',
-    title: 'Hextris',
-    icon: '🔷',
-    weekLabel: 'Curated',
-    url: './games/hextris/',
-    color: 0xcc44dd,
-    description: 'Hexagonal twist on Tetris.',
-    certificationStatus: 'certified',
-    isBonus: true
-  },
-  {
-    id: 'pac-man',
-    title: 'Pac-Man',
-    icon: '👾',
-    weekLabel: 'Curated',
-    url: './games/pac-man/',
-    color: 0xffdd00,
-    description: 'Classic Pac-Man! Eat dots, dodge ghosts, and survive.',
-    certificationStatus: 'certified',
-    isBonus: true
-  },
-  {
     id: 'red-bull-pong',
     title: 'Red Bull Pong',
     weekLabel: 'Week 3',

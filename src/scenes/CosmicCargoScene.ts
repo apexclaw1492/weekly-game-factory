@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { SoundSynth } from '../utils/SoundSynth';
+import { readStoredNumber, writeStoredNumber } from '../utils/SafeStorage';
 import { GameLifecycle, LifecycleState } from "../runtime/GameLifecycle";
 import { LifecycleManager } from "../runtime/LifecycleManager";
 import { ArcadeInputFrame } from "../runtime/ArcadeInputFrame";
@@ -55,6 +56,11 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
   private cargoTotal = 0;
   private boostCount = 0;
   private hazardGraceUntil = 0;
+  private directPointerDown = false;
+  private directPointerStartX = 0;
+  private directPointerStartY = 0;
+  private directPointerLastBoostAt = 0;
+  private directSwipeConsumed = false;
 
   // Demo & Visual Cues
   private demoTimer = 0;
@@ -88,6 +94,11 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     this.cargoTotal = 0;
     this.boostCount = 0;
     this.hazardGraceUntil = 0;
+    this.directPointerDown = false;
+    this.directPointerStartX = 0;
+    this.directPointerStartY = 0;
+    this.directPointerLastBoostAt = 0;
+    this.directSwipeConsumed = false;
     this.isGameOver = false;
     this.isLevelComplete = false;
     this.lifecycleState = "start";
@@ -179,7 +190,7 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     }).setOrigin(0.5);
 
     // High Score
-    const bestScore = localStorage.getItem('cosmic_cargo_high') || '0';
+    const bestScore = readStoredNumber('cosmic_cargo_high');
     this.hiScoreText = this.add.text(width / 2, height / 2 + 100, `🏆 BEST SCORE: ${bestScore}`, {
       fontSize: '12px',
       fontFamily: 'monospace',
@@ -199,6 +210,10 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
       this.scene.start('HubScene');
     });
 
+    this.input.on('pointerdown', this.handleDirectPointerDown, this);
+    this.input.on('pointermove', this.handleDirectPointerMove, this);
+    this.input.on('pointerup', this.handleDirectPointerUp, this);
+
     // Shared Runtime Initialization
     const runtime = (window as any).__WGF_INPUT_RUNTIME as InputRuntime;
     if (runtime) runtime.blockHubInputUntil(performance.now() + 100);
@@ -208,6 +223,9 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     this.scale.on('resize', this.handleResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off('resize', this.handleResize, this);
+      this.input.off('pointerdown', this.handleDirectPointerDown, this);
+      this.input.off('pointermove', this.handleDirectPointerMove, this);
+      this.input.off('pointerup', this.handleDirectPointerUp, this);
     });
 
     // Set initial gravity configuration
@@ -299,6 +317,11 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
         this.cameras.main.setBackgroundColor(0x020111);
       }
     }
+
+    if (this.directPointerDown && this.time.now - this.directPointerLastBoostAt > 160) {
+      this.useBoost();
+      this.directPointerLastBoostAt = this.time.now;
+    }
   }
 
   showStart() {
@@ -384,6 +407,50 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     if (frame.actions.boost.held && this.time.now - this.lastBoostTime > 160) {
       this.useBoost();
     }
+  }
+
+  private handleDirectPointerDown(pointer: Phaser.Input.Pointer) {
+    if (pointer.x < 140 && pointer.y < 70) return;
+
+    if (this.lifecycleState === "start" || this.lifecycleState === "levelComplete") {
+      this.startGameplay();
+      return;
+    }
+
+    if (this.lifecycleState === "gameOver") {
+      this.resetGameplay();
+      return;
+    }
+
+    if (this.lifecycleState !== "playing") return;
+
+    this.directPointerDown = true;
+    this.directPointerStartX = pointer.x;
+    this.directPointerStartY = pointer.y;
+    this.directPointerLastBoostAt = this.time.now;
+    this.directSwipeConsumed = false;
+    this.useBoost();
+  }
+
+  private handleDirectPointerMove(pointer: Phaser.Input.Pointer) {
+    if (!this.directPointerDown || this.directSwipeConsumed || this.lifecycleState !== "playing") return;
+
+    const dx = pointer.x - this.directPointerStartX;
+    const dy = pointer.y - this.directPointerStartY;
+    const absX = Math.abs(dx);
+    const absY = Math.abs(dy);
+    if (Math.max(absX, absY) < 42) return;
+
+    if (absX > absY) {
+      this.updateGravity(dx > 0 ? GravityDir.RIGHT : GravityDir.LEFT);
+    } else {
+      this.updateGravity(dy > 0 ? GravityDir.DOWN : GravityDir.UP);
+    }
+    this.directSwipeConsumed = true;
+  }
+
+  private handleDirectPointerUp() {
+    this.directPointerDown = false;
   }
 
   destroySceneResources() {
@@ -837,9 +904,9 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     this.ship.setVisible(false);
 
     // Save High Score
-    const currentHigh = parseInt(localStorage.getItem('cosmic_cargo_high') || '0');
+    const currentHigh = readStoredNumber('cosmic_cargo_high');
     if (this.score > currentHigh) {
-      localStorage.setItem('cosmic_cargo_high', String(this.score));
+      writeStoredNumber('cosmic_cargo_high', this.score);
     }
 
     this.stateText.setText('MISSION FAILED').setColor('#ff4444').setVisible(true);

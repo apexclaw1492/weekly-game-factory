@@ -230,13 +230,22 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     this.backBtn.on("pointerdown", () => { SoundSynth.playTone(400, 0.1, "sine", 0.05); this.scene.start("HubScene"); });
     this.backHitZone.setInteractive({ useHandCursor: true });
     this.backHitZone.on("pointerdown", () => { SoundSynth.playTone(400, 0.1, "sine", 0.05); this.scene.start("HubScene"); });
+    this.input.on('pointerdown', this.handleDirectBackPointer, this);
     this.showStart();
 
     // Handle screen resizing
     this.scale.on('resize', this.handleResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off('resize', this.handleResize, this);
+      this.input.off('pointerdown', this.handleDirectBackPointer, this);
     });
+  }
+
+  private handleDirectBackPointer(pointer: Phaser.Input.Pointer) {
+    if (pointer.x <= 160 && pointer.y <= 70) {
+      SoundSynth.playTone(400, 0.1, "sine", 0.05);
+      this.scene.start("HubScene");
+    }
   }
 
   private handleResize() {

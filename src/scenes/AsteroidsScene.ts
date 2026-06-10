@@ -1,5 +1,6 @@
 import Phaser from 'phaser';
 import { SoundSynth } from '../utils/SoundSynth';
+import { readStoredNumber, writeStoredNumber } from '../utils/SafeStorage';
 import { GameLifecycle, LifecycleState } from "../runtime/GameLifecycle";
 import { LifecycleManager } from "../runtime/LifecycleManager";
 import { ArcadeInputFrame } from "../runtime/ArcadeInputFrame";
@@ -78,7 +79,7 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
     this.thrustHeldFrames = 0;
     this.safeGestureLifeLosses = 0;
 
-    this.hiScore = parseInt(localStorage.getItem('ast_hi') || '0');
+    this.hiScore = readStoredNumber('ast_hi');
   }
 
   create() {
@@ -177,12 +178,25 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
       SoundSynth.playTone(400, 0.1, "sine", 0.05);
       this.scene.start("HubScene");
     });
+    this.backHitZone.on("pointerdown", () => {
+      SoundSynth.playTone(400, 0.1, "sine", 0.05);
+      this.scene.start("HubScene");
+    });
+    this.input.on('pointerdown', this.handleDirectBackPointer, this);
 
     // Handle screen resizing
     this.scale.on('resize', this.handleResize, this);
     this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => {
       this.scale.off('resize', this.handleResize, this);
+      this.input.off('pointerdown', this.handleDirectBackPointer, this);
     });
+  }
+
+  private handleDirectBackPointer(pointer: Phaser.Input.Pointer) {
+    if (pointer.x <= 160 && pointer.y <= 70) {
+      SoundSynth.playTone(400, 0.1, "sine", 0.05);
+      this.scene.start("HubScene");
+    }
   }
 
   private handleResize() {
@@ -731,7 +745,7 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
     // Save high score
     if (this.score > this.hiScore) {
       this.hiScore = this.score;
-      localStorage.setItem('ast_hi', String(this.hiScore));
+      writeStoredNumber('ast_hi', this.hiScore);
       this.hiText.setText(`HI: ${this.hiScore}`);
     }
 

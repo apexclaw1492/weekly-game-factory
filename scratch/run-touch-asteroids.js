@@ -1,7 +1,38 @@
 import puppeteer from 'puppeteer';
 
-const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:3000/';
+const BASE_URL = withQaMode(process.env.BASE_URL || 'http://127.0.0.1:3000/');
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+function withQaMode(rawUrl) {
+  const url = new URL(rawUrl);
+  url.searchParams.set('qa', '1');
+  return url.toString();
+}
+
+function cardPoint(viewport, index) {
+  if (viewport.height > viewport.width) {
+    return {
+      x: viewport.width / 2,
+      y: 145 + index * 87
+    };
+  }
+
+  const gameCount = 5;
+  const columns = gameCount > 4 && viewport.width >= 900 ? 3 : 2;
+  const rows = Math.ceil(gameCount / columns);
+  const cardW = Math.min((viewport.width - 30 - (columns - 1) * 20) / columns, 340);
+  const cardH = rows > 2 ? 95 : 120;
+  const gridW = columns * cardW + (columns - 1) * 20;
+  const gridH = rows * cardH + (rows - 1) * 20;
+  const startX = viewport.width / 2 - gridW / 2 + cardW / 2;
+  const startY = viewport.height / 2 - gridH / 2 + cardH / 2 + 15;
+  const col = index % columns;
+  const row = Math.floor(index / columns);
+  return {
+    x: startX + col * (cardW + 20),
+    y: startY + row * (cardH + 20)
+  };
+}
 
 async function currentState(page) {
   return page.evaluate(() => {
@@ -72,7 +103,8 @@ async function runScenario(viewport) {
     await delay(350);
     await page.touchscreen.tap(viewport.width / 2, viewport.height - 140);
     await delay(850);
-    await page.touchscreen.tap(viewport.cardX, viewport.cardY);
+    const launchPoint = cardPoint(viewport, 3);
+    await page.touchscreen.tap(launchPoint.x, launchPoint.y);
     await delay(900);
     await page.touchscreen.tap(viewport.width / 2, viewport.height / 2);
     await delay(450);
@@ -94,7 +126,7 @@ async function runScenario(viewport) {
     await delay(220);
     const afterHit = await currentState(page);
 
-    await page.touchscreen.tap(viewport.width - 30, viewport.height - 35);
+    await page.touchscreen.tap(82, 35);
     await delay(550);
     const returnedScene = await sceneKey(page);
 
@@ -126,8 +158,8 @@ async function runScenario(viewport) {
 
 async function run() {
   const results = [];
-  results.push(await runScenario({ name: 'phone-portrait', width: 390, height: 844, cardX: 195, cardY: 406 }));
-  results.push(await runScenario({ name: 'phone-landscape', width: 844, height: 390, cardX: 612, cardY: 295 }));
+  results.push(await runScenario({ name: 'phone-portrait', width: 390, height: 844 }));
+  results.push(await runScenario({ name: 'phone-landscape', width: 844, height: 390 }));
 
   console.log(JSON.stringify(results, null, 2));
 

@@ -1,6 +1,6 @@
 import puppeteer from 'puppeteer';
 
-const BASE_URL = process.env.BASE_URL || 'http://127.0.0.1:3000/';
+const BASE_URL = withQaMode(process.env.BASE_URL || 'http://127.0.0.1:3000/');
 
 const VIEWPORTS = [
   { name: 'desktop', width: 800, height: 600 },
@@ -8,11 +8,18 @@ const VIEWPORTS = [
   { name: 'phone-landscape', width: 844, height: 390 }
 ];
 
+function withQaMode(rawUrl) {
+  const url = new URL(rawUrl);
+  url.searchParams.set('qa', '1');
+  return url.toString();
+}
+
 const GAMES = [
   { id: 'f1', name: 'F1 Space Invaders', index: 0, sceneKey: 'SpaceInvadersScene', certified: true, keys: ['Space', 'ArrowLeft', 'ArrowRight', 'Space'] },
   { id: 'cargo', name: 'Cosmic Cargo', index: 1, sceneKey: 'CosmicCargoScene', certified: true, keys: ['ArrowUp', 'ArrowLeft', 'Space'] },
   { id: 'contra', name: 'Contra Bonus', index: 2, sceneKey: 'ContraScene', certified: true, keys: ['ArrowRight', 'Space', 'KeyX'] },
-  { id: 'asteroids', name: 'Asteroid Belt', index: 3, sceneKey: 'AsteroidsScene', certified: true, keys: ['ArrowUp', 'ArrowLeft', 'Space'] }
+  { id: 'asteroids', name: 'Asteroid Belt', index: 3, sceneKey: 'AsteroidsScene', certified: true, keys: ['ArrowUp', 'ArrowLeft', 'Space'] },
+  { id: 'pong', name: 'Red Bull Pong', index: 4, sceneKey: 'PongScene', certified: true, keys: ['ArrowLeft', 'ArrowRight'] }
 ];
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
@@ -38,14 +45,21 @@ function cardPoint(viewport, index) {
     };
   }
 
-  const cardW = Math.min((width - 60) / 2, 360);
-  const cardH = 120;
-  const xOffsets = [-cardW / 2 - 10, cardW / 2 + 10, -cardW / 2 - 10, cardW / 2 + 10];
-  const yOffsets = [-cardH / 2 - 10, -cardH / 2 - 10, cardH / 2 + 25, cardH / 2 + 25];
+  const gameCount = GAMES.length;
+  const columns = gameCount > 4 && width >= 900 ? 3 : 2;
+  const rows = Math.ceil(gameCount / columns);
+  const cardW = Math.min((width - 30 - (columns - 1) * 20) / columns, 340);
+  const cardH = rows > 2 ? 95 : 120;
+  const gridW = columns * cardW + (columns - 1) * 20;
+  const gridH = rows * cardH + (rows - 1) * 20;
+  const startX = width / 2 - gridW / 2 + cardW / 2;
+  const startY = height / 2 - gridH / 2 + cardH / 2 + 15;
+  const col = index % columns;
+  const row = Math.floor(index / columns);
 
   return {
-    x: width / 2 + xOffsets[index],
-    y: height / 2 + yOffsets[index] + 15
+    x: startX + col * (cardW + 20),
+    y: startY + row * (cardH + 20)
   };
 }
 
@@ -108,7 +122,7 @@ async function runSmoke() {
 
         await page.goto(BASE_URL, { waitUntil: 'domcontentloaded' });
         await waitForScene(page, 'HubScene');
-        await delay(250);
+        await delay(650);
         const hubFingerprint = fingerprint(await page.screenshot());
 
         const point = cardPoint(viewport, game.index);
