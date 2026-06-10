@@ -6,8 +6,8 @@ const HOLD_MIN_MS = 200;
 const SWIPE_MIN_DIST = 40;
 const SWIPE_MAX_MS = 500;
 const DRAG_MIN_DIST = 15;
-const BACK_ZONE_W = 190;
-const BACK_ZONE_H = 85;
+const BACK_ZONE_W = 0;
+const BACK_ZONE_H = 0;
 const MOTION_DEADZONE = 0.02;
 const LIFECYCLE_TAP_DELAY_MS = 700;
 
