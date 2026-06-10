@@ -161,14 +161,14 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
     }).setOrigin(0.5);
 
     // Back to Hub Button
-    this.backBtn = this.add.text(width - 20, height - 35, '← BACK TO HUB', {
+    this.backBtn = this.add.text(20, 20, '← BACK TO HUB', {
       fontSize: '14px',
       fontFamily: 'monospace',
       color: '#ff4444',
       fontStyle: 'bold'
-    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+    }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
 
-    this.backHitZone = this.add.zone(width - 92, height - 35, 184, 58)
+    this.backHitZone = this.add.zone(20 + 46, 20, 184, 58)
       .setOrigin(0.5)
       .setDepth(1001)
       .setInteractive({ useHandCursor: true });
@@ -193,8 +193,8 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
     this.comboText.setPosition(width / 2, 20);
     this.stateText.setPosition(width / 2, height / 2 - 60);
     this.hintText.setPosition(width / 2, height / 2 + 10);
-    this.backBtn.setPosition(width - 20, height - 35);
-    this.backHitZone.setPosition(width - 92, height - 35);
+    this.backBtn.setPosition(20, 20);
+    this.backHitZone.setPosition(20 + 46, 20);
 
     // Update starfield
     this.starfield.clear();

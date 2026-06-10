@@ -192,12 +192,12 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
       color: '#ffd700'
     }).setOrigin(0.5);
 
-    this.backBtn = this.add.text(width - 20, height - 30, '<- BACK TO HUB', {
+    this.backBtn = this.add.text(20, 20, '<- BACK TO HUB', {
       fontSize: '14px',
       fontFamily: 'monospace',
       color: '#ff4444',
       fontStyle: 'bold'
-    }).setOrigin(1, 0.5);
+    }).setOrigin(0, 0.5);
 
     const runtime = (window as any).__WGF_INPUT_RUNTIME as InputRuntime;
     if (runtime) {
@@ -229,7 +229,7 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
     this.hintText.setPosition(width / 2, height / 2 + 20);
     this.controlsText.setPosition(width / 2, height / 2 + 72);
     this.hiScoreText.setPosition(width / 2, height / 2 + 102);
-    this.backBtn.setPosition(width - 20, height - 30);
+    this.backBtn.setPosition(20, 20);
 
     this.starfield.clear();
     this.stars.forEach(star => {

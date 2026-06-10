@@ -207,12 +207,12 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
       align: 'center'
     }).setOrigin(0.5).setScrollFactor(0);
 
-    this.backBtn = this.add.text(width - 20, height - 30, '<- BACK TO HUB', {
+    this.backBtn = this.add.text(20, 4, '<- BACK TO HUB', {
       fontSize: '16px',
       fontFamily: 'monospace',
       color: '#ff4444',
       fontStyle: 'bold'
-    }).setOrigin(1, 0.5).setScrollFactor(0);
+    }).setOrigin(0, 0.5).setScrollFactor(0);
 
     this.backBtn.setInteractive({ useHandCursor: true });
     this.backBtn.on('pointerdown', () => this.returnToHub());
@@ -293,7 +293,7 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
     this.livesText.setPosition(width - 20, 20);
     this.stateText.setPosition(width / 2, height / 2 - 50);
     this.hintText.setPosition(width / 2, height / 2 + 50);
-    this.backBtn.setPosition(width - 20, height - 30);
+    this.backBtn.setPosition(20, 4);
     
     this.bottomPaddle.setY(height - 60);
     this.topPaddle.setY(60);

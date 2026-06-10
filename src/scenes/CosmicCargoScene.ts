@@ -187,12 +187,12 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     }).setOrigin(0.5);
 
     // Exit Button
-    this.backBtn = this.add.text(width - 20, height - 30, '← BACK TO HUB', {
+    this.backBtn = this.add.text(20, 20, '← BACK TO HUB', {
       fontSize: '14px',
       fontFamily: 'monospace',
       color: '#ff4444',
       fontStyle: 'bold'
-    }).setOrigin(1, 0.5).setInteractive({ useHandCursor: true });
+    }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
 
     this.backBtn.on('pointerdown', () => {
       SoundSynth.playTone(400, 0.1, 'sine', 0.05);
@@ -225,7 +225,7 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     this.stateText.setPosition(width / 2, height / 2 - 50);
     this.hintText.setPosition(width / 2, height / 2 + 20);
     this.hiScoreText.setPosition(width / 2, height / 2 + 100);
-    this.backBtn.setPosition(width - 20, height - 30);
+    this.backBtn.setPosition(20, 20);
 
     // Update starfield
     this.starfield.clear();

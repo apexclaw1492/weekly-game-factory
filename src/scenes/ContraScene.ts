@@ -211,14 +211,14 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     }).setOrigin(0.5).setScrollFactor(0);
 
     // Back button floating UI
-    this.backBtn = this.add.text(width - 20, height - 35, '← BACK TO HUB', {
+    this.backBtn = this.add.text(20, 20, '← BACK TO HUB', {
       fontSize: '13px',
       fontFamily: 'monospace',
       color: '#ff4444',
       fontStyle: 'bold'
-    }).setOrigin(1, 0.5).setScrollFactor(0);
+    }).setOrigin(0, 0.5).setScrollFactor(0);
 
-    this.backHitZone = this.add.zone(width - 92, height - 35, 184, 58)
+    this.backHitZone = this.add.zone(20 + 46, 20, 184, 58)
       .setOrigin(0.5)
       .setScrollFactor(0)
       .setDepth(1001);
@@ -247,8 +247,8 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     this.livesText.setPosition(width / 2, 20);
     this.stateText.setPosition(width / 2, height / 2 - 40);
     this.hintText.setPosition(width / 2, height / 2 + 25);
-    this.backBtn.setPosition(width - 20, height - 35);
-    this.backHitZone.setPosition(width - 92, height - 35);
+    this.backBtn.setPosition(20, 20);
+    this.backHitZone.setPosition(20 + 46, 20);
     if (this.bossWarningText) {
       this.bossWarningText.setPosition(width / 2, 100);
     }
