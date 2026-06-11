@@ -17,8 +17,8 @@ function cardPoint(viewport, index) {
     };
   }
 
-  const gameCount = 5;
-  const columns = gameCount > 4 && viewport.width >= 900 ? 3 : 2;
+  const gameCount = 9;
+  const columns = gameCount > 4 && viewport.width >= 760 ? 3 : 2;
   const rows = Math.ceil(gameCount / columns);
   const cardW = Math.min((viewport.width - 30 - (columns - 1) * 20) / columns, 340);
   const cardH = rows > 2 ? 95 : 120;

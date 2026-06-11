@@ -21,6 +21,7 @@ const GAMES = [
   { id: 'asteroids', name: 'Asteroid Belt', index: 3, sceneKey: 'AsteroidsScene', certified: true, keys: ['ArrowUp', 'ArrowLeft', 'Space'] },
   { id: 'pong', name: 'Red Bull Pong', index: 4, sceneKey: 'PongScene', certified: true, keys: ['ArrowLeft', 'ArrowRight'] }
 ];
+const CATALOG_GAME_COUNT = 9;
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -45,8 +46,8 @@ function cardPoint(viewport, index) {
     };
   }
 
-  const gameCount = GAMES.length;
-  const columns = gameCount > 4 && width >= 900 ? 3 : 2;
+  const gameCount = CATALOG_GAME_COUNT;
+  const columns = gameCount > 4 && width >= 760 ? 3 : 2;
   const rows = Math.ceil(gameCount / columns);
   const cardW = Math.min((width - 30 - (columns - 1) * 20) / columns, 340);
   const cardH = rows > 2 ? 95 : 120;

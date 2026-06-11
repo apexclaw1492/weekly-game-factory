@@ -88,6 +88,54 @@ export const GAME_DEFINITIONS: readonly GameDefinition[] = [
     sceneClass: PongScene,
     color: 0xEE0000,
     description: 'F1-inspired high-speed Pong! Beat the AI and win the set.'
+  },
+  {
+    id: '2048',
+    title: '2048',
+    icon: '🔢',
+    weekLabel: 'Curated',
+    url: './games/2048/',
+    color: 0x7766aa,
+    description: 'Merge tiles to reach 2048.',
+    certificationStatus: 'certified',
+    certificationLabel: 'LEGACY WEB',
+    isBonus: true
+  },
+  {
+    id: 'clumsy-bird',
+    title: 'Clumsy Bird',
+    icon: '🐦',
+    weekLabel: 'Curated',
+    url: './games/clumsy-bird/',
+    color: 0x44aa77,
+    description: 'Tap to fly through the pipes.',
+    certificationStatus: 'certified',
+    certificationLabel: 'LEGACY WEB',
+    isBonus: true
+  },
+  {
+    id: 'hextris',
+    title: 'Hextris',
+    icon: '🔷',
+    weekLabel: 'Curated',
+    url: './games/hextris/',
+    color: 0xcc44dd,
+    description: 'Rotate the hexagon and match colors.',
+    certificationStatus: 'certified',
+    certificationLabel: 'LEGACY WEB',
+    isBonus: true
+  },
+  {
+    id: 'pac-man',
+    title: 'Pac-Man',
+    icon: '👾',
+    weekLabel: 'Curated',
+    url: './games/pac-man/',
+    color: 0xffdd00,
+    description: 'Eat dots, dodge ghosts, and survive.',
+    certificationStatus: 'certified',
+    certificationLabel: 'LEGACY WEB',
+    isBonus: true
   }
 ];
 

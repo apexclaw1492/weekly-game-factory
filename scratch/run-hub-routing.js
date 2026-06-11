@@ -16,6 +16,7 @@ const CERTIFIED_CARDS = [
   { name: 'Asteroid Belt', sceneKey: 'AsteroidsScene', portrait: { x: 195, y: 406 }, landscape: { x: 612, y: 295 } },
   { name: 'Red Bull Pong', sceneKey: 'PongScene', portrait: { x: 195, y: 493 }, landscape: { x: 232, y: 330 } }
 ];
+const CATALOG_GAME_COUNT = 9;
 
 function cardPoint(viewport, index) {
   if (viewport.height > viewport.width) {
@@ -25,8 +26,8 @@ function cardPoint(viewport, index) {
     };
   }
 
-  const gameCount = CERTIFIED_CARDS.length;
-  const columns = gameCount > 4 && viewport.width >= 900 ? 3 : 2;
+  const gameCount = CATALOG_GAME_COUNT;
+  const columns = gameCount > 4 && viewport.width >= 760 ? 3 : 2;
   const rows = Math.ceil(gameCount / columns);
   const cardW = Math.min((viewport.width - 30 - (columns - 1) * 20) / columns, 340);
   const cardH = rows > 2 ? 95 : 120;

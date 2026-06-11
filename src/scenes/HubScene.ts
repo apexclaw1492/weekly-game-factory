@@ -221,7 +221,7 @@ export class HubScene extends Phaser.Scene {
       // Responsive grid for landscape
       this.maxScroll = 0;
       this.scrollY = 0;
-      const columns = GAME_DEFINITIONS.length > 4 && width >= 900 ? 3 : 2;
+      const columns = GAME_DEFINITIONS.length > 4 && width >= 760 ? 3 : 2;
       const rows = Math.ceil(GAME_DEFINITIONS.length / columns);
       const cardW = Math.min((width - 30 - (columns - 1) * 20) / columns, 340);
       const cardH = rows > 2 ? 95 : 120;

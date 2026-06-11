@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <title>Pac-Man - Weekly Game Factory</title>
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; base-uri 'self'; object-src 'none'; img-src 'self' data:; media-src 'self' blob: data:; connect-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; form-action 'none'; upgrade-insecure-requests">
+    <meta name="referrer" content="no-referrer">
+    <link rel="stylesheet" href="style.css">
+  </head>
+  <body>
+    <!-- Back to Hub -->
+    <div class="hub-bar">
+      <a href="../../" class="back-to-hub">← Back to Hub</a>
+      <span class="hub-label">Part of <strong>Weekly Game Factory</strong></span>
+    </div>
+
+    <div class="game-wrapper">
+      <div class="grid"></div>
+      <h3>Score: <span id="score"></span></h3>
+
+      <!-- Touch D-Pad for mobile -->
+      <div class="dpad" id="dpad">
+        <button class="dpad-btn dpad-up" data-dir="ArrowUp">▲</button>
+        <button class="dpad-btn dpad-left" data-dir="ArrowLeft">◀</button>
+        <button class="dpad-btn dpad-right" data-dir="ArrowRight">▶</button>
+        <button class="dpad-btn dpad-down" data-dir="ArrowDown">▼</button>
+      </div>
+    </div>
+
+    <script src="app.js"></script>
+  </body>
+</html>
