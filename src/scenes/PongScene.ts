@@ -33,6 +33,9 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
   private aiReactionDelay = 500;
   private lastAiUpdateTime = 0;
 
+  private leftKey!: Phaser.Input.Keyboard.Key;
+  private rightKey!: Phaser.Input.Keyboard.Key;
+
   private scoreText!: Phaser.GameObjects.Text;
   private levelText!: Phaser.GameObjects.Text;
   private livesText!: Phaser.GameObjects.Text;
@@ -207,6 +210,9 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
       align: 'center'
     }).setOrigin(0.5).setScrollFactor(0);
 
+    this.leftKey = this.input.keyboard!.addKey('LEFT');
+    this.rightKey = this.input.keyboard!.addKey('RIGHT');
+
     this.backBtn = this.add.text(20, 4, '<- BACK TO HUB', {
       fontSize: '16px',
       fontFamily: 'monospace',
@@ -340,9 +346,9 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
     } else {
       // Keyboard mode: ArrowLeft / ArrowRight with smooth velocity
       let playerVx = 0;
-      if (this.input.keyboard!.addKey('LEFT').isDown) {
+      if (this.leftKey.isDown) {
         playerVx = -400;
-      } else if (this.input.keyboard!.addKey('RIGHT').isDown) {
+      } else if (this.rightKey.isDown) {
         playerVx = 400;
       }
       this.bottomPaddle.setVelocityX(playerVx);
@@ -422,13 +428,16 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
     
     // Add a little "spin" from paddle movement so hits feel alive.
     newVx += paddleBody.velocity.x * 0.18;
-    
+
     // Prevent the ball from getting stuck in boring straight vertical rallies.
     const minAbsVx = Math.max(90, this.ballSpeed * 0.28);
     if (Math.abs(newVx) < minAbsVx) {
       const direction = newVx !== 0 ? Math.sign(newVx) : (this.ball.x < this.scale.width / 2 ? -1 : 1);
       newVx = minAbsVx * direction;
     }
+
+    // Clamp newVx so spin can't push it past the speed budget before computing maxVy.
+    newVx = Phaser.Math.Clamp(newVx, -this.ballSpeed, this.ballSpeed);
 
     // Keep the total speed stable after the horizontal clamp.
     const maxVy = Math.sqrt(Math.max(1, (this.ballSpeed * this.ballSpeed) - (newVx * newVx)));

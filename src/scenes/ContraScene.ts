@@ -170,7 +170,16 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     this.applyCameraLayout();
 
     // 7. Dynamic Static capsule items
-    // Generate capsule texture first
+    // Generate shared particle texture for explosions
+    if (!this.textures.exists('particle-dot')) {
+      const g = this.add.graphics();
+      g.fillStyle(0xffffff, 1);
+      g.fillCircle(3, 3, 3);
+      g.generateTexture('particle-dot', 6, 6);
+      g.destroy();
+    }
+
+    // Generate capsule texture
     if (!this.textures.exists('capsule')) {
       const g = this.add.graphics();
       g.fillStyle(0xff2222, 1);
@@ -516,8 +525,13 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     const { height } = this.scale;
     const zoom = Math.min(1, Math.max(0.62, height / 600));
     this.cameras.main.setZoom(zoom);
-    this.cameras.main.setBounds(0, 0, this.levelWidth, Math.max(height / zoom, 600));
-    this.physics.world.setBounds(0, 0, this.levelWidth, Math.max(height / zoom, 600));
+    if (this.bossActive) {
+      this.cameras.main.setBounds(4000, 0, 500, height);
+      this.physics.world.setBounds(4000, 0, 500, height);
+    } else {
+      this.cameras.main.setBounds(0, 0, this.levelWidth, Math.max(height / zoom, 600));
+      this.physics.world.setBounds(0, 0, this.levelWidth, Math.max(height / zoom, 600));
+    }
   }
 
   private fireWeapon(aim: number) {
@@ -914,7 +928,7 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
   }
 
   private createExplosionParticles(x: number, y: number, color: number, count: number) {
-    const particles = this.add.particles(0, 0, 'ground-block', {
+    const particles = this.add.particles(0, 0, 'particle-dot', {
       x,
       y,
       speed: { min: 40, max: 180 },

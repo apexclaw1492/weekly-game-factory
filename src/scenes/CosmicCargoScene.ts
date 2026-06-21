@@ -258,7 +258,7 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     }
   }
 
-  update() {
+  update(_time: number, delta: number) {
     const { width, height } = this.scale;
 
     // Scroll Background Stars
@@ -277,7 +277,7 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     this.drawFuelBar();
 
     if (this.lifecycleState === "start") {
-      this.updateDemo();
+      this.updateDemo(delta);
       this.lifecycleManager.update(performance.now());
       return;
     }
@@ -605,6 +605,7 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     const playBottom = this.scale.height - 100;
 
     this.asteroids.clear(true, true);
+    this.cargoPods.getChildren().forEach(pod => this.tweens.killTweensOf(pod));
     this.cargoPods.clear(true, true);
     this.portalText.setText('PORTAL: LOCKED').setColor('#ff8844');
     this.portal.setTint(0x666666);
@@ -913,8 +914,8 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     this.hintText.setText('TAP TO RETRY').setVisible(true);
   }
 
-  private updateDemo() {
-    this.demoTimer += 16; // ~60fps increment
+  private updateDemo(delta: number) {
+    this.demoTimer += delta;
     const phaseDuration = [3000, 2500, 2500, 2500];
     
     if (this.demoTimer > phaseDuration[this.demoPhase]) {

@@ -40,6 +40,10 @@ export class HubScene extends Phaser.Scene {
   create() {
     const { width, height } = this.scale;
     this.stars = [];
+    this.pendingCardTap = null;
+    this.isDragging = false;
+    this.scrollY = 0;
+    this.input.removeAllListeners();
     this.cardInputReadyAt = Math.max(
       performance.now() + 450,
       Number((window as any).__WGF_HUB_CARD_INPUT_BLOCKED_UNTIL) || 0

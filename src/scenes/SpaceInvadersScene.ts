@@ -241,7 +241,7 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
       this.player.setY(height - 70);
     }
 
-    if (this.shields) {
+    if (this.isWaitingToStart && this.shields) {
       this.initShields();
     }
   }
@@ -308,7 +308,7 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
       })
       .forEach(s => s.destroy());
 
-    if (Date.now() - this.lastHitTime > 2000 && this.multiplier > 1) {
+    if (time - this.lastHitTime > 2000 && this.multiplier > 1) {
       this.multiplier = 1;
       this.comboText.setText('');
     }
@@ -525,7 +525,7 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
     this.score += points;
     this.scoreText.setText(`SCORE: ${this.score}`);
     this.comboText.setText(`+${points}`);
-    this.lastHitTime = Date.now();
+    this.lastHitTime = this.time.now;
 
     if (this.enemies.countActive() === 0) {
       this.levelComplete();
