@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Minimalist Physics Platformer</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #e0f0ff; font-family: sans-serif; color: #333; }
+    #ui { position: absolute; top: 10px; left: 10px; z-index: 10; pointer-events: none; }
+    h1 { margin: 0; font-size: 24px; color: #335; }
+    p { margin: 5px 0; color: #557; font-weight: bold; }
+    #dev-notes { 
+      position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(240,248,255,0.9); 
+      border-top: 2px solid #aaa; padding: 15px; box-sizing: border-box; z-index: 20; 
+      transition: transform 0.3s ease; transform: translateY(calc(100% - 40px));
+    }
+    #dev-notes.open { transform: translateY(0); }
+    .toggle-btn { 
+      background: #88a; color: #fff; border: none; padding: 5px 15px; font-weight: bold; 
+      cursor: pointer; display: block; margin-bottom: 10px; border-radius: 4px;
+    }
+    .notes-content { max-height: 250px; overflow-y: auto; font-size: 14px; line-height: 1.4; color: #333; pointer-events: auto;}
+    .notes-content code { background: #ddd; color: #335; padding: 2px 4px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <h1>MINIMALIST PLATFORMER</h1>
+    <p>A/D or Arrows to Move. Space to Jump.</p>
+    <div style="font-size:12px; color:#779; margin-top:10px;">Reach the green platform!</div>
+  </div>
+
+  <div id="dev-notes">
+    <button class="toggle-btn" onclick="document.getElementById('dev-notes').classList.toggle('open')">Toggle Developer Notes</button>
+    <div class="notes-content">
+      <h3>Learning Section</h3>
+      <p><strong>Tools & Techniques:</strong></p>
+      <ul>
+        <li><strong>Core Engine:</strong> Three.js for rendering soft shadows and minimalist pastel materials.</li>
+        <li><strong>Optimization:</strong> <code>InstancedMesh</code> is used to render a large volume of abstract floating background geometric shapes.</li>
+        <li><strong>Physics Engine:</strong> Cannon.js handles a dynamic player sphere (rolling physics), jumping impulses, and physically interactive platforms.</li>
+        <li><strong>Architectural Genre:</strong> A 3D physics platformer where movement is entirely torque/impulse based.</li>
+      </ul>
+      <p><strong>LLM Used:</strong> Gemini 2.5 Pro</p>
+      <p><strong>Recreation Prompt:</strong></p>
+      <pre style="white-space:pre-wrap; background:#eee; padding:10px; border:1px solid #ccc;">Act as an expert frontend game developer and creative coder specializing in WebGL, Three.js, and browser physics engines. I want to build a complete, highly optimized 3D web-based game prototype inside a single HTML file. Please use the following specifications: 1. Core Engine: Three.js with minimalist pastel aesthetics and soft shadows. 2. Architectural Genre: Physics-based Platformer. 3. Optimization: InstancedMesh for background floating geometry. 4. Physics Engine: Cannon.js for jumping, rolling, and physics interactions. 5. Visual Aesthetics: Minimalist/Abstract flat-shaded styling. Provide the complete code block.</pre>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+  
+  <script>
+    let scene, camera, renderer, world, playerMesh, playerBody;
+    let clock = new THREE.Clock();
+    const keys = { a: false, d: false, w: false, s: false, space: false };
+    const platforms = [];
+
+    function init() {
+      // Three.js
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xe0f0ff);
+      scene.fog = new THREE.Fog(0xe0f0ff, 10, 50);
+
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
+      camera.position.set(0, 5, 15);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      document.body.appendChild(renderer.domElement);
+
+      const ambient = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambient);
+      const dirLight = new THREE.DirectionalLight(0xffeedd, 0.8);
+      dirLight.position.set(5, 15, 5);
+      dirLight.castShadow = true;
+      scene.add(dirLight);
+
+      // Cannon.js
+      world = new CANNON.World();
+      world.gravity.set(0, -20, 0);
+      world.broadphase = new CANNON.NaiveBroadphase();
+
+      const physicsMaterial = new CANNON.Material("standard");
+      const physicsContactMaterial = new CANNON.ContactMaterial(physicsMaterial, physicsMaterial, {
+        friction: 1.0,
+        restitution: 0.3,
+      });
+      world.addContactMaterial(physicsContactMaterial);
+
+      // Player
+      const pGeo = new THREE.SphereGeometry(0.5, 32, 32);
+      const pMat = new THREE.MeshStandardMaterial({ color: 0xff6688, roughness: 0.4 });
+      playerMesh = new THREE.Mesh(pGeo, pMat);
+      playerMesh.castShadow = true;
+      scene.add(playerMesh);
+
+      playerBody = new CANNON.Body({
+        mass: 1,
+        shape: new CANNON.Sphere(0.5),
+        position: new CANNON.Vec3(0, 5, 0),
+        material: physicsMaterial
+      });
+      playerBody.linearDamping = 0.5;
+      playerBody.angularDamping = 0.5;
+      world.addBody(playerBody);
+
+      // Level Platforms
+      createPlatform(0, 0, 0, 10, 1, 10, 0xaabbcc);
+      createPlatform(8, 2, 0, 4, 1, 4, 0xaabbcc);
+      createPlatform(16, 4, 0, 4, 1, 4, 0xaabbcc);
+      createPlatform(24, 6, 0, 6, 1, 6, 0x66cc88); // Goal
+
+      // Instanced Background Geometry
+      const iGeo = new THREE.BoxGeometry(1, 1, 1);
+      const iMat = new THREE.MeshStandardMaterial({ color: 0xffddaa, flatShading: true });
+      const numInstances = 200;
+      const instances = new THREE.InstancedMesh(iGeo, iMat, numInstances);
+      const dummy = new THREE.Object3D();
+      for (let i = 0; i < numInstances; i++) {
+        dummy.position.set((Math.random()-0.5)*100, (Math.random()-0.5)*50, -10 - Math.random()*40);
+        dummy.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, 0);
+        dummy.scale.setScalar(0.5 + Math.random() * 2);
+        dummy.updateMatrix();
+        instances.setMatrixAt(i, dummy.matrix);
+      }
+      scene.add(instances);
+
+      // Input
+      window.addEventListener('keydown', (e) => {
+        if(e.code === 'KeyA' || e.code === 'ArrowLeft') keys.a = true;
+        if(e.code === 'KeyD' || e.code === 'ArrowRight') keys.d = true;
+        if(e.code === 'Space' && !keys.space) {
+          keys.space = true;
+          playerBody.velocity.y = 12;
+        }
+      });
+      window.addEventListener('keyup', (e) => {
+        if(e.code === 'KeyA' || e.code === 'ArrowLeft') keys.a = false;
+        if(e.code === 'KeyD' || e.code === 'ArrowRight') keys.d = false;
+        if(e.code === 'Space') keys.space = false;
+      });
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      animate();
+    }
+
+    function createPlatform(x, y, z, w, h, d, color) {
+      const geo = new THREE.BoxGeometry(w, h, d);
+      const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.8 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(x, y, z);
+      mesh.receiveShadow = true;
+      scene.add(mesh);
+
+      const body = new CANNON.Body({
+        mass: 0,
+        shape: new CANNON.Box(new CANNON.Vec3(w/2, h/2, d/2)),
+        position: new CANNON.Vec3(x, y, z)
+      });
+      world.addBody(body);
+      platforms.push({ mesh, body });
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.1);
+
+      // Physics step
+      world.step(1/60, dt, 3);
+
+      // Controls
+      const force = 10;
+      if(keys.a) playerBody.applyForce(new CANNON.Vec3(-force, 0, 0), playerBody.position);
+      if(keys.d) playerBody.applyForce(new CANNON.Vec3(force, 0, 0), playerBody.position);
+
+      // Update Mesh
+      playerMesh.position.copy(playerBody.position);
+      playerMesh.quaternion.copy(playerBody.quaternion);
+
+      // Camera follow
+      camera.position.x = playerMesh.position.x;
+      camera.position.y = playerMesh.position.y + 5;
+      camera.lookAt(playerMesh.position);
+
+      // Reset if fall
+      if (playerBody.position.y < -10) {
+        playerBody.position.set(0, 5, 0);
+        playerBody.velocity.set(0,0,0);
+        playerBody.angularVelocity.set(0,0,0);
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    init();
+  </script>
+</body>
+</html>

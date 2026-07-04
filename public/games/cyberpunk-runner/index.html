@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Cyberpunk Runner</title>
+  <style>
+    body { margin: 0; overflow: hidden; background: #050510; font-family: sans-serif; color: #fff; }
+    #ui { position: absolute; top: 10px; left: 10px; z-index: 10; pointer-events: none; }
+    h1 { margin: 0; font-size: 24px; color: #0ff; text-shadow: 0 0 10px #0ff; }
+    p { margin: 5px 0; color: #f0f; text-shadow: 0 0 5px #f0f; font-weight: bold; }
+    #dev-notes { 
+      position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(5,5,16,0.85); 
+      border-top: 2px solid #0ff; padding: 15px; box-sizing: border-box; z-index: 20; 
+      transition: transform 0.3s ease; transform: translateY(calc(100% - 40px));
+    }
+    #dev-notes.open { transform: translateY(0); }
+    .toggle-btn { 
+      background: #0ff; color: #000; border: none; padding: 5px 15px; font-weight: bold; 
+      cursor: pointer; display: block; margin-bottom: 10px; border-radius: 4px;
+    }
+    .notes-content { max-height: 250px; overflow-y: auto; font-size: 14px; line-height: 1.4; color: #ccc; pointer-events: auto; }
+    .notes-content code { background: #111; color: #0ff; padding: 2px 4px; border-radius: 3px; }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <h1>CYBERPUNK RUNNER</h1>
+    <p>Score: <span id="score">0</span></p>
+    <div style="font-size:12px; color:#aaa; margin-top:10px;">A/D or Arrows to Steer. Space to Jump.</div>
+  </div>
+
+  <div id="dev-notes">
+    <button class="toggle-btn" onclick="document.getElementById('dev-notes').classList.toggle('open')">Toggle Developer Notes</button>
+    <div class="notes-content">
+      <h3>Learning Section</h3>
+      <p><strong>Tools & Techniques:</strong></p>
+      <ul>
+        <li><strong>Core Engine:</strong> Three.js for rendering a synthwave grid and glowing neon materials (<code>MeshStandardMaterial</code> with high emissive).</li>
+        <li><strong>Optimization:</strong> <code>InstancedMesh</code> is used to render hundreds of neon skyscrapers efficiently in a single draw call.</li>
+        <li><strong>Physics Engine:</strong> Cannon.js handles authentic gravity, collision detection, and rigid body dynamics for the player and obstacles.</li>
+        <li><strong>Architectural Genre:</strong> An Endless Runner loop that continuously shifts objects backwards and recycles them to save memory.</li>
+      </ul>
+      <p><strong>LLM Used:</strong> Gemini 2.5 Pro</p>
+      <p><strong>Recreation Prompt:</strong></p>
+      <pre style="white-space:pre-wrap; background:#000; padding:10px; border:1px solid #f0f;">Act as an expert frontend game developer and creative coder specializing in WebGL, Three.js, and browser physics engines. I want to build a complete, highly optimized 3D web-based game prototype inside a single HTML file. Please use the following specifications: 1. Core Engine: Three.js with dynamic lighting and neon emissive materials. 2. Architectural Genre: Endless Runner loop with procedural generation. 3. Optimization: InstancedMesh for background elements. 4. Physics Engine: Cannon.js for gravity and collisions. 5. Visual Aesthetics: Cyberpunk/Neon Low Poly style. Provide the complete code block.</pre>
+    </div>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+  
+  <script>
+    // Constants
+    const SPEED = 20;
+    const LANE_WIDTH = 3;
+    const CHUNK_SIZE = 50;
+    const NUM_BUILDINGS = 400;
+
+    let scene, camera, renderer, world, playerMesh, playerBody;
+    let score = 0, isGameOver = false;
+    let currentLane = 0; // -1, 0, 1
+    let obstacles = [], physicsObstacles = [];
+    let buildingsMesh;
+    let clock = new THREE.Clock();
+
+    function init() {
+      // Three.js Setup
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x050510);
+      scene.fog = new THREE.Fog(0x050510, 20, 100);
+
+      camera = new THREE.PerspectiveCamera(60, window.innerWidth/window.innerHeight, 0.1, 200);
+      camera.position.set(0, 5, 10);
+      camera.lookAt(0, 0, 0);
+
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      document.body.appendChild(renderer.domElement);
+
+      const ambient = new THREE.AmbientLight(0xffffff, 0.2);
+      scene.add(ambient);
+      const dirLight = new THREE.DirectionalLight(0x00ffff, 1.5);
+      dirLight.position.set(-10, 20, 10);
+      dirLight.castShadow = true;
+      scene.add(dirLight);
+      const pointLight = new THREE.PointLight(0xff00ff, 2, 50);
+      pointLight.position.set(10, 10, -10);
+      scene.add(pointLight);
+
+      // Cannon.js Setup
+      world = new CANNON.World();
+      world.gravity.set(0, -30, 0);
+      world.broadphase = new CANNON.NaiveBroadphase();
+      world.solver.iterations = 10;
+
+      // Materials
+      const gridMat = new THREE.MeshStandardMaterial({ color: 0x111122, wireframe: true, emissive: 0x002244 });
+      const gridGeo = new THREE.PlaneGeometry(100, 400, 20, 80);
+      const gridMesh = new THREE.Mesh(gridGeo, gridMat);
+      gridMesh.rotation.x = -Math.PI / 2;
+      scene.add(gridMesh);
+
+      // Physics Ground
+      const groundBody = new CANNON.Body({
+        mass: 0,
+        shape: new CANNON.Plane(),
+        material: new CANNON.Material({ friction: 0.0 })
+      });
+      groundBody.quaternion.setFromAxisAngle(new CANNON.Vec3(1,0,0), -Math.PI/2);
+      world.addBody(groundBody);
+
+      // Player
+      const playerGeo = new THREE.BoxGeometry(1, 1, 2);
+      const playerMat = new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0x00ffff, flatShading: true });
+      playerMesh = new THREE.Mesh(playerGeo, playerMat);
+      playerMesh.castShadow = true;
+      scene.add(playerMesh);
+
+      playerBody = new CANNON.Body({
+        mass: 1,
+        shape: new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 1)),
+        position: new CANNON.Vec3(0, 2, 0),
+        fixedRotation: true
+      });
+      world.addBody(playerBody);
+
+      // Instanced Buildings
+      const bGeo = new THREE.BoxGeometry(2, 1, 2);
+      bGeo.translate(0, 0.5, 0); // Origin at bottom
+      const bMat = new THREE.MeshStandardMaterial({ color: 0x111, emissive: 0x220044, flatShading: true });
+      buildingsMesh = new THREE.InstancedMesh(bGeo, bMat, NUM_BUILDINGS);
+      
+      const dummy = new THREE.Object3D();
+      for (let i = 0; i < NUM_BUILDINGS; i++) {
+        const x = (Math.random() > 0.5 ? 1 : -1) * (10 + Math.random() * 40);
+        const z = -Math.random() * 200;
+        const h = 5 + Math.random() * 25;
+        dummy.position.set(x, 0, z);
+        dummy.scale.set(1 + Math.random()*2, h, 1 + Math.random()*2);
+        dummy.updateMatrix();
+        buildingsMesh.setMatrixAt(i, dummy.matrix);
+      }
+      scene.add(buildingsMesh);
+
+      // Events
+      window.addEventListener('keydown', (e) => {
+        if (isGameOver) return;
+        if ((e.code === 'ArrowLeft' || e.code === 'KeyA') && currentLane > -1) currentLane--;
+        if ((e.code === 'ArrowRight' || e.code === 'KeyD') && currentLane < 1) currentLane++;
+        if (e.code === 'Space' && playerBody.position.y < 1.1) playerBody.velocity.y = 12;
+      });
+
+      playerBody.addEventListener('collide', (e) => {
+        if (e.body.userData && e.body.userData.isObstacle) gameOver();
+      });
+
+      window.addEventListener('resize', () => {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      });
+
+      animate();
+    }
+
+    function spawnObstacle() {
+      const lane = Math.floor(Math.random() * 3) - 1; // -1, 0, 1
+      const isWall = Math.random() > 0.5;
+      
+      const geo = new THREE.BoxGeometry(2, isWall ? 2 : 1, 1);
+      const mat = new THREE.MeshStandardMaterial({ color: 0x000, emissive: 0xff00ff, flatShading: true });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(lane * LANE_WIDTH, isWall ? 1 : 0.5, -100);
+      scene.add(mesh);
+
+      const body = new CANNON.Body({
+        mass: 0,
+        shape: new CANNON.Box(new CANNON.Vec3(1, isWall ? 1 : 0.5, 0.5)),
+        position: new CANNON.Vec3(lane * LANE_WIDTH, isWall ? 1 : 0.5, -100)
+      });
+      body.userData = { isObstacle: true };
+      world.addBody(body);
+
+      obstacles.push({ mesh, body });
+    }
+
+    function gameOver() {
+      isGameOver = true;
+      document.querySelector('h1').innerText = "CRASHED! Refresh to Restart";
+      document.querySelector('h1').style.color = "#f00";
+      document.querySelector('h1').style.textShadow = "0 0 10px #f00";
+    }
+
+    let nextSpawn = 0;
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = Math.min(clock.getDelta(), 0.1);
+
+      if (!isGameOver) {
+        world.step(1/60, dt, 3);
+        
+        // P-controller for lane switching
+        const targetX = currentLane * LANE_WIDTH;
+        playerBody.velocity.x = (targetX - playerBody.position.x) * 10;
+        
+        // Move obstacles towards player to simulate running
+        for (let i = obstacles.length - 1; i >= 0; i--) {
+          const obs = obstacles[i];
+          obs.body.position.z += SPEED * dt;
+          obs.mesh.position.copy(obs.body.position);
+          
+          if (obs.body.position.z > 10) {
+            scene.remove(obs.mesh);
+            world.removeBody(obs.body);
+            obstacles.splice(i, 1);
+          }
+        }
+
+        // Spawn logic
+        nextSpawn -= dt;
+        if (nextSpawn <= 0) {
+          spawnObstacle();
+          nextSpawn = 0.5 + Math.random() * 1.5;
+        }
+
+        // Animate Instanced Buildings
+        const dummy = new THREE.Object3D();
+        let mat = new THREE.Matrix4();
+        let updated = false;
+        for (let i = 0; i < NUM_BUILDINGS; i++) {
+          buildingsMesh.getMatrixAt(i, mat);
+          mat.decompose(dummy.position, dummy.quaternion, dummy.scale);
+          dummy.position.z += SPEED * dt;
+          if (dummy.position.z > 20) {
+            dummy.position.z -= 200;
+          }
+          dummy.updateMatrix();
+          buildingsMesh.setMatrixAt(i, dummy.matrix);
+          updated = true;
+        }
+        if(updated) buildingsMesh.instanceMatrix.needsUpdate = true;
+
+        score += dt * SPEED;
+        document.getElementById('score').innerText = Math.floor(score);
+      }
+
+      playerMesh.position.copy(playerBody.position);
+      playerMesh.quaternion.copy(playerBody.quaternion);
+
+      renderer.render(scene, camera);
+    }
+
+    init();
+  </script>
+</body>
+</html>
