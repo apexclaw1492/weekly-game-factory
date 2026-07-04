@@ -25,6 +25,42 @@ export const GAME_BACKLOG_IDEA_COUNT = 88;
 
 export const GAME_DEFINITIONS: readonly GameDefinition[] = [
   {
+    id: 'cyberpunk-runner',
+    title: 'Cyberpunk Runner',
+    icon: '🏎️',
+    weekLabel: 'Week 4',
+    weekNumber: 4,
+    url: './games/cyberpunk-runner/index.html',
+    color: 0x050510,
+    description: 'Endless runner with neon graphics, Cannon.js physics, and procedural generation.',
+    certificationStatus: 'certified',
+    certificationLabel: 'CERTIFIED TOUCH'
+  },
+  {
+    id: 'sci-fi-td',
+    title: 'Sci-Fi Voxel TD',
+    icon: '🛰️',
+    weekLabel: 'Week 4.1',
+    weekNumber: 4.1,
+    url: './games/sci-fi-td/index.html',
+    color: 0x01020a,
+    description: 'Tower defense with InstancedMesh starfield and Cannon.js projectile physics.',
+    certificationStatus: 'certified',
+    certificationLabel: 'CERTIFIED TOUCH'
+  },
+  {
+    id: 'minimalist-platformer',
+    title: 'Minimalist Platformer',
+    icon: '🔵',
+    weekLabel: 'Week 4.2',
+    weekNumber: 4.2,
+    url: './games/minimalist-platformer/index.html',
+    color: 0xe0f0ff,
+    description: 'Physics-based platformer utilizing impulses, torque, and rolling mechanics.',
+    certificationStatus: 'certified',
+    certificationLabel: 'CERTIFIED TOUCH'
+  },
+  {
     id: 'f1-space-invaders',
     title: 'F1 Space Invaders',
     weekLabel: 'Week 0',
@@ -89,42 +125,7 @@ export const GAME_DEFINITIONS: readonly GameDefinition[] = [
     color: 0xEE0000,
     description: 'F1-inspired high-speed Pong! Beat the AI and win the set.'
   },
-  {
-    id: 'cyberpunk-runner',
-    title: 'Cyberpunk Runner',
-    icon: '🏎️',
-    weekLabel: 'Week 4',
-    weekNumber: 4,
-    url: './games/cyberpunk-runner/index.html',
-    color: 0x050510,
-    description: 'Endless runner with neon graphics, Cannon.js physics, and procedural generation.',
-    certificationStatus: 'certified',
-    certificationLabel: 'CERTIFIED TOUCH'
-  },
-  {
-    id: 'sci-fi-td',
-    title: 'Sci-Fi Voxel TD',
-    icon: '🛰️',
-    weekLabel: 'Week 4.1',
-    weekNumber: 4.1,
-    url: './games/sci-fi-td/index.html',
-    color: 0x01020a,
-    description: 'Tower defense with InstancedMesh starfield and Cannon.js projectile physics.',
-    certificationStatus: 'certified',
-    certificationLabel: 'CERTIFIED TOUCH'
-  },
-  {
-    id: 'minimalist-platformer',
-    title: 'Minimalist Platformer',
-    icon: '🔵',
-    weekLabel: 'Week 4.2',
-    weekNumber: 4.2,
-    url: './games/minimalist-platformer/index.html',
-    color: 0xe0f0ff,
-    description: 'Physics-based platformer utilizing impulses, torque, and rolling mechanics.',
-    certificationStatus: 'certified',
-    certificationLabel: 'CERTIFIED TOUCH'
-  },
+
   {
     id: 'aubreys-realm',
     title: "Aubrey's Realm",
