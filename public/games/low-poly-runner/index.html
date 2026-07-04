@@ -1,0 +1,572 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>Low Poly Endless Runner</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #1a1a2e;
+      --text: #f5f5f5;
+      --accent: #ff4757;
+      --accent-hover: #ff6b81;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; user-select: none; }
+    body { 
+      width: 100vw; height: 100vh; overflow: hidden; 
+      font-family: 'Outfit', sans-serif; background: var(--bg); color: var(--text);
+    }
+    #game-canvas {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1;
+    }
+    
+    /* UI Overlay */
+    #ui-layer {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 10;
+      pointer-events: none; display: flex; flex-direction: column; justify-content: space-between;
+      padding: max(20px, env(safe-area-inset-top)) max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left));
+    }
+    
+    .hud {
+      display: flex; justify-content: space-between; align-items: flex-start;
+    }
+    
+    .score-container {
+      background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(8px);
+      padding: 10px 20px; border-radius: 12px; border: 2px solid rgba(255,255,255,0.1);
+      box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+    }
+    
+    .score-label { font-size: 14px; text-transform: uppercase; letter-spacing: 2px; color: #a4b0be; font-weight: 700; }
+    .score-value { font-size: 32px; font-weight: 900; color: #fff; text-shadow: 0 2px 10px rgba(255,255,255,0.3); }
+    
+    .controls-hint {
+      background: rgba(0, 0, 0, 0.4); backdrop-filter: blur(8px);
+      padding: 10px 15px; border-radius: 12px; font-size: 12px; font-weight: 700;
+      color: #dfe4ea; text-align: right; border: 2px solid rgba(255,255,255,0.1);
+    }
+    
+    /* Modals */
+    .modal-container {
+      position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(10, 10, 20, 0.8); backdrop-filter: blur(10px);
+      display: flex; align-items: center; justify-content: center;
+      z-index: 20; pointer-events: auto; opacity: 1; transition: opacity 0.4s ease;
+    }
+    .modal-container.hidden { opacity: 0; pointer-events: none; }
+    
+    .modal {
+      background: linear-gradient(135deg, rgba(255,255,255,0.1), rgba(255,255,255,0.05));
+      border: 1px solid rgba(255,255,255,0.2); box-shadow: 0 20px 50px rgba(0,0,0,0.5);
+      border-radius: 24px; padding: 40px; text-align: center; max-width: 400px; width: 90%;
+      transform: translateY(0) scale(1); transition: transform 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .modal-container.hidden .modal { transform: translateY(50px) scale(0.9); }
+    
+    .modal h1 { font-size: 42px; font-weight: 900; margin-bottom: 10px; background: linear-gradient(to right, #ff4757, #ffa502); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .modal p { font-size: 16px; color: #ced6e0; margin-bottom: 30px; line-height: 1.5; }
+    
+    .btn {
+      background: var(--accent); color: white; border: none; padding: 16px 32px;
+      font-size: 18px; font-weight: 800; border-radius: 12px; cursor: pointer;
+      text-transform: uppercase; letter-spacing: 2px; width: 100%;
+      box-shadow: 0 6px 0 #c0392b, 0 15px 20px rgba(255, 71, 87, 0.4);
+      transition: all 0.1s ease;
+    }
+    .btn:hover { background: var(--accent-hover); transform: translateY(-2px); box-shadow: 0 8px 0 #c0392b, 0 15px 25px rgba(255, 71, 87, 0.5); }
+    .btn:active { transform: translateY(4px); box-shadow: 0 2px 0 #c0392b, 0 5px 10px rgba(255, 71, 87, 0.4); }
+    
+    #final-score { font-size: 48px; font-weight: 900; color: #fff; margin: 20px 0; display: block; }
+  </style>
+</head>
+<body>
+  <div id="game-canvas"></div>
+  
+  <div id="ui-layer">
+    <div class="hud">
+      <div class="score-container">
+        <div class="score-label">Distance</div>
+        <div class="score-value" id="ui-score">0m</div>
+      </div>
+      <div class="controls-hint">
+        A / D or ⬅️ / ➡️ to Steer<br>
+        SPACE to Jump
+      </div>
+    </div>
+  </div>
+
+  <!-- Start Modal -->
+  <div class="modal-container" id="start-modal">
+    <div class="modal">
+      <h1>CUBIC RUN</h1>
+      <p>Dodge the low-poly obstacles, jump over barriers, and survive as long as you can in this endless forest.</p>
+      <button class="btn" id="start-btn">Play Now</button>
+    </div>
+  </div>
+
+  <!-- Game Over Modal -->
+  <div class="modal-container hidden" id="gameover-modal">
+    <div class="modal">
+      <h1>CRASHED!</h1>
+      <p>You ran into an obstacle.</p>
+      <div class="score-label">Distance Travelled</div>
+      <span id="final-score">0m</span>
+      <button class="btn" id="restart-btn">Try Again</button>
+    </div>
+  </div>
+
+  <!-- Load Three.js and Cannon.js -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
+
+  <script>
+    // --- GAME CONSTANTS ---
+    const LANE_WIDTH = 3.5;
+    const BOUNDARY_LIMIT = 20; // How far decorative elements spawn on the sides
+    const FORWARD_SPEED_START = 18;
+    const SPEED_INCREMENT = 0.5; // Speed increase per 100m
+    const JUMP_FORCE = 12;
+    const GRAVITY = -35;
+    const CHUNK_LENGTH = 30;
+    const VISIBLE_CHUNKS = 8;
+    const MAX_TREES = 1500;
+    
+    // --- GLOBAL VARIABLES ---
+    let scene, camera, renderer, world;
+    let playerMesh, playerBody;
+    let gameState = 'start'; // start, playing, gameover
+    let score = 0;
+    let forwardSpeed = FORWARD_SPEED_START;
+    
+    // Controller
+    let currentLane = 0; // -1 (left), 0 (center), 1 (right)
+    let isGrounded = false;
+    
+    // Chunks & Obstacles
+    const activeChunks = [];
+    let nextChunkZ = 0;
+    const physicsObstacles = []; // Keep track to remove bodies
+    
+    // Instanced Meshes
+    let treeInstancedMesh;
+    const treeMatrix = new THREE.Matrix4();
+    
+    // Materials (Low Poly - Flat Shading)
+    const matPlayer = new THREE.MeshStandardMaterial({ color: 0x38ada9, flatShading: true, roughness: 0.2, metalness: 0.3 });
+    const matObstacle = new THREE.MeshStandardMaterial({ color: 0xe55039, flatShading: true, roughness: 0.6 });
+    const matGround = new THREE.MeshStandardMaterial({ color: 0x78e08f, flatShading: true, roughness: 0.9 });
+    const matTreeLeaves = new THREE.MeshStandardMaterial({ color: 0x079992, flatShading: true });
+    
+    // Physics Materials
+    const physMatGround = new CANNON.Material();
+    const physMatPlayer = new CANNON.Material();
+    
+    // UI Elements
+    const elScore = document.getElementById('ui-score');
+    const elStartModal = document.getElementById('start-modal');
+    const elGameoverModal = document.getElementById('gameover-modal');
+    const elFinalScore = document.getElementById('final-score');
+
+    // --- INITIALIZATION ---
+    function init() {
+      // 1. Three.js Setup
+      const canvas = document.getElementById('game-canvas');
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      canvas.appendChild(renderer.domElement);
+      
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0xf6e58d); // Sunny yellow/orange sky
+      scene.fog = new THREE.Fog(0xf6e58d, 60, VISIBLE_CHUNKS * CHUNK_LENGTH * 0.9);
+      
+      camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 500);
+      
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+      scene.add(ambientLight);
+      
+      const dirLight = new THREE.DirectionalLight(0xffdf80, 1.2);
+      dirLight.position.set(20, 40, 20);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 1024;
+      dirLight.shadow.mapSize.height = 1024;
+      dirLight.shadow.camera.near = 10;
+      dirLight.shadow.camera.far = 100;
+      // Shadow bounds
+      const d = 30;
+      dirLight.shadow.camera.left = -d;
+      dirLight.shadow.camera.right = d;
+      dirLight.shadow.camera.top = d;
+      dirLight.shadow.camera.bottom = -d;
+      scene.add(dirLight);
+      scene.userData.dirLight = dirLight; // Save reference to move with player
+      
+      // 2. Cannon.js Setup
+      world = new CANNON.World();
+      world.gravity.set(0, GRAVITY, 0);
+      world.broadphase = new CANNON.NaiveBroadphase();
+      world.solver.iterations = 10;
+      
+      const contactMaterial = new CANNON.ContactMaterial(physMatGround, physMatPlayer, {
+        friction: 0.0, // Ice-like friction so we don't slow down
+        restitution: 0.1 // Low bounce
+      });
+      world.addContactMaterial(contactMaterial);
+      
+      // 3. Create Player
+      createPlayer();
+      
+      // 4. Create Infinite Decorative Elements (InstancedMesh)
+      createInstancedEnvironment();
+      
+      // 5. Pre-generate initial chunks
+      for (let i = 0; i < VISIBLE_CHUNKS; i++) {
+        generateChunk(i === 0); // First chunk has no obstacles
+      }
+      
+      // 6. Events
+      window.addEventListener('resize', onWindowResize);
+      window.addEventListener('keydown', onKeyDown);
+      document.getElementById('start-btn').addEventListener('click', startGame);
+      document.getElementById('restart-btn').addEventListener('click', resetGame);
+      
+      // Collision Event for Player
+      playerBody.addEventListener('collide', (e) => {
+        // Check if hitting the ground
+        if (e.body.userData && e.body.userData.type === 'ground') {
+          isGrounded = true;
+        }
+        // Check if hitting an obstacle
+        if (e.body.userData && e.body.userData.type === 'obstacle') {
+          gameOver();
+        }
+      });
+      
+      // Start render loop
+      clock = new THREE.Clock();
+      requestAnimationFrame(animate);
+    }
+    
+    // --- PLAYER ---
+    function createPlayer() {
+      // Mesh: A low poly cube
+      const geo = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+      playerMesh = new THREE.Mesh(geo, matPlayer);
+      playerMesh.castShadow = true;
+      playerMesh.receiveShadow = true;
+      scene.add(playerMesh);
+      
+      // Physics Body
+      const shape = new CANNON.Box(new CANNON.Vec3(0.6, 0.6, 0.6));
+      playerBody = new CANNON.Body({
+        mass: 1,
+        material: physMatPlayer,
+        position: new CANNON.Vec3(0, 5, 0), // Drop from sky initially
+        fixedRotation: true // Don't tumble, keeps it clean
+      });
+      playerBody.addShape(shape);
+      playerBody.linearDamping = 0; // We control velocity directly
+      world.addBody(playerBody);
+    }
+    
+    // --- ENVIRONMENT (INSTANCED MESH) ---
+    function createInstancedEnvironment() {
+      // Trees: Low poly cones
+      const treeGeo = new THREE.ConeGeometry(1.5, 4, 5);
+      // Offset geometry so origin is at bottom
+      treeGeo.translate(0, 2, 0); 
+      
+      treeInstancedMesh = new THREE.InstancedMesh(treeGeo, matTreeLeaves, MAX_TREES);
+      treeInstancedMesh.castShadow = true;
+      treeInstancedMesh.receiveShadow = true;
+      
+      const dummy = new THREE.Object3D();
+      
+      for (let i = 0; i < MAX_TREES; i++) {
+        // Random placement along boundaries
+        const side = Math.random() > 0.5 ? 1 : -1;
+        const x = side * (LANE_WIDTH * 1.5 + Math.random() * BOUNDARY_LIMIT);
+        const z = -Math.random() * (VISIBLE_CHUNKS * CHUNK_LENGTH * 1.5); // Spread over distance
+        
+        const scale = 0.5 + Math.random() * 0.8;
+        
+        dummy.position.set(x, 0, z);
+        dummy.rotation.y = Math.random() * Math.PI;
+        dummy.scale.set(scale, scale, scale);
+        dummy.updateMatrix();
+        
+        treeInstancedMesh.setMatrixAt(i, dummy.matrix);
+        // Store original data in userData for recycling
+        treeInstancedMesh.userData[`${i}`] = { x, scale }; 
+      }
+      scene.add(treeInstancedMesh);
+    }
+    
+    // --- TRACK GENERATION ---
+    function generateChunk(isSafeZone) {
+      const chunk = new THREE.Group();
+      
+      // 1. Ground Mesh
+      const groundGeo = new THREE.BoxGeometry(BOUNDARY_LIMIT * 3, 1, CHUNK_LENGTH);
+      const groundMesh = new THREE.Mesh(groundGeo, matGround);
+      groundMesh.position.set(0, -0.5, nextChunkZ - CHUNK_LENGTH / 2);
+      groundMesh.receiveShadow = true;
+      chunk.add(groundMesh);
+      
+      // 2. Ground Physics Body
+      const groundShape = new CANNON.Box(new CANNON.Vec3(BOUNDARY_LIMIT * 1.5, 0.5, CHUNK_LENGTH / 2));
+      const groundBody = new CANNON.Body({ mass: 0, material: physMatGround });
+      groundBody.addShape(groundShape);
+      groundBody.position.set(0, -0.5, nextChunkZ - CHUNK_LENGTH / 2);
+      groundBody.userData = { type: 'ground' };
+      world.addBody(groundBody);
+      
+      const currentChunkZ = nextChunkZ; // Store for obstacle placement
+      nextChunkZ -= CHUNK_LENGTH;
+      
+      // 3. Obstacles (if not safe zone)
+      const chunkObstacles = [];
+      if (!isSafeZone) {
+        // Decide how many obstacles in this chunk (1 to 3 rows)
+        const rows = 1 + Math.floor(Math.random() * 2);
+        
+        for (let r = 0; r < rows; r++) {
+          const zOffset = currentChunkZ - (CHUNK_LENGTH / (rows + 1)) * (r + 1);
+          
+          // Randomly block 1 or 2 lanes
+          const lanesToBlock = [];
+          const numBlocks = Math.random() > 0.4 ? 2 : 1; 
+          const possibleLanes = [-1, 0, 1];
+          // Shuffle and pick
+          possibleLanes.sort(() => Math.random() - 0.5);
+          for (let b = 0; b < numBlocks; b++) lanesToBlock.push(possibleLanes[b]);
+          
+          lanesToBlock.forEach(lane => {
+            // Mesh
+            const w = LANE_WIDTH * 0.8;
+            const h = 1.2 + Math.random() * 0.8;
+            const obsGeo = new THREE.BoxGeometry(w, h, w);
+            const obsMesh = new THREE.Mesh(obsGeo, matObstacle);
+            obsMesh.position.set(lane * LANE_WIDTH, h / 2, zOffset);
+            obsMesh.castShadow = true;
+            obsMesh.receiveShadow = true;
+            chunk.add(obsMesh);
+            
+            // Physics
+            const obsShape = new CANNON.Box(new CANNON.Vec3(w/2, h/2, w/2));
+            const obsBody = new CANNON.Body({ mass: 0 }); // Static
+            obsBody.addShape(obsShape);
+            obsBody.position.copy(obsMesh.position);
+            obsBody.userData = { type: 'obstacle' };
+            world.addBody(obsBody);
+            
+            chunkObstacles.push(obsBody);
+            physicsObstacles.push(obsBody);
+          });
+        }
+      }
+      
+      scene.add(chunk);
+      activeChunks.push({
+        mesh: chunk,
+        groundBody: groundBody,
+        obstacles: chunkObstacles,
+        endZ: currentChunkZ - CHUNK_LENGTH
+      });
+    }
+    
+    // --- RECYCLING ---
+    function recycleChunks() {
+      if (activeChunks.length === 0) return;
+      
+      // If player passed the oldest chunk by a safe margin
+      const oldest = activeChunks[0];
+      if (playerBody.position.z < oldest.endZ - 10) {
+        // Remove from scene and physics
+        scene.remove(oldest.mesh);
+        
+        // Dispose geometries to free memory
+        oldest.mesh.children.forEach(child => {
+          if (child.geometry) child.geometry.dispose();
+        });
+        
+        world.removeBody(oldest.groundBody);
+        oldest.obstacles.forEach(obs => {
+          world.removeBody(obs);
+          const idx = physicsObstacles.indexOf(obs);
+          if (idx > -1) physicsObstacles.splice(idx, 1);
+        });
+        
+        activeChunks.shift(); // Remove from array
+        
+        // Generate a new chunk ahead
+        generateChunk(false);
+      }
+      
+      // Recycle InstancedMesh elements (Trees)
+      const dummy = new THREE.Object3D();
+      let treesUpdated = false;
+      
+      for (let i = 0; i < MAX_TREES; i++) {
+        treeInstancedMesh.getMatrixAt(i, treeMatrix);
+        dummy.applyMatrix4(treeMatrix);
+        
+        // If tree is behind the camera (player z + some margin)
+        if (dummy.position.z > playerBody.position.z + 20) {
+          // Move it far ahead
+          const data = treeInstancedMesh.userData[`${i}`];
+          // Place randomly in the distance
+          const newZ = playerBody.position.z - (VISIBLE_CHUNKS * CHUNK_LENGTH) + Math.random() * CHUNK_LENGTH;
+          
+          dummy.position.set(data.x, 0, newZ);
+          dummy.rotation.y = Math.random() * Math.PI;
+          dummy.scale.set(data.scale, data.scale, data.scale);
+          dummy.updateMatrix();
+          
+          treeInstancedMesh.setMatrixAt(i, dummy.matrix);
+          treesUpdated = true;
+        }
+      }
+      
+      if (treesUpdated) treeInstancedMesh.instanceMatrix.needsUpdate = true;
+    }
+    
+    // --- CONTROLS ---
+    function onKeyDown(e) {
+      if (gameState !== 'playing') return;
+      
+      if ((e.code === 'KeyA' || e.code === 'ArrowLeft') && currentLane > -1) {
+        currentLane--;
+      } else if ((e.code === 'KeyD' || e.code === 'ArrowRight') && currentLane < 1) {
+        currentLane++;
+      } else if (e.code === 'Space' && isGrounded) {
+        // Jump! Apply upward velocity
+        playerBody.velocity.y = JUMP_FORCE;
+        isGrounded = false;
+      }
+    }
+    
+    // --- GAME STATE MANAGEMENT ---
+    function startGame() {
+      elStartModal.classList.add('hidden');
+      gameState = 'playing';
+      score = 0;
+      forwardSpeed = FORWARD_SPEED_START;
+      
+      // Reset player position
+      playerBody.position.set(0, 5, 0);
+      playerBody.velocity.set(0, 0, -forwardSpeed);
+      currentLane = 0;
+    }
+    
+    function gameOver() {
+      if (gameState === 'gameover') return; // Prevent multiple calls
+      gameState = 'gameover';
+      
+      // Player crashes (stops moving forward, pops up slightly)
+      playerBody.velocity.set(0, 5, 5); 
+      // Allow rotation on crash for dramatic effect
+      playerBody.fixedRotation = false;
+      playerBody.angularVelocity.set(Math.random()*10, Math.random()*10, Math.random()*10);
+      playerBody.updateMassProperties();
+      
+      elFinalScore.textContent = `${Math.floor(score)}m`;
+      elGameoverModal.classList.remove('hidden');
+    }
+    
+    function resetGame() {
+      elGameoverModal.classList.add('hidden');
+      
+      // Clear all chunks
+      activeChunks.forEach(chunk => {
+        scene.remove(chunk.mesh);
+        world.removeBody(chunk.groundBody);
+        chunk.obstacles.forEach(obs => world.removeBody(obs));
+      });
+      activeChunks.length = 0;
+      physicsObstacles.length = 0;
+      nextChunkZ = 0;
+      
+      // Repopulate chunks
+      for (let i = 0; i < VISIBLE_CHUNKS; i++) {
+        generateChunk(i === 0);
+      }
+      
+      // Reset player physics state
+      playerBody.fixedRotation = true;
+      playerBody.angularVelocity.set(0,0,0);
+      playerBody.quaternion.set(0,0,0,1);
+      playerBody.updateMassProperties();
+      
+      startGame();
+    }
+    
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    
+    // --- MAIN LOOP ---
+    const TIME_STEP = 1 / 60;
+    let clock;
+    
+    function animate() {
+      requestAnimationFrame(animate);
+      
+      const dt = clock.getDelta();
+      
+      if (gameState === 'playing') {
+        // Increase speed gradually
+        forwardSpeed += (SPEED_INCREMENT * dt);
+        score += forwardSpeed * dt * 0.1; // Scale down for meters
+        elScore.textContent = `${Math.floor(score)}m`;
+        
+        // Enforce player movement
+        // Lerp X velocity towards target lane
+        const targetX = currentLane * LANE_WIDTH;
+        const currentX = playerBody.position.x;
+        // P-controller for smooth lane switching
+        playerBody.velocity.x = (targetX - currentX) * 15;
+        
+        // Force forward velocity (negative Z)
+        playerBody.velocity.z = -forwardSpeed;
+        
+        // Chunk recycling
+        recycleChunks();
+      }
+      
+      // Step Physics World
+      world.step(TIME_STEP, dt, 3);
+      
+      // Sync Three.js Mesh to Cannon.js Body
+      playerMesh.position.copy(playerBody.position);
+      playerMesh.quaternion.copy(playerBody.quaternion);
+      
+      // Camera Follow Logic
+      const camOffset = new THREE.Vector3(0, 6, 12); // Behind and above
+      camera.position.x = THREE.MathUtils.lerp(camera.position.x, playerMesh.position.x * 0.5, 0.1); // Slight pan
+      camera.position.y = THREE.MathUtils.lerp(camera.position.y, playerMesh.position.y + camOffset.y, 0.1);
+      camera.position.z = playerMesh.position.z + camOffset.z;
+      
+      const lookTarget = new THREE.Vector3(0, playerMesh.position.y, playerMesh.position.z - 10);
+      camera.lookAt(lookTarget);
+      
+      // Directional Light Follow Logic (for consistent shadows)
+      const dirLight = scene.userData.dirLight;
+      dirLight.position.z = playerMesh.position.z + 20;
+      dirLight.target.position.set(0, 0, playerMesh.position.z - 10);
+      dirLight.target.updateMatrixWorld();
+      
+      renderer.render(scene, camera);
+    }
+
+    // Start everything
+    init();
+  </script>
+</body>
+</html>
