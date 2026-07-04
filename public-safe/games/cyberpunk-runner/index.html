@@ -26,7 +26,7 @@
   <div id="ui">
     <h1>CYBERPUNK RUNNER</h1>
     <p>Score: <span id="score">0</span></p>
-    <div style="font-size:12px; color:#aaa; margin-top:10px;">A/D or Arrows to Steer. Space to Jump.</div>
+    <div style="font-size:12px; color:#aaa; margin-top:10px;">A/D/Arrows or Tap Left/Right to Steer. Space/Tap Top to Jump.</div>
   </div>
 
   <div id="dev-notes">
@@ -149,6 +149,21 @@
         if ((e.code === 'ArrowLeft' || e.code === 'KeyA') && currentLane > -1) currentLane--;
         if ((e.code === 'ArrowRight' || e.code === 'KeyD') && currentLane < 1) currentLane++;
         if (e.code === 'Space' && playerBody.position.y < 1.1) playerBody.velocity.y = 12;
+      });
+      
+      window.addEventListener('touchstart', (e) => {
+        if (isGameOver) return;
+        const touch = e.touches[0];
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        
+        if (touch.clientY < h / 3 && playerBody.position.y < 1.1) {
+          playerBody.velocity.y = 12;
+        } else if (touch.clientX < w / 2 && currentLane > -1) {
+          currentLane--;
+        } else if (touch.clientX > w / 2 && currentLane < 1) {
+          currentLane++;
+        }
       });
 
       playerBody.addEventListener('collide', (e) => {

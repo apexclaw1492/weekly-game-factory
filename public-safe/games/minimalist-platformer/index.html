@@ -25,7 +25,7 @@
 <body>
   <div id="ui">
     <h1>MINIMALIST PLATFORMER</h1>
-    <p>A/D or Arrows to Move. Space to Jump.</p>
+    <p>A/D/Arrows or Tap Left/Right to Move. Space/Tap Top to Jump.</p>
     <div style="font-size:12px; color:#779; margin-top:10px;">Reach the green platform!</div>
   </div>
 
@@ -139,6 +139,30 @@
         if(e.code === 'KeyA' || e.code === 'ArrowLeft') keys.a = false;
         if(e.code === 'KeyD' || e.code === 'ArrowRight') keys.d = false;
         if(e.code === 'Space') keys.space = false;
+      });
+
+      window.addEventListener('touchstart', (e) => {
+        const touch = e.touches[0];
+        const w = window.innerWidth;
+        const h = window.innerHeight;
+        if (touch.clientY < h / 3) {
+          if (!keys.space) {
+            keys.space = true;
+            playerBody.velocity.y = 12;
+            setTimeout(() => { keys.space = false; }, 200);
+          }
+        } else if (touch.clientX < w / 2) {
+          keys.a = true;
+        } else if (touch.clientX > w / 2) {
+          keys.d = true;
+        }
+      });
+
+      window.addEventListener('touchend', (e) => {
+        if (e.touches.length === 0) {
+          keys.a = false;
+          keys.d = false;
+        }
       });
 
       window.addEventListener('resize', () => {
