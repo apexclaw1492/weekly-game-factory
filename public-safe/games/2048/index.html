@@ -12,7 +12,33 @@
   <meta name="HandheldFriendly" content="True">
   <meta name="MobileOptimized" content="320">
   <meta name="viewport" content="width=device-width, target-densitydpi=160dpi, initial-scale=1.0, maximum-scale=1, user-scalable=no, minimal-ui">
+  <meta name="theme-color" content="#8f7a66">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <link rel="manifest" href="manifest.json">
   <style>
+    body {
+      touch-action: none;
+    }
+    .container {
+      filter: drop-shadow(0px 10px 30px rgba(143, 122, 102, 0.4));
+    }
+    .wgf-overlay {
+      position: fixed;
+      bottom: 20px;
+      right: 20px;
+      background: rgba(143, 122, 102, 0.9);
+      color: #f9f6f2;
+      padding: 12px 20px;
+      border-radius: 12px;
+      font-family: "Clear Sans", "Helvetica Neue", Arial, sans-serif;
+      font-weight: bold;
+      font-size: 14px;
+      pointer-events: none;
+      z-index: 9999;
+      box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+      backdrop-filter: blur(4px);
+    }
     .back-to-hub {
       background: #8f7a66;
       color: #f9f6f2;
@@ -37,6 +63,7 @@
 </head>
 <body>
   <div class="container">
+    <div class="wgf-overlay">🌟 Weekly Game Factory</div>
     <div class="hub-bar">
       <a class="back-to-hub" href="../../">← Back to Hub</a>
       <span style="color:#776e65;font-size:12px;font-family:'Clear Sans',sans-serif;">Part of <strong>Weekly Game Factory</strong></span>
@@ -118,5 +145,25 @@
   <script src="js/local_storage_manager.js"></script>
   <script src="js/game_manager.js"></script>
   <script src="js/application.js"></script>
+  <script>
+    document.addEventListener('click', function() {
+      try {
+        const AudioContext = window.AudioContext || window.webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(600, ctx.currentTime);
+        osc.frequency.exponentialRampToValueAtTime(300, ctx.currentTime + 0.1);
+        gain.gain.setValueAtTime(0.05, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.1);
+      } catch (e) {}
+    });
+  </script>
 </body>
 </html>

@@ -663,7 +663,7 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
       
       asteroid.body?.setCircle(r);
       
-      const speed = 20 + this.level * 4 + Math.random() * 20;
+      const speed = 30 + this.level * 8 + Math.random() * 30;
       const ang = Math.random() * Math.PI * 2;
       asteroid.setVelocity(Math.cos(ang) * speed, Math.sin(ang) * speed);
       asteroid.setData('size', size);
@@ -688,7 +688,7 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
 
     // Multiplier combo
     const timeNow = Date.now();
-    if (timeNow - this.comboTimer < 2000) {
+    if (timeNow - this.comboTimer < 3000) {
       this.comboCount++;
     } else {
       this.comboCount = 1;
@@ -698,9 +698,10 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     const reward = 100 * this.comboCount;
     this.score += reward;
     this.scoreText.setText(`SCORE: ${this.score}`);
+    this.cameras.main.shake(50, 0.005);
 
     // Popup text floating
-    const text = this.add.text(pod.x, pod.y - 15, `+${reward}`, {
+    const text = this.add.text(pod.x, pod.y - 15, `+${reward} (x${this.comboCount})`, {
       fontSize: '12px',
       fontFamily: 'monospace',
       color: '#ffd700',
@@ -749,6 +750,7 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
         SoundSynth.playNearMiss();
 
         this.cameras.main.flash(100, 255, 160, 50);
+        this.cameras.main.shake(80, 0.003);
 
         const floatText = this.add.text(this.ship.x, this.ship.y - 25, 'NEAR MISS +50', {
           fontSize: '11px',
@@ -900,7 +902,8 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     this.lifecycleState = "gameOver";
 
     SoundSynth.playDeath();
-    this.createBoostParticles(this.ship.x, this.ship.y, 0xff4444, 25);
+    this.createBoostParticles(this.ship.x, this.ship.y, 0xff4444, 40);
+    this.cameras.main.shake(300, 0.02);
     this.ship.setVisible(false);
 
     // Save High Score

@@ -49,6 +49,8 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
   private shotsFired = 0;
   private jumpsTriggered = 0;
   private enemiesDamaged = 0;
+  private comboCount = 1;
+  private comboTimer = 0;
 
   // UI Elements
   private scoreText!: Phaser.GameObjects.Text;
@@ -57,6 +59,7 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
   private stateText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
   private bossWarningText?: Phaser.GameObjects.Text;
+  private comboText!: Phaser.GameObjects.Text;
   private backBtn!: Phaser.GameObjects.Text;
   private backHitZone!: Phaser.GameObjects.Zone;
 
@@ -68,7 +71,20 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
   private spawns: EnemySpawn[] = [];
 
   private readonly levelWidth = 4500;
-  private readonly groundY = 530;
+  private groundY = 530;
+
+  private getComputedGroundY(height?: number): number {
+    const h = height ?? this.scale.height;
+    // groundY adapts to viewport height:
+    // - Tall portrait (844px): groundY ~530 (current default)
+    // - Short landscape (390px): groundY ~280
+    // - Everything else interpolated
+    const minH = 380;
+    const maxH = 900;
+    const clamped = Phaser.Math.Clamp(h, minH, maxH);
+    const t = (clamped - minH) / (maxH - minH);
+    return Math.round(280 + t * 270); // 280 at minH, 550 at maxH
+  }
 
   constructor() {
     super('ContraScene');
@@ -87,10 +103,15 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     this.shotsFired = 0;
     this.jumpsTriggered = 0;
     this.enemiesDamaged = 0;
+    this.comboCount = 1;
+    this.comboTimer = 0;
     this.bossActive = false;
     this.bossDefeated = false;
     this.bossHp = 35;
     this.lifecycleState = "start";
+
+    // Compute groundY from viewport height
+    this.groundY = this.getComputedGroundY(this.scale?.height);
 
     // Set spawn coordinates (multiply original scale triggers by 1.25 for Phaser scale)
     const rawWaves = [
@@ -193,6 +214,7 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     this.scoreText = this.add.text(20, 20, 'SCORE: 0', { fontSize: '16px', fontFamily: 'monospace', color: '#ffffff' }).setScrollFactor(0);
     this.livesText = this.add.text(width / 2, 20, 'LIVES: ♥ ♥ ♥', { fontSize: '16px', fontFamily: 'monospace', color: '#ff3333' }).setOrigin(0.5, 0).setScrollFactor(0);
     this.weaponText = this.add.text(20, 45, 'WPN: RIFLE', { fontSize: '11px', fontFamily: 'monospace', color: '#ffaa00' }).setScrollFactor(0);
+    this.comboText = this.add.text(20, 60, '', { fontSize: '12px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold' }).setScrollFactor(0);
 
     // Overlay Game States
     this.stateText = this.add.text(width / 2, height / 2 - 40, 'CONTRA MISSION', {
@@ -251,6 +273,9 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
   private handleResize() {
     const { width, height } = this.scale;
 
+    // Recalculate groundY for new viewport height
+    this.groundY = this.getComputedGroundY(height);
+
     // Reposition HUD
     this.applyCameraLayout();
     this.livesText.setPosition(width / 2, 20);
@@ -289,6 +314,11 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     if (this.lifecycleState !== 'playing') {
       this.player.setVelocityX(0);
       return;
+    }
+
+    if (Date.now() - this.comboTimer > 2000 && this.comboCount > 1) {
+      this.comboCount = 1;
+      this.comboText.setText('');
     }
 
     const frame = runtime.readFrame();
@@ -840,10 +870,21 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
       // Explode
       SoundSynth.playHit();
       this.createExplosionParticles(enemy.x, enemy.y, 0xffaa00, 10);
+      this.cameras.main.shake(50, 0.005);
       
-      const pts = type === 'hev' ? 200 : type === 'tur' ? 150 : 100;
+      const timeNow = Date.now();
+      if (timeNow - this.comboTimer < 2000) {
+        this.comboCount++;
+      } else {
+        this.comboCount = 1;
+      }
+      this.comboTimer = timeNow;
+
+      const basePts = type === 'hev' ? 200 : type === 'tur' ? 150 : 100;
+      const pts = basePts * this.comboCount;
       this.score += pts;
       this.scoreText.setText(`SCORE: ${this.score}`);
+      this.comboText.setText(`COMBO x${this.comboCount} (+${pts})`);
       this.enemiesDamaged++;
 
       enemy.destroy();
@@ -952,6 +993,7 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
       this.bossBody.setFillStyle(0xffffff);
       this.bossHead.setFillStyle(0xffffff);
       this.bossFlashFrames = 3;
+      this.cameras.main.shake(30, 0.003);
 
       if (this.bossHp <= 0) {
         this.victory();
@@ -973,6 +1015,7 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     // Spawn massive particles
     this.createExplosionParticles(4350, this.groundY - 100, 0xffaa00, 40);
     this.createExplosionParticles(4350, this.groundY - 50, 0xff5555, 30);
+    this.cameras.main.shake(1000, 0.03);
 
     for (let i = 0; i < 5; i++) {
       this.time.delayedCall(i * 120, () => SoundSynth.playExplosion());

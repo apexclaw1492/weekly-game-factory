@@ -25,6 +25,7 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
   private frameCount = 0;
   private combo = 0;
   private maxCombo = 0;
+  private comboTimer = 0;
   private nextExtraLifeScore = 10000;
   private nextSaucerTime = 0;
   private lastSaucerShotTime = 0;
@@ -65,6 +66,7 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
     this.level = 1;
     this.combo = 0;
     this.maxCombo = 0;
+    this.comboTimer = 0;
     this.nextExtraLifeScore = 10000;
     this.nextSaucerTime = 0;
     this.lastSaucerShotTime = 0;
@@ -255,6 +257,11 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
         this.isInvulnerable = false;
         this.ship.setVisible(true);
       }
+    }
+
+    if (this.combo > 0 && this.time.now - this.comboTimer > 3000) {
+      this.combo = 0;
+      this.comboText.setText('');
     }
 
     // Read input frame
@@ -498,6 +505,7 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
 
     // Scoring Combo logic
     this.combo++;
+    this.comboTimer = this.time.now;
     if (this.combo > this.maxCombo) this.maxCombo = this.combo;
 
     const basePoints = size === 3 ? 20 : size === 2 ? 50 : 100;
@@ -505,6 +513,7 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
     const award = basePoints * comboMul;
     this.score += award;
     this.scoreText.setText(`SCORE: ${this.score}`);
+    this.cameras.main.shake(50, 0.005);
     this.awardExtraLifeIfNeeded();
 
     if (this.combo > 1) {
@@ -567,13 +576,14 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
   private hitSaucer(bulletObj: any, saucerObj: any) {
     const bullet = bulletObj as Phaser.Physics.Arcade.Image;
     const saucer = saucerObj as Phaser.Physics.Arcade.Image;
-    const points = saucer.getData('points') as number;
+    const points = saucer.getData('points') as number * Math.min(Math.max(1, this.combo), 10);
     bullet.destroy();
     saucer.destroy();
     this.score += points;
     this.scoreText.setText(`SCORE: ${this.score}`);
     this.comboText.setText(`SAUCER +${points}`);
     this.awardExtraLifeIfNeeded();
+    this.cameras.main.shake(100, 0.01);
     this.createExplosion(saucer.x, saucer.y, 18, 0xff55aa);
     SoundSynth.playExplosion();
   }

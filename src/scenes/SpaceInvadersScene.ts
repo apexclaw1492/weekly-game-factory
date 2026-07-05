@@ -517,14 +517,22 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
     const enemy = enemyObj as Phaser.Physics.Arcade.Sprite;
 
     this.createExplosionParticles(enemy.x, enemy.y, 0xffff00);
+    this.cameras.main.shake(50, 0.005);
     bullet.destroy();
     enemy.destroy();
     SoundSynth.playHit();
 
-    const points = Number(enemy.getData('points')) || 10;
+    if (Date.now() - this.lastHitTime < 2000) {
+      this.multiplier = Math.min(10, this.multiplier + 1);
+    } else {
+      this.multiplier = 1;
+    }
+
+    const basePoints = Number(enemy.getData('points')) || 10;
+    const points = basePoints * this.multiplier;
     this.score += points;
     this.scoreText.setText(`SCORE: ${this.score}`);
-    this.comboText.setText(`+${points}`);
+    this.comboText.setText(`COMBO x${this.multiplier} (+${points})`);
     this.lastHitTime = Date.now();
 
     if (this.enemies.countActive() === 0) {
@@ -587,13 +595,15 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
   private hitSaucer(bulletObj: any, saucerObj: any) {
     const bullet = bulletObj as Phaser.Physics.Arcade.Image;
     const saucer = saucerObj as Phaser.Physics.Arcade.Image;
-    const points = saucer.getData('points') as number;
+    const basePoints = saucer.getData('points') as number;
+    const points = basePoints * this.multiplier;
     bullet.destroy();
     saucer.destroy();
     this.createExplosionParticles(saucer.x, saucer.y, 0xff3355);
+    this.cameras.main.shake(100, 0.01);
     this.score += points;
     this.scoreText.setText(`SCORE: ${this.score}`);
-    this.comboText.setText(`SAUCER +${points}`);
+    this.comboText.setText(`SAUCER x${this.multiplier} (+${points})`);
     SoundSynth.playExplosion();
   }
 
@@ -602,6 +612,7 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
     this.livesText.setText(`LIVES: ${this.lives}`);
     SoundSynth.playDeath();
     this.createExplosionParticles(this.player.x, this.player.y, 0xff0000);
+    this.cameras.main.shake(200, 0.01);
 
     if (this.lives <= 0) {
       this.gameOver();
@@ -624,13 +635,14 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
     const particles = this.add.particles(0, 0, 'pup-speed', {
       x,
       y,
-      speed: { min: 40, max: 150 },
+      speed: { min: 50, max: 200 },
       angle: { min: 0, max: 360 },
-      scale: { start: 0.4, end: 0 },
+      scale: { start: 0.6, end: 0 },
       alpha: { start: 1, end: 0 },
+      blendMode: 'ADD',
       tint: color,
       lifespan: 600,
-      maxParticles: 12
+      maxParticles: 16
     });
 
     this.time.delayedCall(800, () => particles.destroy());

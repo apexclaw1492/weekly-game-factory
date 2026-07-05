@@ -135,8 +135,8 @@ export const GAME_DEFINITIONS: readonly GameDefinition[] = [
     url: './games/aubreys-realm/index.html',
     color: 0xd4a843,
     description: 'Explore a magical realm. Collect star-seeds to awaken the sleeping world.',
-    certificationStatus: 'certified',
-    certificationLabel: 'CERTIFIED TOUCH'
+    certificationStatus: 'in-rebuild',
+    certificationLabel: 'IN REBUILD'
   },
   {
     id: '2048',

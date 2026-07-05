@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "robinhood-dev",
+      "runtimeExecutable": "npm",
+      "runtimeArgs": ["--prefix", "/Users/apexclaw/Projects/WeekendGameFactory_Robinhood", "run", "dev"],
+      "port": 3000
+    }
+  ]
+}

@@ -8,6 +8,8 @@
 		<meta name="apple-itunes-app" content="app-id=903769553"/>
 		<meta name="apple-mobile-web-app-title" content="Hextris">
 		<meta name="apple-mobile-web-app-capable" content="yes">
+		<meta name="theme-color" content="#2c3e50">
+		<link rel="manifest" href="manifest.json">
 		<link rel="apple-touch-icon" sizes="120x120" href="images/icons/apple-touch-120.png">
 		<link rel="apple-touch-icon" sizes="152x152" href="images/icons/apple-touch-152.png">
 		<link rel="apple-touch-icon" sizes="167x167" href="images/icons/apple-touch-167.png">
@@ -65,8 +67,33 @@
 		<script type='text/javascript' src="js/initialization.js"></script>
 		<script src="vendor/sweet-alert.min.js"></script>
 		<link rel="stylesheet" href="style/rrssb.css"/>
+		<style>
+			body, html {
+				touch-action: none;
+			}
+			#canvas {
+				filter: drop-shadow(0px 0px 15px rgba(52, 152, 219, 0.4));
+			}
+			.wgf-overlay {
+				position: fixed;
+				bottom: 20px;
+				right: 20px;
+				background: rgba(44, 62, 80, 0.8);
+				color: #ecf0f1;
+				padding: 10px 15px;
+				border-radius: 8px;
+				font-family: 'Exo', sans-serif;
+				font-weight: bold;
+				font-size: 14px;
+				pointer-events: none;
+				z-index: 9999;
+				box-shadow: 0 4px 10px rgba(0,0,0,0.5);
+				backdrop-filter: blur(4px);
+			}
+		</style>
 	</head>
 	<body>
+		<div class="wgf-overlay">🌟 Weekly Game Factory</div>
 		<div style="position:absolute;top:10px;left:10px;z-index:9999;">
 			<a href="../../" style="background:rgba(0,0,0,0.6);color:white;font-family:'Exo 2',sans-serif;font-size:13px;padding:6px 12px;border-radius:4px;text-decoration:none;">← Back to Hub</a>
 		</div>
@@ -156,5 +183,25 @@
 					}})()
 			</script>
 		<script type="text/javascript" src='vendor/rrssb.min.js'></script>
+		<script>
+			document.addEventListener('click', function() {
+				try {
+					const AudioContext = window.AudioContext || window.webkitAudioContext;
+					if (!AudioContext) return;
+					const ctx = new AudioContext();
+					const osc = ctx.createOscillator();
+					const gain = ctx.createGain();
+					osc.connect(gain);
+					gain.connect(ctx.destination);
+					osc.type = 'triangle';
+					osc.frequency.setValueAtTime(440, ctx.currentTime);
+					osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.1);
+					gain.gain.setValueAtTime(0.05, ctx.currentTime);
+					gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+					osc.start();
+					osc.stop(ctx.currentTime + 0.1);
+				} catch (e) {}
+			});
+		</script>
 	</body>
 </html>

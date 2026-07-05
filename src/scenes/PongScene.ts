@@ -32,6 +32,8 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
   private aiBaseSpeed = 150;
   private aiReactionDelay = 500;
   private lastAiUpdateTime = 0;
+  private rallyCount = 0;
+  private trailEmitter!: Phaser.GameObjects.Particles.ParticleEmitter;
 
   private scoreText!: Phaser.GameObjects.Text;
   private levelText!: Phaser.GameObjects.Text;
@@ -158,6 +160,16 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
     this.ball.setBounce(1);
     this.ball.setCollideWorldBounds(true);
     (this.ball.body as Phaser.Physics.Arcade.Body).onWorldBounds = true;
+
+    // Trail Emitter
+    this.trailEmitter = this.add.particles(0, 0, 'ball-glow', {
+      speed: 0,
+      scale: { start: 0.8, end: 0 },
+      alpha: { start: 0.5, end: 0 },
+      blendMode: 'ADD',
+      lifespan: 300
+    });
+    this.trailEmitter.startFollow(this.ball);
 
     // World Bounds for side walls (gutters)
     this.physics.world.setBounds(20, 0, width - 40, height);
@@ -437,6 +449,12 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
     this.ball.setVelocity(newVx, newVy);
     
     SoundSynth.playHit();
+    this.rallyCount++;
+    if (this.rallyCount > 5) {
+      this.cameras.main.shake(100, Math.min(0.015, 0.005 + (this.rallyCount * 0.001)));
+    } else {
+      this.cameras.main.shake(50, 0.003);
+    }
     this.cameras.main.flash(50, 255, 215, 0);
   }
 
@@ -450,6 +468,8 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
       SoundSynth.playDeath();
     }
     
+    this.rallyCount = 0;
+    this.cameras.main.shake(200, 0.015);
     this.scoreText.setText(`PLAYER ${this.scorePlayer} - AI ${this.scoreAI}`);
     
     if (this.lives <= 0) {

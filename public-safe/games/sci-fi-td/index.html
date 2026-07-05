@@ -4,29 +4,36 @@
   <meta charset="UTF-8">
   <title>Sci-Fi Voxel TD</title>
   <style>
-    body { margin: 0; overflow: hidden; background: #01020a; font-family: sans-serif; color: #fff; }
-    #ui { position: absolute; top: 10px; left: 10px; z-index: 10; pointer-events: none; }
-    h1 { margin: 0; font-size: 24px; color: #4af; text-shadow: 0 0 10px #4af; }
-    p { margin: 5px 0; color: #fff; text-shadow: 0 0 5px #fff; }
+    body { margin: 0; overflow: hidden; background: #01020a; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #fff; }
+    #ui { 
+      position: absolute; top: 20px; left: 20px; z-index: 10; pointer-events: none;
+      background: rgba(5, 15, 30, 0.7); border: 2px solid #4af; 
+      padding: 20px; border-radius: 12px; backdrop-filter: blur(6px);
+      box-shadow: 0 0 20px rgba(68, 170, 255, 0.3), inset 0 0 10px rgba(68, 170, 255, 0.1);
+    }
+    h1 { margin: 0; font-size: 28px; color: #4af; text-shadow: 0 0 15px #4af, 0 0 5px #4af; letter-spacing: 2px; }
+    p { margin: 12px 0 5px 0; font-size: 20px; color: #fff; font-weight: bold; text-shadow: 0 0 5px #fff; }
+    .info { font-size: 14px; color: #8cf; margin-top: 10px; line-height: 1.4; opacity: 0.9; }
+    
     #dev-notes { 
-      position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(1,2,10,0.85); 
+      position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(1,2,10,0.9); 
       border-top: 2px solid #4af; padding: 15px; box-sizing: border-box; z-index: 20; 
       transition: transform 0.3s ease; transform: translateY(calc(100% - 40px));
     }
     #dev-notes.open { transform: translateY(0); }
     .toggle-btn { 
-      background: #4af; color: #000; border: none; padding: 5px 15px; font-weight: bold; 
-      cursor: pointer; display: block; margin-bottom: 10px; border-radius: 4px;
+      background: linear-gradient(90deg, #4af, #08c); color: #fff; border: none; padding: 8px 18px; font-weight: bold; 
+      cursor: pointer; display: block; margin-bottom: 10px; border-radius: 4px; box-shadow: 0 0 10px rgba(68,170,255,0.5);
     }
-    .notes-content { max-height: 250px; overflow-y: auto; font-size: 14px; line-height: 1.4; color: #ccc; pointer-events: auto;}
-    .notes-content code { background: #111; color: #4af; padding: 2px 4px; border-radius: 3px; }
+    .notes-content { max-height: 250px; overflow-y: auto; font-size: 14px; line-height: 1.5; color: #ddd; pointer-events: auto;}
+    .notes-content code { background: #222; color: #4af; padding: 2px 4px; border-radius: 3px; }
   </style>
 </head>
 <body>
   <div id="ui">
     <h1>SCI-FI VOXEL TD</h1>
-    <p>Money: $<span id="money">100</span> | Lives: <span id="lives">10</span></p>
-    <div style="font-size:12px; color:#aaa; margin-top:10px;">Click/Tap on the grid to build laser towers ($50).</div>
+    <p>Credits: <span id="money" style="color:#0f0;">$100</span> | Core Integrity: <span id="lives" style="color:#f00;">10</span></p>
+    <div class="info">Click/Tap on the grid to deploy Laser Towers ($50).<br>Defend the core from incoming anomalies!</div>
   </div>
 
   <div id="dev-notes">
@@ -37,24 +44,30 @@
       <ul>
         <li><strong>Core Engine:</strong> Three.js for rendering a deep space environment with metallic voxel grids.</li>
         <li><strong>Optimization:</strong> <code>InstancedMesh</code> is used to render a dense starfield and thousands of background asteroids without lagging.</li>
-        <li><strong>Physics Engine:</strong> Cannon.js handles enemy routing physics and projectile intersection testing.</li>
+        <li><strong>Visuals:</strong> Added UnrealBloomPass for neon lasers and explosions. Dynamic procedural animations for asteroids and enemies.</li>
         <li><strong>Architectural Genre:</strong> Tower Defense loop. Enemies follow a set path, towers auto-target and fire.</li>
       </ul>
-      <p><strong>LLM Used:</strong> Gemini 2.5 Pro</p>
-      <p><strong>Recreation Prompt:</strong></p>
-      <pre style="white-space:pre-wrap; background:#000; padding:10px; border:1px solid #4af;">Act as an expert frontend game developer and creative coder specializing in WebGL, Three.js, and browser physics engines. I want to build a complete, highly optimized 3D web-based game prototype inside a single HTML file. Please use the following specifications: 1. Core Engine: Three.js with sci-fi space materials. 2. Architectural Genre: Tower Defense on a Voxel Grid. 3. Optimization: InstancedMesh for a dense asteroid field and lasers. 4. Physics Engine: Cannon.js for enemy movement and projectile collisions. 5. Visual Aesthetics: Sci-Fi Space Low Poly. Provide the complete code block.</pre>
     </div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Postprocessing dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+  
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
   
   <script>
-    let scene, camera, renderer, world;
+    let scene, camera, renderer, composer, world;
     let money = 100, lives = 10;
     let clock = new THREE.Clock();
-    let towers = [], enemies = [], projectiles = [];
+    let towers = [], enemies = [], projectiles = [], particles = [];
     let gridGeometry, gridMaterial;
+    let asteroids, astDummy = new THREE.Object3D();
     const GRID_SIZE = 10;
     const PATH = [[0, -4], [0, 0], [4, 0], [4, 4], [-4, 4], [-4, 8]];
 
@@ -67,44 +80,59 @@
       // Three.js
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x01020a);
+      scene.fog = new THREE.FogExp2(0x01020a, 0.02);
 
       camera = new THREE.PerspectiveCamera(50, window.innerWidth/window.innerHeight, 0.1, 1000);
-      camera.position.set(0, 15, 15);
-      camera.lookAt(0, 0, 0);
+      camera.position.set(0, 16, 18);
+      camera.lookAt(0, 2, 0);
 
-      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer = new THREE.WebGLRenderer({ antialias: false });
       renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.toneMapping = THREE.ReinhardToneMapping;
       document.body.appendChild(renderer.domElement);
+      
+      // Bloom
+      const renderScene = new THREE.RenderPass(scene, camera);
+      const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+      bloomPass.threshold = 0.2;
+      bloomPass.strength = 1.5;
+      bloomPass.radius = 0.8;
+      
+      composer = new THREE.EffectComposer(renderer);
+      composer.addPass(renderScene);
+      composer.addPass(bloomPass);
 
-      const ambient = new THREE.AmbientLight(0x404040, 2);
+      const ambient = new THREE.AmbientLight(0x202040, 2);
       scene.add(ambient);
-      const dirLight = new THREE.DirectionalLight(0xaaccff, 1.5);
+      const dirLight = new THREE.DirectionalLight(0xaaccff, 2.0);
       dirLight.position.set(10, 20, 10);
       scene.add(dirLight);
-
-      // Cannon.js
-      world = new CANNON.World();
-      world.gravity.set(0, 0, 0); // Top down, no gravity needed for simple 2D pathing
+      const pointLight = new THREE.PointLight(0x0044ff, 2, 50);
+      pointLight.position.set(0, 5, 0);
+      scene.add(pointLight);
 
       // Build Grid
-      const planeGeo = new THREE.PlaneGeometry(GRID_SIZE, GRID_SIZE);
-      const planeMat = new THREE.MeshBasicMaterial({ color: 0x112233, wireframe: true });
+      const planeGeo = new THREE.PlaneGeometry(GRID_SIZE, GRID_SIZE, GRID_SIZE, GRID_SIZE);
+      const planeMat = new THREE.MeshBasicMaterial({ color: 0x113355, wireframe: true, transparent: true, opacity: 0.3 });
       planeMesh = new THREE.Mesh(planeGeo, planeMat);
       planeMesh.rotation.x = -Math.PI / 2;
       scene.add(planeMesh);
+      
+      const gridHelper = new THREE.GridHelper(GRID_SIZE, GRID_SIZE, 0x44aaff, 0x112233);
+      gridHelper.position.y = 0.01;
+      scene.add(gridHelper);
 
       // Background Asteroids (InstancedMesh)
       const astGeo = new THREE.DodecahedronGeometry(0.5, 0);
-      const astMat = new THREE.MeshStandardMaterial({ color: 0x445566, flatShading: true });
+      const astMat = new THREE.MeshStandardMaterial({ color: 0x334455, flatShading: true, roughness: 0.8 });
       const numAsteroids = 1000;
-      const asteroids = new THREE.InstancedMesh(astGeo, astMat, numAsteroids);
-      const dummy = new THREE.Object3D();
+      asteroids = new THREE.InstancedMesh(astGeo, astMat, numAsteroids);
       for (let i = 0; i < numAsteroids; i++) {
-        dummy.position.set((Math.random()-0.5)*100, (Math.random()-0.5)*100 - 10, (Math.random()-0.5)*100);
-        dummy.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, 0);
-        dummy.scale.setScalar(Math.random()*2 + 0.5);
-        dummy.updateMatrix();
-        asteroids.setMatrixAt(i, dummy.matrix);
+        astDummy.position.set((Math.random()-0.5)*120, (Math.random()-0.5)*100 - 15, (Math.random()-0.5)*120);
+        astDummy.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, 0);
+        astDummy.scale.setScalar(Math.random()*2 + 0.5);
+        astDummy.updateMatrix();
+        asteroids.setMatrixAt(i, astDummy.matrix);
       }
       scene.add(asteroids);
 
@@ -113,6 +141,7 @@
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
+        composer.setSize(window.innerWidth, window.innerHeight);
       });
 
       animate();
@@ -134,28 +163,68 @@
 
     function buildTower(x, z) {
       if (money < 50) return;
+      // Check if tower already exists
+      if(towers.some(t => t.x === x && t.z === z)) return;
+      
       money -= 50;
-      document.getElementById('money').innerText = money;
+      document.getElementById('money').innerText = '$' + money;
 
-      const geo = new THREE.BoxGeometry(0.8, 2, 0.8);
-      const mat = new THREE.MeshStandardMaterial({ color: 0x44aaff, metalness: 0.8, roughness: 0.2 });
+      const geo = new THREE.BoxGeometry(0.8, 1.5, 0.8);
+      const mat = new THREE.MeshStandardMaterial({ color: 0x2266cc, metalness: 0.9, roughness: 0.1 });
       const mesh = new THREE.Mesh(geo, mat);
-      mesh.position.set(x, 1, z);
+      mesh.position.set(x, 0.75, z);
+      
+      // Top glowing part
+      const topGeo = new THREE.SphereGeometry(0.3, 8, 8);
+      const topMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
+      const topMesh = new THREE.Mesh(topGeo, topMat);
+      topMesh.position.y = 1.0;
+      mesh.add(topMesh);
+      
       scene.add(mesh);
 
-      towers.push({ mesh, x, z, cooldown: 0 });
+      towers.push({ mesh, x, z, cooldown: 0, topMesh });
     }
 
     function spawnEnemy() {
       const geo = new THREE.OctahedronGeometry(0.4, 0);
-      const mat = new THREE.MeshStandardMaterial({ color: 0xff3344, flatShading: true });
+      const mat = new THREE.MeshStandardMaterial({ color: 0xff1133, emissive: 0x440000, flatShading: true });
       const mesh = new THREE.Mesh(geo, mat);
       const startX = PATH[0][0];
       const startZ = PATH[0][1];
-      mesh.position.set(startX, 0.4, startZ);
+      mesh.position.set(startX, 0.5, startZ);
       scene.add(mesh);
 
-      enemies.push({ mesh, targetIdx: 1, hp: 3, speed: 2 });
+      enemies.push({ mesh, targetIdx: 1, hp: 4, speed: 2.5, spawnTime: clock.getElapsedTime() });
+    }
+    
+    function createExplosion(pos) {
+      for(let i=0; i<8; i++) {
+        const pGeo = new THREE.BoxGeometry(0.2, 0.2, 0.2);
+        const pMat = new THREE.MeshBasicMaterial({ color: 0xffaa00 });
+        const p = new THREE.Mesh(pGeo, pMat);
+        p.position.copy(pos);
+        
+        const vx = (Math.random() - 0.5) * 4;
+        const vy = Math.random() * 4 + 2;
+        const vz = (Math.random() - 0.5) * 4;
+        
+        scene.add(p);
+        particles.push({ mesh: p, vel: new THREE.Vector3(vx, vy, vz), life: 0.5 });
+      }
+    }
+
+    function createLaser(start, end) {
+      const dist = start.distanceTo(end);
+      const geo = new THREE.CylinderGeometry(0.05, 0.05, dist, 8);
+      geo.translate(0, dist/2, 0);
+      geo.rotateX(Math.PI/2);
+      const mat = new THREE.MeshBasicMaterial({ color: 0x00ffff, transparent: true, opacity: 0.8 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.copy(start);
+      mesh.lookAt(end);
+      scene.add(mesh);
+      projectiles.push({ mesh: mesh, life: 0.15 });
     }
 
     let enemyTimer = 0;
@@ -163,14 +232,19 @@
     function animate() {
       requestAnimationFrame(animate);
       const dt = Math.min(clock.getDelta(), 0.1);
+      const time = clock.getElapsedTime();
 
       if (lives > 0) {
         // Spawn
         enemyTimer -= dt;
         if (enemyTimer <= 0) {
           spawnEnemy();
-          enemyTimer = 2;
+          enemyTimer = 1.5;
         }
+        
+        // Asteroid rotation (InstancedMesh)
+        asteroids.rotation.y = time * 0.02;
+        asteroids.rotation.x = time * 0.01;
 
         // Move enemies
         for (let i = enemies.length - 1; i >= 0; i--) {
@@ -195,7 +269,12 @@
             e.mesh.position.x += (dx/dist) * e.speed * dt;
             e.mesh.position.z += (dz/dist) * e.speed * dt;
           }
-          e.mesh.rotation.y += dt;
+          
+          // Hover effect
+          e.mesh.position.y = 0.5 + Math.sin(time * 5 + e.spawnTime) * 0.2;
+          
+          e.mesh.rotation.y += dt * 3;
+          e.mesh.rotation.x += dt * 2;
         }
 
         // Towers fire
@@ -203,49 +282,75 @@
           t.cooldown -= dt;
           if (t.cooldown <= 0 && enemies.length > 0) {
             // Find closest
-            let closest = null, minDist = 5;
+            let closest = null, minDist = 4.5;
             enemies.forEach(e => {
               const d = Math.sqrt(Math.pow(e.mesh.position.x - t.x, 2) + Math.pow(e.mesh.position.z - t.z, 2));
               if (d < minDist) { minDist = d; closest = e; }
             });
 
             if (closest) {
-              t.cooldown = 1;
-              // Shoot (instant hit for simplicity)
-              const pGeo = new THREE.SphereGeometry(0.1);
-              const pMat = new THREE.MeshBasicMaterial({ color: 0x00ffff });
-              const pMesh = new THREE.Mesh(pGeo, pMat);
-              pMesh.position.copy(t.mesh.position);
-              pMesh.position.y += 1;
-              scene.add(pMesh);
-              projectiles.push({ mesh: pMesh, target: closest, life: 0.1 });
+              t.cooldown = 0.8;
+              
+              // Shoot Laser
+              const startPos = new THREE.Vector3().copy(t.mesh.position);
+              startPos.y += 1.0; // From top glowing part
+              createLaser(startPos, closest.mesh.position);
               
               closest.hp -= 1;
+              
+              // Hit flash
+              closest.mesh.material.emissive.setHex(0xffffff);
+              setTimeout(() => {
+                if(closest.mesh) closest.mesh.material.emissive.setHex(0x440000);
+              }, 50);
+
               if (closest.hp <= 0) {
+                createExplosion(closest.mesh.position);
                 scene.remove(closest.mesh);
                 const idx = enemies.indexOf(closest);
                 if(idx > -1) enemies.splice(idx, 1);
-                money += 10;
-                document.getElementById('money').innerText = money;
+                money += 15;
+                document.getElementById('money').innerText = '$' + money;
               }
             }
           }
         });
 
-        // Projectiles
+        // Update Projectiles (Lasers)
         for (let i = projectiles.length - 1; i >= 0; i--) {
           const p = projectiles[i];
           p.life -= dt;
+          p.mesh.material.opacity = p.life / 0.15;
           if (p.life <= 0) {
             scene.remove(p.mesh);
             projectiles.splice(i, 1);
           }
         }
+        
+        // Update Particles (Explosions)
+        for (let i = particles.length - 1; i >= 0; i--) {
+          const p = particles[i];
+          p.life -= dt;
+          p.mesh.position.addScaledVector(p.vel, dt);
+          p.vel.y -= 9.8 * dt; // Gravity
+          p.mesh.rotation.x += dt * 10;
+          p.mesh.rotation.y += dt * 10;
+          p.mesh.scale.setScalar(p.life / 0.5);
+          
+          if (p.life <= 0) {
+            scene.remove(p.mesh);
+            particles.splice(i, 1);
+          }
+        }
+        
       } else {
-        document.querySelector('h1').innerText = "GAME OVER";
+        document.querySelector('h1').innerText = "CORE BREACHED";
+        document.querySelector('h1').style.color = "#f00";
+        document.querySelector('h1').style.textShadow = "0 0 20px #f00";
       }
 
-      renderer.render(scene, camera);
+      // renderer.render(scene, camera);
+      composer.render();
     }
 
     init();
