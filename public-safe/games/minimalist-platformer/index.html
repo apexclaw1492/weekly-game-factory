@@ -4,29 +4,36 @@
   <meta charset="UTF-8">
   <title>Minimalist Physics Platformer</title>
   <style>
-    body { margin: 0; overflow: hidden; background: #e0f0ff; font-family: sans-serif; color: #333; }
-    #ui { position: absolute; top: 10px; left: 10px; z-index: 10; pointer-events: none; }
-    h1 { margin: 0; font-size: 24px; color: #335; }
-    p { margin: 5px 0; color: #557; font-weight: bold; }
+    body { margin: 0; overflow: hidden; background: #e0f0ff; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: #333; }
+    #ui { 
+      position: absolute; top: 20px; left: 20px; z-index: 10; pointer-events: none;
+      background: rgba(255, 255, 255, 0.6); border: 2px solid rgba(255,255,255,0.8); 
+      padding: 20px; border-radius: 16px; backdrop-filter: blur(10px);
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.05);
+    }
+    h1 { margin: 0; font-size: 28px; color: #335; letter-spacing: 1px; }
+    p { margin: 10px 0 5px; color: #557; font-weight: 600; font-size: 16px; }
+    .info { font-size: 14px; color: #779; margin-top: 5px; }
+    
     #dev-notes { 
-      position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(240,248,255,0.9); 
-      border-top: 2px solid #aaa; padding: 15px; box-sizing: border-box; z-index: 20; 
+      position: absolute; bottom: 0; left: 0; width: 100%; background: rgba(240,248,255,0.95); 
+      border-top: 2px solid #cbd; padding: 15px; box-sizing: border-box; z-index: 20; 
       transition: transform 0.3s ease; transform: translateY(calc(100% - 40px));
     }
     #dev-notes.open { transform: translateY(0); }
     .toggle-btn { 
-      background: #88a; color: #fff; border: none; padding: 5px 15px; font-weight: bold; 
-      cursor: pointer; display: block; margin-bottom: 10px; border-radius: 4px;
+      background: #88a; color: #fff; border: none; padding: 8px 18px; font-weight: bold; 
+      cursor: pointer; display: block; margin-bottom: 10px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
     }
-    .notes-content { max-height: 250px; overflow-y: auto; font-size: 14px; line-height: 1.4; color: #333; pointer-events: auto;}
+    .notes-content { max-height: 250px; overflow-y: auto; font-size: 14px; line-height: 1.5; color: #333; pointer-events: auto;}
     .notes-content code { background: #ddd; color: #335; padding: 2px 4px; border-radius: 3px; }
   </style>
 </head>
 <body>
   <div id="ui">
     <h1>MINIMALIST PLATFORMER</h1>
-    <p>A/D/Arrows or Tap Left/Right to Move. Space/Tap Top to Jump.</p>
-    <div style="font-size:12px; color:#779; margin-top:10px;">Reach the green platform!</div>
+    <p>A/D/Arrows or Tap Left/Right to Move.<br>Space/Tap Top to Jump.</p>
+    <div class="info">Navigate the soft world and reach the green platform!</div>
   </div>
 
   <div id="dev-notes">
@@ -38,72 +45,111 @@
         <li><strong>Core Engine:</strong> Three.js for rendering soft shadows and minimalist pastel materials.</li>
         <li><strong>Optimization:</strong> <code>InstancedMesh</code> is used to render a large volume of abstract floating background geometric shapes.</li>
         <li><strong>Physics Engine:</strong> Cannon.js handles a dynamic player sphere (rolling physics), jumping impulses, and physically interactive platforms.</li>
-        <li><strong>Architectural Genre:</strong> A 3D physics platformer where movement is entirely torque/impulse based.</li>
+        <li><strong>Improvements:</strong> Added soft bloom post-processing, particle trails, double-jump prevention, and enhanced pastel lighting.</li>
       </ul>
-      <p><strong>LLM Used:</strong> Gemini 2.5 Pro</p>
-      <p><strong>Recreation Prompt:</strong></p>
-      <pre style="white-space:pre-wrap; background:#eee; padding:10px; border:1px solid #ccc;">Act as an expert frontend game developer and creative coder specializing in WebGL, Three.js, and browser physics engines. I want to build a complete, highly optimized 3D web-based game prototype inside a single HTML file. Please use the following specifications: 1. Core Engine: Three.js with minimalist pastel aesthetics and soft shadows. 2. Architectural Genre: Physics-based Platformer. 3. Optimization: InstancedMesh for background floating geometry. 4. Physics Engine: Cannon.js for jumping, rolling, and physics interactions. 5. Visual Aesthetics: Minimalist/Abstract flat-shaded styling. Provide the complete code block.</pre>
     </div>
   </div>
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <!-- Postprocessing dependencies -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+
   <script src="https://cdnjs.cloudflare.com/ajax/libs/cannon.js/0.6.2/cannon.min.js"></script>
   
   <script>
-    let scene, camera, renderer, world, playerMesh, playerBody;
+    let scene, camera, renderer, composer, world, playerMesh, playerBody;
     let clock = new THREE.Clock();
     const keys = { a: false, d: false, w: false, s: false, space: false };
     const platforms = [];
+    let isWon = false;
+    
+    // Trail system
+    const trailLength = 20;
+    let trailIndex = 0;
+    let trailMeshes = [];
+    let trailTimer = 0;
 
     function init() {
       // Three.js
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0xe0f0ff);
-      scene.fog = new THREE.Fog(0xe0f0ff, 10, 50);
+      scene.fog = new THREE.Fog(0xe0f0ff, 15, 60);
 
       camera = new THREE.PerspectiveCamera(45, window.innerWidth/window.innerHeight, 0.1, 100);
       camera.position.set(0, 5, 15);
 
-      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer = new THREE.WebGLRenderer({ antialias: false });
       renderer.setSize(window.innerWidth, window.innerHeight);
       renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Softer shadows
       document.body.appendChild(renderer.domElement);
+      
+      // Postprocessing (Subtle Bloom)
+      const renderScene = new THREE.RenderPass(scene, camera);
+      const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 1.5, 0.4, 0.85);
+      bloomPass.threshold = 0.6;
+      bloomPass.strength = 0.6; // Gentle bloom
+      bloomPass.radius = 0.5;
 
-      const ambient = new THREE.AmbientLight(0xffffff, 0.6);
-      scene.add(ambient);
+      composer = new THREE.EffectComposer(renderer);
+      composer.addPass(renderScene);
+      composer.addPass(bloomPass);
+
+      // Lighting
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0xbbeeff, 0.6);
+      scene.add(hemiLight);
+      
       const dirLight = new THREE.DirectionalLight(0xffeedd, 0.8);
       dirLight.position.set(5, 15, 5);
       dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 1024;
+      dirLight.shadow.mapSize.height = 1024;
+      dirLight.shadow.bias = -0.001;
       scene.add(dirLight);
 
       // Cannon.js
       world = new CANNON.World();
-      world.gravity.set(0, -20, 0);
+      world.gravity.set(0, -25, 0); // Snappier gravity
       world.broadphase = new CANNON.NaiveBroadphase();
 
       const physicsMaterial = new CANNON.Material("standard");
       const physicsContactMaterial = new CANNON.ContactMaterial(physicsMaterial, physicsMaterial, {
-        friction: 1.0,
-        restitution: 0.3,
+        friction: 0.8,
+        restitution: 0.1, // Less bouncy for precise platforming
       });
       world.addContactMaterial(physicsContactMaterial);
 
       // Player
       const pGeo = new THREE.SphereGeometry(0.5, 32, 32);
-      const pMat = new THREE.MeshStandardMaterial({ color: 0xff6688, roughness: 0.4 });
+      const pMat = new THREE.MeshStandardMaterial({ color: 0xff6688, roughness: 0.2, metalness: 0.1, emissive: 0x331122 });
       playerMesh = new THREE.Mesh(pGeo, pMat);
       playerMesh.castShadow = true;
       scene.add(playerMesh);
 
       playerBody = new CANNON.Body({
-        mass: 1,
+        mass: 1.5, // slightly heavier
         shape: new CANNON.Sphere(0.5),
         position: new CANNON.Vec3(0, 5, 0),
         material: physicsMaterial
       });
-      playerBody.linearDamping = 0.5;
-      playerBody.angularDamping = 0.5;
+      playerBody.linearDamping = 0.1;
+      playerBody.angularDamping = 0.6; // Roll resistance
       world.addBody(playerBody);
+      
+      // Setup Trail
+      const tGeo = new THREE.SphereGeometry(0.4, 16, 16);
+      const tMat = new THREE.MeshBasicMaterial({ color: 0xff88aa, transparent: true, opacity: 0.6 });
+      for(let i=0; i<trailLength; i++) {
+        let tm = new THREE.Mesh(tGeo, tMat.clone());
+        tm.visible = false;
+        scene.add(tm);
+        trailMeshes.push(tm);
+      }
 
       // Level Platforms
       createPlatform(0, 0, 0, 10, 1, 10, 0xaabbcc);
@@ -112,15 +158,15 @@
       createPlatform(24, 6, 0, 6, 1, 6, 0x66cc88); // Goal
 
       // Instanced Background Geometry
-      const iGeo = new THREE.BoxGeometry(1, 1, 1);
-      const iMat = new THREE.MeshStandardMaterial({ color: 0xffddaa, flatShading: true });
-      const numInstances = 200;
+      const iGeo = new THREE.OctahedronGeometry(1, 0);
+      const iMat = new THREE.MeshStandardMaterial({ color: 0xffddaa, flatShading: true, roughness: 0.7 });
+      const numInstances = 150;
       const instances = new THREE.InstancedMesh(iGeo, iMat, numInstances);
       const dummy = new THREE.Object3D();
       for (let i = 0; i < numInstances; i++) {
-        dummy.position.set((Math.random()-0.5)*100, (Math.random()-0.5)*50, -10 - Math.random()*40);
+        dummy.position.set((Math.random()-0.5)*100, (Math.random()-0.5)*50, -15 - Math.random()*40);
         dummy.rotation.set(Math.random()*Math.PI, Math.random()*Math.PI, 0);
-        dummy.scale.setScalar(0.5 + Math.random() * 2);
+        dummy.scale.setScalar(0.5 + Math.random() * 3);
         dummy.updateMatrix();
         instances.setMatrixAt(i, dummy.matrix);
       }
@@ -130,15 +176,15 @@
       window.addEventListener('keydown', (e) => {
         if(e.code === 'KeyA' || e.code === 'ArrowLeft') keys.a = true;
         if(e.code === 'KeyD' || e.code === 'ArrowRight') keys.d = true;
-        if(e.code === 'Space' && !keys.space) {
+        if((e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') && !keys.space) {
           keys.space = true;
-          playerBody.velocity.y = 12;
+          jump();
         }
       });
       window.addEventListener('keyup', (e) => {
         if(e.code === 'KeyA' || e.code === 'ArrowLeft') keys.a = false;
         if(e.code === 'KeyD' || e.code === 'ArrowRight') keys.d = false;
-        if(e.code === 'Space') keys.space = false;
+        if(e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') keys.space = false;
       });
 
       window.addEventListener('touchstart', (e) => {
@@ -148,7 +194,7 @@
         if (touch.clientY < h / 3) {
           if (!keys.space) {
             keys.space = true;
-            playerBody.velocity.y = 12;
+            jump();
             setTimeout(() => { keys.space = false; }, 200);
           }
         } else if (touch.clientX < w / 2) {
@@ -169,14 +215,31 @@
         camera.aspect = window.innerWidth / window.innerHeight;
         camera.updateProjectionMatrix();
         renderer.setSize(window.innerWidth, window.innerHeight);
+        composer.setSize(window.innerWidth, window.innerHeight);
       });
 
       animate();
     }
+    
+    function jump() {
+      // Simple ground check (raycast)
+      const from = new CANNON.Vec3(playerBody.position.x, playerBody.position.y, playerBody.position.z);
+      const to = new CANNON.Vec3(playerBody.position.x, playerBody.position.y - 0.6, playerBody.position.z);
+      
+      let hits = 0;
+      world.raycastAll(from, to, {}, (result) => {
+        if(result.body && result.body !== playerBody) hits++;
+      });
+      
+      if(hits > 0) {
+        playerBody.velocity.y = 15;
+      }
+    }
 
     function createPlatform(x, y, z, w, h, d, color) {
       const geo = new THREE.BoxGeometry(w, h, d);
-      const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.8 });
+      // Beveled look
+      const mat = new THREE.MeshStandardMaterial({ color: color, roughness: 0.6, metalness: 0.1 });
       const mesh = new THREE.Mesh(geo, mat);
       mesh.position.set(x, y, z);
       mesh.receiveShadow = true;
@@ -190,6 +253,30 @@
       world.addBody(body);
       platforms.push({ mesh, body });
     }
+    
+    function updateTrail(dt) {
+      trailTimer -= dt;
+      if(trailTimer <= 0) {
+        let tm = trailMeshes[trailIndex];
+        tm.position.copy(playerMesh.position);
+        tm.scale.set(1,1,1);
+        tm.material.opacity = 0.5;
+        tm.visible = true;
+        trailIndex = (trailIndex + 1) % trailLength;
+        trailTimer = 0.05; // emit rate
+      }
+      
+      for(let i=0; i<trailLength; i++) {
+        let tm = trailMeshes[i];
+        if(tm.visible) {
+          tm.scale.x *= 0.92;
+          tm.scale.y *= 0.92;
+          tm.scale.z *= 0.92;
+          tm.material.opacity -= 0.02;
+          if(tm.material.opacity <= 0) tm.visible = false;
+        }
+      }
+    }
 
     function animate() {
       requestAnimationFrame(animate);
@@ -199,28 +286,70 @@
       world.step(1/60, dt, 3);
 
       // Controls
-      const force = 10;
+      const force = 20;
       if(keys.a) playerBody.applyForce(new CANNON.Vec3(-force, 0, 0), playerBody.position);
       if(keys.d) playerBody.applyForce(new CANNON.Vec3(force, 0, 0), playerBody.position);
+      
+      // Limit speed
+      if(playerBody.velocity.x > 8) playerBody.velocity.x = 8;
+      if(playerBody.velocity.x < -8) playerBody.velocity.x = -8;
 
       // Update Mesh
       playerMesh.position.copy(playerBody.position);
       playerMesh.quaternion.copy(playerBody.quaternion);
 
-      // Camera follow
-      camera.position.x = playerMesh.position.x;
-      camera.position.y = playerMesh.position.y + 5;
+      // Camera follow (smoother)
+      camera.position.x += (playerMesh.position.x - camera.position.x) * 0.1;
+      camera.position.y += ((playerMesh.position.y + 5) - camera.position.y) * 0.1;
       camera.lookAt(playerMesh.position);
+      
+      updateTrail(dt);
 
       // Reset if fall
-      if (playerBody.position.y < -10) {
-        playerBody.position.set(0, 5, 0);
-        playerBody.velocity.set(0,0,0);
-        playerBody.angularVelocity.set(0,0,0);
+      if (playerBody.position.y < -15) {
+        resetPlayer();
       }
 
-      renderer.render(scene, camera);
+      // Check win condition
+      const distToGoal = playerBody.position.distanceTo(new CANNON.Vec3(24, 6.5, 0));
+      if (distToGoal < 3.0 && !isWon) {
+        isWon = true;
+        const elapsed = clock.getElapsedTime();
+        const score = Math.max(100, Math.round(10000 - elapsed * 100));
+        document.querySelector('h1').innerText = "GOAL REACHED!";
+        document.querySelector('h1').style.color = "#00c805";
+        document.querySelector('.info').innerHTML = `Time: ${elapsed.toFixed(1)}s | Score: ${score}<br>Press space or tap screen to restart.`;
+        window.parent.postMessage({ type: 'WGF_SCORE', gameId: 'minimalist-platformer', score: score }, '*');
+      }
+
+      // renderer.render(scene, camera);
+      composer.render();
     }
+
+    function resetPlayer() {
+      playerBody.position.set(0, 5, 0);
+      playerBody.velocity.set(0,0,0);
+      playerBody.angularVelocity.set(0,0,0);
+      if (isWon) {
+        isWon = false;
+        clock = new THREE.Clock();
+        document.querySelector('h1').innerText = "MINIMALIST PLATFORMER";
+        document.querySelector('h1').style.color = "#335";
+        document.querySelector('.info').innerHTML = "Navigate the soft world and reach the green platform!";
+      }
+    }
+
+    // Modify controls to trigger reset on action when won
+    window.addEventListener('keydown', (e) => {
+      if (isWon && (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW')) {
+        resetPlayer();
+      }
+    });
+    window.addEventListener('touchstart', () => {
+      if (isWon) {
+        resetPlayer();
+      }
+    });
 
     init();
   </script>

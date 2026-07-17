@@ -9,6 +9,31 @@ function withQaMode(rawUrl) {
   return url.toString();
 }
 
+function cardPoint(viewport, index) {
+  if (viewport.height > viewport.width) {
+    return {
+      x: viewport.width / 2,
+      y: 145 + index * 87
+    };
+  }
+
+  const gameCount = 13;
+  const columns = gameCount > 4 && viewport.width >= 760 ? 3 : 2;
+  const rows = Math.ceil(gameCount / columns);
+  const cardW = Math.min((viewport.width - 30 - (columns - 1) * 20) / columns, 340);
+  const cardH = rows > 2 ? 95 : 120;
+  const gridW = columns * cardW + (columns - 1) * 20;
+  const gridH = rows * cardH + (rows - 1) * 20;
+  const startX = viewport.width / 2 - gridW / 2 + cardW / 2;
+  const startY = viewport.height / 2 - gridH / 2 + cardH / 2 + 15;
+  const col = index % columns;
+  const row = Math.floor(index / columns);
+  return {
+    x: startX + col * (cardW + 20),
+    y: startY + row * (cardH + 20)
+  };
+}
+
 async function currentState(page) {
   return page.evaluate(() => {
     const game = window.__WGF_GAME__;
@@ -154,8 +179,13 @@ async function runScenario(viewport) {
 
 async function run() {
   const results = [];
-  results.push(await runScenario({ name: 'phone-portrait', width: 390, height: 844, cargoCardX: 195, cargoCardY: 232 }));
-  results.push(await runScenario({ name: 'phone-landscape', width: 844, height: 390, cargoCardX: 612, cargoCardY: 140 }));
+  const portraitVp = { name: 'phone-portrait', width: 390, height: 844 };
+  const portraitPt = cardPoint(portraitVp, 4);
+  results.push(await runScenario({ ...portraitVp, cargoCardX: portraitPt.x, cargoCardY: portraitPt.y }));
+
+  const landscapeVp = { name: 'phone-landscape', width: 844, height: 390 };
+  const landscapePt = cardPoint(landscapeVp, 4);
+  results.push(await runScenario({ ...landscapeVp, cargoCardX: landscapePt.x, cargoCardY: landscapePt.y }));
 
   console.log(JSON.stringify(results, null, 2));
 

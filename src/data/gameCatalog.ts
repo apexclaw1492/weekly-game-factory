@@ -4,6 +4,11 @@ import { ContraScene } from '../scenes/ContraScene';
 import { CosmicCargoScene } from '../scenes/CosmicCargoScene';
 import { SpaceInvadersScene } from '../scenes/SpaceInvadersScene';
 import { PongScene } from '../scenes/PongScene';
+import { TwoZeroFourEightScene } from '../scenes/TwoZeroFourEightScene';
+import { ClumsyBirdScene } from '../scenes/ClumsyBirdScene';
+import { HextrisScene } from '../scenes/HextrisScene';
+import { PacManScene } from '../scenes/PacManScene';
+
 
 export interface GameDefinition {
   id: string;
@@ -135,19 +140,32 @@ export const GAME_DEFINITIONS: readonly GameDefinition[] = [
     url: './games/aubreys-realm/index.html',
     color: 0xd4a843,
     description: 'Explore a magical realm. Collect star-seeds to awaken the sleeping world.',
-    certificationStatus: 'in-rebuild',
-    certificationLabel: 'IN REBUILD'
+    certificationStatus: 'certified',
+    certificationLabel: 'CERTIFIED TOUCH'
+  },
+  {
+    id: 'voxel-sandbox',
+    title: 'Voxel Sandbox',
+    icon: '🧱',
+    weekLabel: 'Week 6',
+    weekNumber: 6,
+    url: './games/voxel-sandbox/index.html',
+    color: 0x00c805,
+    description: 'Procedural block-building sandbox with flat shading and custom synth audio.',
+    certificationStatus: 'certified',
+    certificationLabel: 'CERTIFIED TOUCH'
   },
   {
     id: '2048',
     title: '2048',
     icon: '🔢',
     weekLabel: 'Curated',
-    url: './games/2048/index.html',
-    color: 0x7766aa,
+    sceneKey: 'TwoZeroFourEightScene',
+    sceneClass: TwoZeroFourEightScene,
+    color: 0x00c805,
     description: 'Merge tiles to reach 2048.',
     certificationStatus: 'certified',
-    certificationLabel: 'LEGACY WEB',
+    certificationLabel: 'CERTIFIED TOUCH',
     isBonus: true
   },
   {
@@ -155,11 +173,12 @@ export const GAME_DEFINITIONS: readonly GameDefinition[] = [
     title: 'Clumsy Bird',
     icon: '🐦',
     weekLabel: 'Curated',
-    url: './games/clumsy-bird/index.html',
-    color: 0x44aa77,
+    sceneKey: 'ClumsyBirdScene',
+    sceneClass: ClumsyBirdScene,
+    color: 0x00c805,
     description: 'Tap to fly through the pipes.',
     certificationStatus: 'certified',
-    certificationLabel: 'LEGACY WEB',
+    certificationLabel: 'CERTIFIED TOUCH',
     isBonus: true
   },
   {
@@ -167,11 +186,12 @@ export const GAME_DEFINITIONS: readonly GameDefinition[] = [
     title: 'Hextris',
     icon: '🔷',
     weekLabel: 'Curated',
-    url: './games/hextris/index.html',
-    color: 0xcc44dd,
+    sceneKey: 'HextrisScene',
+    sceneClass: HextrisScene,
+    color: 0x00c805,
     description: 'Rotate the hexagon and match colors.',
     certificationStatus: 'certified',
-    certificationLabel: 'LEGACY WEB',
+    certificationLabel: 'CERTIFIED TOUCH',
     isBonus: true
   },
   {
@@ -179,11 +199,12 @@ export const GAME_DEFINITIONS: readonly GameDefinition[] = [
     title: 'Pac-Man',
     icon: '👾',
     weekLabel: 'Curated',
-    url: './games/pac-man/index.html',
-    color: 0xffdd00,
+    sceneKey: 'PacManScene',
+    sceneClass: PacManScene,
+    color: 0x00c805,
     description: 'Eat dots, dodge ghosts, and survive.',
     certificationStatus: 'certified',
-    certificationLabel: 'LEGACY WEB',
+    certificationLabel: 'CERTIFIED TOUCH',
     isBonus: true
   }
 ];

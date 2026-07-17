@@ -1,0 +1,438 @@
+diff --git a/src/scenes/PacManScene.ts b/src/scenes/PacManScene.ts
+index c6b6279..fa84f7e 100644
+--- a/src/scenes/PacManScene.ts
++++ b/src/scenes/PacManScene.ts
+@@ -56,15 +56,17 @@ interface GhostEntity {
+   bodyMat: THREE.MeshStandardMaterial;
+ }
+ 
+-interface DotEntity {
++interface DotInstance {
+   gridX: number;
+   gridZ: number;
+-  mesh: THREE.Mesh;
++  instanceIndex: number;
++  eaten: boolean;
+ }
+ 
+-interface PelletEntity {
++interface PelletInstance {
+   gridX: number;
+   gridZ: number;
+-  mesh: THREE.Mesh;
++  instanceIndex: number;
++  eaten: boolean;
++  startX: number;
++  startZ: number;
+ }
+ 
+ export class PacManScene extends Phaser.Scene implements GameLifecycle {
+@@ -102,9 +104,11 @@ export class PacManScene extends Phaser.Scene implements GameLifecycle {
+ 
+   // --- Entities ---
+   private pacman!: PacmanEntity;
+   private ghosts: GhostEntity[] = [];
+-  private dots: DotEntity[] = [];
+-  private pellets: PelletEntity[] = [];
+-  private walls: THREE.Mesh[] = [];
++  private dots: DotInstance[] = [];
++  private pellets: PelletInstance[] = [];
++  private wallInstancedMesh!: THREE.InstancedMesh;
++  private dotInstancedMesh!: THREE.InstancedMesh;
++  private pelletInstancedMesh!: THREE.InstancedMesh;
+ 
+   // Input direction queue
+   private nextDirX = 0;
+@@ -125,7 +129,6 @@ export class PacManScene extends Phaser.Scene implements GameLifecycle {
+     this.ghosts = [];
+     this.dots = [];
+     this.pellets = [];
+-    this.walls = [];
+     this.geometriesToDispose = [];
+     this.materialsToDispose = [];
+   }
+@@ -252,70 +255,87 @@ export class PacManScene extends Phaser.Scene implements GameLifecycle {
+ 
+   // --- Built 3D Board elements ---
+   private buildMaze3D() {
++    let numWalls = 0;
++    let numDots = 0;
++    let numPellets = 0;
++
++    for (let row = 0; row < MAZE_GRID.length; row++) {
++      const line = MAZE_GRID[row];
++      for (let col = 0; col < line.length; col++) {
++        const char = line[col];
++        if (char === '#') numWalls++;
++        else if (char === '.') numDots++;
++        else if (char === 'p') numPellets++;
++      }
++    }
++
+     const wallGeo = new THREE.BoxGeometry(0.96, 0.6, 0.96);
+-    this.geometriesToDispose.push(wallGeo);
+     const wallMat = new THREE.MeshStandardMaterial({
+       color: 0x00c805, // Robinhood neon green
+       roughness: 0.1,
+       metalness: 0.9,
+-      emissive: 0x002200
++      emissive: 0x002200,
++      flatShading: true
+     });
+-    this.materialsToDispose.push(wallMat);
++    this.wallInstancedMesh = new THREE.InstancedMesh(wallGeo, wallMat, numWalls);
++    this.threeScene.add(this.wallInstancedMesh);
+ 
+     const dotGeo = new THREE.SphereGeometry(0.08, 8, 8);
+-    this.geometriesToDispose.push(dotGeo);
+-    const dotMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.5 });
+-    this.materialsToDispose.push(dotMat);
++    const dotMat = new THREE.MeshStandardMaterial({
++      color: 0xffffff,
++      roughness: 0.5,
++      flatShading: true
++    });
++    this.dotInstancedMesh = new THREE.InstancedMesh(dotGeo, dotMat, numDots);
++    this.threeScene.add(this.dotInstancedMesh);
+ 
+     const pelletGeo = new THREE.SphereGeometry(0.2, 8, 8);
+-    this.geometriesToDispose.push(pelletGeo);
+-    const pelletMat = new THREE.MeshStandardMaterial({ color: 0xffff00, roughness: 0.2, metalness: 0.8 });
+-    this.materialsToDispose.push(pelletMat);
++    const pelletMat = new THREE.MeshStandardMaterial({
++      color: 0xffff00,
++      roughness: 0.2,
++      metalness: 0.8,
++      flatShading: true
++    });
++    this.pelletInstancedMesh = new THREE.InstancedMesh(pelletGeo, pelletMat, numPellets);
++    this.threeScene.add(this.pelletInstancedMesh);
+ 
+     const pacmanGeo = new THREE.SphereGeometry(0.32, 16, 16);
+     this.geometriesToDispose.push(pacmanGeo);
+-    const pacmanMat = new THREE.MeshStandardMaterial({ color: 0xffdd00, roughness: 0.2, metalness: 0.6 });
++    const pacmanMat = new THREE.MeshStandardMaterial({
++      color: 0xffdd00,
++      roughness: 0.2,
++      metalness: 0.6,
++      flatShading: true
++    });
+     this.materialsToDispose.push(pacmanMat);
+ 
++    let wallIdx = 0;
++    let dotIdx = 0;
++    let pelletIdx = 0;
++    const dummy = new THREE.Object3D();
++
+     // Parse Maze Grid
+     for (let row = 0; row < MAZE_GRID.length; row++) {
+       const line = MAZE_GRID[row];
+       for (let col = 0; col < line.length; col++) {
+         const char = line[col];
+         const x = (col - 7) * CELL_WIDTH;
+         const z = (row - 7) * CELL_WIDTH;
+ 
+         if (char === '#') {
+-          const wallMesh = new THREE.Mesh(wallGeo, wallMat);
+-          wallMesh.position.set(x, 0.3, z);
+-          this.threeScene.add(wallMesh);
+-          this.walls.push(wallMesh);
++          dummy.position.set(x, 0.3, z);
++          dummy.scale.set(1, 1, 1);
++          dummy.updateMatrix();
++          this.wallInstancedMesh.setMatrixAt(wallIdx++, dummy.matrix);
+         } else if (char === '.') {
+-          const dotMesh = new THREE.Mesh(dotGeo, dotMat);
+-          dotMesh.position.set(x, 0.15, z);
+-          this.threeScene.add(dotMesh);
+-          this.dots.push({ gridX: col, gridZ: row, mesh: dotMesh });
++          dummy.position.set(x, 0.15, z);
++          dummy.scale.set(1, 1, 1);
++          dummy.updateMatrix();
++          this.dotInstancedMesh.setMatrixAt(dotIdx, dummy.matrix);
++          this.dots.push({ gridX: col, gridZ: row, instanceIndex: dotIdx++, eaten: false });
+         } else if (char === 'p') {
+-          const pelletMesh = new THREE.Mesh(pelletGeo, pelletMat);
+-          pelletMesh.position.set(x, 0.15, z);
+-          this.threeScene.add(pelletMesh);
+-          this.pellets.push({ gridX: col, gridZ: row, mesh: pelletMesh });
++          dummy.position.set(x, 0.15, z);
++          dummy.scale.set(1, 1, 1);
++          dummy.updateMatrix();
++          this.pelletInstancedMesh.setMatrixAt(pelletIdx, dummy.matrix);
++          this.pellets.push({ gridX: col, gridZ: row, instanceIndex: pelletIdx++, eaten: false, startX: x, startZ: z });
+         } else if (char === 'S') {
+           // Initialize Pacman
+           const pacMesh = new THREE.Mesh(pacmanGeo, pacmanMat);
+@@ -321,7 +341,11 @@ export class PacManScene extends Phaser.Scene implements GameLifecycle {
+             speed: 4.8,
+             mesh: pacMesh
+           };
+         }
+       }
+     }
+ 
++    this.wallInstancedMesh.instanceMatrix.needsUpdate = true;
++    this.dotInstancedMesh.instanceMatrix.needsUpdate = true;
++    this.pelletInstancedMesh.instanceMatrix.needsUpdate = true;
++
+     this.totalDots = this.dots.length;
+@@ -362,7 +386,8 @@ export class PacManScene extends Phaser.Scene implements GameLifecycle {
+     const bodyMat = new THREE.MeshStandardMaterial({
+       color: colorHex,
+       roughness: 0.3,
+-      metalness: 0.6
++      metalness: 0.6,
++      flatShading: true
+     });
+     this.materialsToDispose.push(bodyMat);
+ 
+@@ -440,8 +465,17 @@ export class PacManScene extends Phaser.Scene implements GameLifecycle {
+     if (this.threeRenderer && this.threeScene && this.threeCamera) {
+       // Pulsate pellets
+       const pulse = 1.0 + 0.2 * Math.sin(time * 0.008);
++      const dummy = new THREE.Object3D();
+       this.pellets.forEach((p) => {
+-        p.mesh.scale.set(pulse, pulse, pulse);
++        if (!p.eaten) {
++          dummy.position.set(p.startX, 0.15, p.startZ);
++          dummy.scale.set(pulse, pulse, pulse);
++        } else {
++          dummy.position.set(0, -9999, 0);
++          dummy.scale.set(0, 0, 0);
++        }
++        dummy.updateMatrix();
++        this.pelletInstancedMesh.setMatrixAt(p.instanceIndex, dummy.matrix);
+       });
++      this.pelletInstancedMesh.instanceMatrix.needsUpdate = true;
+ 
+       this.threeRenderer.render(this.threeScene, this.threeCamera);
+     }
+@@ -545,34 +579,32 @@ export class PacManScene extends Phaser.Scene implements GameLifecycle {
+ 
+   private checkEating(gridX: number, gridZ: number) {
+     // 1. Check dot
+-    const dotIdx = this.dots.findIndex((d) => d.gridX === gridX && d.gridZ === gridZ);
+-    if (dotIdx !== -1) {
+-      const dot = this.dots[dotIdx];
+-      this.threeScene.remove(dot.mesh);
+-      dot.mesh.geometry.dispose();
+-      (dot.mesh.material as THREE.Material).dispose();
+-      this.dots.splice(dotIdx, 1);
++    const dot = this.dots.find((d) => d.gridX === gridX && d.gridZ === gridZ && !d.eaten);
++    if (dot) {
++      dot.eaten = true;
++      const dummy = new THREE.Object3D();
++      dummy.position.set(0, -9999, 0);
++      dummy.scale.set(0, 0, 0);
++      dummy.updateMatrix();
++      this.dotInstancedMesh.setMatrixAt(dot.instanceIndex, dummy.matrix);
++      this.dotInstancedMesh.instanceMatrix.needsUpdate = true;
+ 
+       this.score += 10;
+       this.scoreText.setText(`SCORE: ${this.score}`);
+       SoundSynth.playTone(450, 0.05, 'sine', 0.05);
+ 
+       // Check Victory
+-      if (this.dots.length === 0 && this.pellets.length === 0) {
++      const remainingDots = this.dots.filter(d => !d.eaten).length;
++      const remainingPellets = this.pellets.filter(p => !p.eaten).length;
++      if (remainingDots === 0 && remainingPellets === 0) {
+         this.handleVictory();
+       }
+       return;
+     }
+ 
+     // 2. Check power pellet
+-    const pelletIdx = this.pellets.findIndex((pellet) => pellet.gridX === gridX && pellet.gridZ === gridZ);
+-    if (pelletIdx !== -1) {
+-      const pellet = this.pellets[pelletIdx];
+-      this.threeScene.remove(pellet.mesh);
+-      pellet.mesh.geometry.dispose();
+-      (pellet.mesh.material as THREE.Material).dispose();
+-      this.pellets.splice(pelletIdx, 1);
++    const pellet = this.pellets.find((p) => p.gridX === gridX && p.gridZ === gridZ && !p.eaten);
++    if (pellet) {
++      pellet.eaten = true;
++      const dummy = new THREE.Object3D();
++      dummy.position.set(0, -9999, 0);
++      dummy.scale.set(0, 0, 0);
++      dummy.updateMatrix();
++      this.pelletInstancedMesh.setMatrixAt(pellet.instanceIndex, dummy.matrix);
++      this.pelletInstancedMesh.instanceMatrix.needsUpdate = true;
+ 
+       this.score += 50;
+       this.scoreText.setText(`SCORE: ${this.score}`);
+@@ -587,7 +619,9 @@ export class PacManScene extends Phaser.Scene implements GameLifecycle {
+       });
+ 
+       // Check Victory
+-      if (this.dots.length === 0 && this.pellets.length === 0) {
++      const remainingDots = this.dots.filter(d => !d.eaten).length;
++      const remainingPellets = this.pellets.filter(p => !p.eaten).length;
++      if (remainingDots === 0 && remainingPellets === 0) {
+         this.handleVictory();
+       }
+     }
+@@ -831,40 +865,9 @@ export class PacManScene extends Phaser.Scene implements GameLifecycle {
+   public resetGameplay(): void {
+     this.overlays.clear();
+     
+-    // Clear all dynamic 3D elements in scene
+-    this.dots.forEach((d) => {
+-      this.threeScene.remove(d.mesh);
+-      d.mesh.geometry.dispose();
+-      (d.mesh.material as THREE.Material).dispose();
+-    });
++    // Clear all 3D scene elements cleanly to prevent leaks
++    this.clearThreeSceneResources();
++
+     this.dots = [];
+-
+-    this.pellets.forEach((p) => {
+-      this.threeScene.remove(p.mesh);
+-      p.mesh.geometry.dispose();
+-      (p.mesh.material as THREE.Material).dispose();
+-    });
+     this.pellets = [];
+-
+-    this.walls.forEach((w) => {
+-      this.threeScene.remove(w);
+-    });
+-    this.walls = [];
+-
+-    this.ghosts.forEach((g) => {
+-      this.threeScene.remove(g.mesh);
+-      // Clean components inside group
+-      g.mesh.traverse((child) => {
+-        if (child instanceof THREE.Mesh) {
+-          child.geometry.dispose();
+-          if (Array.isArray(child.material)) {
+-            child.material.forEach((m) => m.dispose());
+-          } else {
+-            child.material.dispose();
+-          }
+-        }
+-      });
+-    });
+     this.ghosts = [];
+-
+-    if (this.pacman && this.pacman.mesh) {
+-      this.threeScene.remove(this.pacman.mesh);
+-      this.pacman.mesh.geometry.dispose();
+-      (this.pacman.mesh.material as THREE.Material).dispose();
+-    }
+ 
+     // Rebuild
+     this.score = 0;
+@@ -913,26 +916,26 @@ export class PacManScene extends Phaser.Scene implements GameLifecycle {
+     }
+ 
+     // Touch dragging
+     if (frame.touch.active) {
+       const threshold = 18;
+-      if (Math.abs(frame.gestures.dragVectorX) > Math.abs(frame.gestures.dragVectorY)) {
+-        if (frame.gestures.dragVectorX > threshold) {
++      if (Math.abs(frame.touch.dx) > Math.abs(frame.touch.dy)) {
++        if (frame.touch.dx > threshold) {
+           this.nextDirX = 1;
+           this.nextDirZ = 0;
+-        } else if (frame.gestures.dragVectorX < -threshold) {
++        } else if (frame.touch.dx < -threshold) {
+           this.nextDirX = -1;
+           this.nextDirZ = 0;
+         }
+       } else {
+-        if (frame.gestures.dragVectorY > threshold) {
++        if (frame.touch.dy > threshold) {
+           this.nextDirX = 0;
+           this.nextDirZ = 1;
+-        } else if (frame.gestures.dragVectorY < -threshold) {
++        } else if (frame.touch.dy < -threshold) {
+           this.nextDirX = 0;
+           this.nextDirZ = -1;
+         }
+       }
+     }
+   }
+ 
+   public getGameplayStateForQA(): GameplayQAState {
++    const remainingDotsCount = this.dots.filter(d => !d.eaten).length;
+     return {
+       sceneKey: this.sceneKey,
+       lifecycle: this.lifecycleState,
+@@ -947,6 +950,6 @@ export class PacManScene extends Phaser.Scene implements GameLifecycle {
+       score: this.score,
+       lives: this.lives,
+-      primaryActionCount: this.dots.length, // dots remaining
++      primaryActionCount: remainingDotsCount, // dots remaining
+       enemyOrHazardCount: this.ghosts.length,
+-      objectiveProgress: this.totalDots > 0 ? (this.totalDots - this.dots.length) / this.totalDots : 1.0,
++      objectiveProgress: this.totalDots > 0 ? (this.totalDots - remainingDotsCount) / this.totalDots : 1.0,
+       messages: [
+         `Score: ${this.score}`,
+         `Lives: ${this.lives}`,
+-        `Dots remaining: ${this.dots.length}`,
++        `Dots remaining: ${remainingDotsCount}`,
+         `Frightened mode: ${this.frightenedTime > 0 ? 'ACTIVE' : 'INACTIVE'}`
+       ]
+     };
+@@ -959,38 +962,25 @@ export class PacManScene extends Phaser.Scene implements GameLifecycle {
+     // 2. Remove Three.js canvas overlay from DOM
+     if (this.threeCanvas && this.threeCanvas.parentElement) {
+       this.threeCanvas.parentElement.removeChild(this.threeCanvas);
+     }
+ 
+-    // 3. Dispose all geometries
+-    this.geometriesToDispose.forEach((g) => g.dispose());
+-    this.geometriesToDispose = [];
+-
+-    // 4. Dispose all materials
+-    this.materialsToDispose.forEach((m) => m.dispose());
+-    this.materialsToDispose = [];
++    // 3. Clear all Three.js scene elements and dispose of geometries/materials
++    this.clearThreeSceneResources();
+ 
+-    // 5. Traverse scene to dispose everything else
+-    if (this.threeScene) {
+-      this.threeScene.traverse((object) => {
+-        if (object instanceof THREE.Mesh) {
+-          if (object.geometry) object.geometry.dispose();
+-          if (object.material) {
+-            if (Array.isArray(object.material)) {
+-              object.material.forEach((m) => m.dispose());
+-            } else {
+-              object.material.dispose();
+-            }
+-          }
+-        }
+-      });
+-    }
++    this.geometriesToDispose = [];
++    this.materialsToDispose = [];
+ 
+     // 6. Dispose renderer
+     if (this.threeRenderer) {
+       this.threeRenderer.dispose();
+     }
+   }
++
++  private clearThreeSceneResources(): void {
++    if (!this.threeScene) return;
++    this.threeScene.traverse((object) => {
++      if (object instanceof THREE.Mesh || object instanceof THREE.InstancedMesh) {
++        if (object.geometry) object.geometry.dispose();
++        if (object.material) {
++          if (Array.isArray(object.material)) {
++            object.material.forEach((m) => m.dispose());
++          } else {
++            object.material.dispose();
++          }
++        }
++      }
++    });
++    while (this.threeScene.children.length > 0) {
++      this.threeScene.remove(this.threeScene.children[0]);
++    }
++  }
+ }

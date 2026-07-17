@@ -14,12 +14,20 @@
     "touch:contra": "node scratch/run-touch-contra.js",
     "touch:asteroids": "node scratch/run-touch-asteroids.js",
     "touch:pong": "node scratch/run-touch-pong.js",
-    "touch:all": "npm run touch:f1 && npm run touch:cargo && npm run touch:contra && npm run touch:asteroids && npm run touch:pong"
+    "touch:2048": "node scratch/run-touch-2048.js",
+    "touch:clumsy": "node scratch/run-touch-clumsy.js",
+    "touch:hextris": "node scratch/run-touch-hextris.js",
+    "touch:pacman": "node scratch/run-touch-pacman.js",
+    "touch:all": "npm run touch:f1 && npm run touch:cargo && npm run touch:contra && npm run touch:asteroids && npm run touch:pong && npm run touch:2048 && npm run touch:clumsy && npm run touch:hextris && npm run touch:pacman"
   },
   "dependencies": {
-    "phaser": "^3.80.1"
+    "@types/three": "^0.185.1",
+    "phaser": "^3.80.1",
+    "three": "^0.185.1"
   },
   "devDependencies": {
+    "cannon-es": "^0.20.0",
+    "puppeteer": "^25.3.0",
     "typescript": "^5.4.5",
     "vite": "^5.2.11"
   }

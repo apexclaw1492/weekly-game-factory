@@ -11,25 +11,25 @@ export class PreloadScene extends Phaser.Scene {
     // Renders a beautiful retro style boot loader
     this.add.text(width / 2, height / 2 - 60, 'WEEKLY GAME FACTORY', {
       fontSize: '28px',
-      fontFamily: 'monospace',
-      color: '#00ccff',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#00c805',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
     const statusText = this.add.text(width / 2, height / 2 + 10, 'INITIALIZING OS...', {
       fontSize: '12px',
-      fontFamily: 'monospace',
-      color: '#8888a0'
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#8e8e93'
     }).setOrigin(0.5);
 
     // Progress bar
-    const progressBg = this.add.rectangle(width / 2, height / 2 + 40, 240, 8, 0x111122);
-    progressBg.setStrokeStyle(1, 0x333366);
-    const progressBar = this.add.rectangle(width / 2 - 120, height / 2 + 40, 0, 8, 0x00ccff).setOrigin(0, 0.5);
+    const progressBg = this.add.rectangle(width / 2, height / 2 + 40, 240, 8, 0x1a1a1a);
+    progressBg.setStrokeStyle(1, 0x333333);
+    const progressBar = this.add.rectangle(width / 2 - 120, height / 2 + 40, 0, 8, 0x00c805).setOrigin(0, 0.5);
     const tapText = this.add.text(width / 2, height / 2 + 68, 'TAP TO ENTER', {
       fontSize: '10px',
-      fontFamily: 'monospace',
-      color: '#00ccff'
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#00c805'
     }).setOrigin(0.5);
 
     const steps = [

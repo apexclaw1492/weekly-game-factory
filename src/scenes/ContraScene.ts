@@ -4,6 +4,8 @@ import { GameLifecycle, LifecycleState } from "../runtime/GameLifecycle";
 import { LifecycleManager } from "../runtime/LifecycleManager";
 import { ArcadeInputFrame, GameplayQAState } from "../runtime/ArcadeInputFrame";
 import { InputRuntime } from "../runtime/InputRuntime";
+import { StandardOverlays } from '../utils/StandardOverlays';
+
 
 interface EnemySpawn {
   tx: number;
@@ -62,10 +64,27 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
   private comboText!: Phaser.GameObjects.Text;
   private backBtn!: Phaser.GameObjects.Text;
   private backHitZone!: Phaser.GameObjects.Zone;
+  private overlays!: StandardOverlays;
+
+  // Virtual controls
+  private isMobile = false;
+  private joystickOuter?: Phaser.GameObjects.Arc;
+  private joystickKnob?: Phaser.GameObjects.Arc;
+  private jumpBtn?: Phaser.GameObjects.Arc;
+  private fireBtn?: Phaser.GameObjects.Arc;
+  private jumpText?: Phaser.GameObjects.Text;
+  private fireText?: Phaser.GameObjects.Text;
+
+  private virtualLeft = false;
+  private virtualRight = false;
+  private virtualUp = false;
+  private virtualDown = false;
+  private virtualJump = false;
+  private virtualFire = false;
+  private virtualJumpPrev = false;
 
   // Starfield/Scenery
   private starfield!: Phaser.GameObjects.Graphics;
-  private stars: Array<{ x: number; y: number; speed: number; alpha: number }> = [];
 
   // Spawns
   private spawns: EnemySpawn[] = [];
@@ -91,7 +110,6 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
   }
 
   init() {
-    this.stars = [];
     this.lives = 3;
     this.score = 0;
     this.weapon = 'rifle';
@@ -109,6 +127,22 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     this.bossDefeated = false;
     this.bossHp = 35;
     this.lifecycleState = "start";
+
+    this.virtualLeft = false;
+    this.virtualRight = false;
+    this.virtualUp = false;
+    this.virtualDown = false;
+    this.virtualJump = false;
+    this.virtualFire = false;
+    this.virtualJumpPrev = false;
+    this.isMobile = false;
+
+    this.joystickOuter = undefined;
+    this.joystickKnob = undefined;
+    this.jumpBtn = undefined;
+    this.fireBtn = undefined;
+    this.jumpText = undefined;
+    this.fireText = undefined;
 
     // Compute groundY from viewport height
     this.groundY = this.getComputedGroundY(this.scale?.height);
@@ -211,23 +245,23 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     });
 
     // 8. HUD Text overlays
-    this.scoreText = this.add.text(20, 20, 'SCORE: 0', { fontSize: '16px', fontFamily: 'monospace', color: '#ffffff' }).setScrollFactor(0);
-    this.livesText = this.add.text(width / 2, 20, 'LIVES: ♥ ♥ ♥', { fontSize: '16px', fontFamily: 'monospace', color: '#ff3333' }).setOrigin(0.5, 0).setScrollFactor(0);
-    this.weaponText = this.add.text(20, 45, 'WPN: RIFLE', { fontSize: '11px', fontFamily: 'monospace', color: '#ffaa00' }).setScrollFactor(0);
-    this.comboText = this.add.text(20, 60, '', { fontSize: '12px', fontFamily: 'monospace', color: '#ffd700', fontStyle: 'bold' }).setScrollFactor(0);
+    this.scoreText = this.add.text(20, 20, 'SCORE: 0', { fontSize: '16px', fontFamily: "'Outfit', system-ui, sans-serif", color: '#ffffff' }).setScrollFactor(0);
+    this.livesText = this.add.text(width / 2, 20, 'LIVES: ♥ ♥ ♥', { fontSize: '16px', fontFamily: "'Outfit', system-ui, sans-serif", color: '#00c805' }).setOrigin(0.5, 0).setScrollFactor(0);
+    this.weaponText = this.add.text(20, 45, 'WPN: RIFLE', { fontSize: '11px', fontFamily: "'Outfit', system-ui, sans-serif", color: '#00c805' }).setScrollFactor(0);
+    this.comboText = this.add.text(20, 60, '', { fontSize: '12px', fontFamily: "'Outfit', system-ui, sans-serif", color: '#00c805', fontStyle: 'bold' }).setScrollFactor(0);
 
     // Overlay Game States
     this.stateText = this.add.text(width / 2, height / 2 - 40, 'CONTRA MISSION', {
       fontSize: '32px',
-      fontFamily: 'monospace',
-      color: '#ff2222',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#00c805',
       fontStyle: 'bold'
     }).setOrigin(0.5).setScrollFactor(0);
-    this.stateText.setShadow(0, 0, '#ff2222', 8, true, true);
+    this.stateText.setShadow(0, 0, '#00c805', 8, true, true);
 
     this.hintText = this.add.text(width / 2, height / 2 + 25, 'PHONE: DRAG TO RUN/AIM, SWIPE UP TO JUMP\nAUTO-FIRE ON HOLD, TILT TO MOVE HANDS-FREE\nDESKTOP: ARROWS + X + SPACE\n\nTAP TO START', {
       fontSize: '12px',
-      fontFamily: 'monospace',
+      fontFamily: "'Outfit', system-ui, sans-serif",
       color: '#ffffff',
       align: 'center'
     }).setOrigin(0.5).setScrollFactor(0);
@@ -235,8 +269,8 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     // Back button floating UI
     this.backBtn = this.add.text(20, 20, '← BACK TO HUB', {
       fontSize: '13px',
-      fontFamily: 'monospace',
-      color: '#ff4444',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#8e8e93',
       fontStyle: 'bold'
     }).setOrigin(0, 0.5).setScrollFactor(0);
 
@@ -245,6 +279,7 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
       .setScrollFactor(0)
       .setDepth(1001);
 
+    this.overlays = new StandardOverlays(this);
     const runtime = (window as any).__WGF_INPUT_RUNTIME as InputRuntime;
     if (runtime) runtime.blockHubInputUntil(performance.now() + 100);
     this.lifecycleManager = new LifecycleManager(this, runtime);
@@ -253,6 +288,15 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     this.backHitZone.setInteractive({ useHandCursor: true });
     this.backHitZone.on("pointerdown", () => { SoundSynth.playTone(400, 0.1, "sine", 0.05); this.scene.start("HubScene"); });
     this.input.on('pointerdown', this.handleDirectBackPointer, this);
+
+    this.isMobile = !this.sys.game.device.os.desktop || this.sys.game.device.input.touch;
+    if (this.isMobile) {
+      if ((this.input.manager as any).pointers.length < 3) {
+        this.input.addPointer(2);
+      }
+      this.setupMobileControls();
+    }
+
     this.showStart();
 
     // Handle screen resizing
@@ -287,12 +331,65 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
       this.bossWarningText.setPosition(width / 2, 100);
     }
 
+    this.positionMobileControls();
+
     // Update starfield
     this.starfield.clear();
-    this.stars.forEach(star => {
-      star.x = Math.random() * width;
-      star.y = Math.random() * (height - 200);
-    });
+  }
+
+  private setupMobileControls() {
+    if (!this.isMobile) return;
+
+    this.joystickOuter = this.add.arc(0, 0, 50, 0, 360, false, 0xffffff, 0.15)
+      .setStrokeStyle(3, 0xffffff, 0.4)
+      .setScrollFactor(0)
+      .setDepth(1000);
+
+    this.joystickKnob = this.add.arc(0, 0, 20, 0, 360, false, 0xffffff, 0.3)
+      .setStrokeStyle(2, 0xffffff, 0.6)
+      .setScrollFactor(0)
+      .setDepth(1000);
+
+    this.jumpBtn = this.add.arc(0, 0, 32, 0, 360, false, 0x00c805, 0.25)
+      .setStrokeStyle(3, 0x00c805, 0.5)
+      .setScrollFactor(0)
+      .setDepth(1000);
+    this.jumpText = this.add.text(0, 0, 'JUMP', { fontSize: '12px', fontFamily: "'Outfit', system-ui, sans-serif", color: '#ffffff', fontStyle: 'bold' })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(1000);
+
+    this.fireBtn = this.add.arc(0, 0, 32, 0, 360, false, 0xff2222, 0.25)
+      .setStrokeStyle(3, 0xff2222, 0.5)
+      .setScrollFactor(0)
+      .setDepth(1000);
+    this.fireText = this.add.text(0, 0, 'FIRE', { fontSize: '12px', fontFamily: "'Outfit', system-ui, sans-serif", color: '#ffffff', fontStyle: 'bold' })
+      .setOrigin(0.5)
+      .setScrollFactor(0)
+      .setDepth(1000);
+
+    this.positionMobileControls();
+  }
+
+  private positionMobileControls() {
+    if (!this.isMobile) return;
+
+    const { width, height } = this.scale;
+
+    const joyX = 85;
+    const joyY = height - 85;
+    if (this.joystickOuter) this.joystickOuter.setPosition(joyX, joyY);
+    if (this.joystickKnob) this.joystickKnob.setPosition(joyX, joyY);
+
+    const fireX = width - 60;
+    const fireY = height - 85;
+    if (this.fireBtn) this.fireBtn.setPosition(fireX, fireY);
+    if (this.fireText) this.fireText.setPosition(fireX, fireY);
+
+    const jumpX = width - 145;
+    const jumpY = height - 85;
+    if (this.jumpBtn) this.jumpBtn.setPosition(jumpX, jumpY);
+    if (this.jumpText) this.jumpText.setPosition(jumpX, jumpY);
   }
 
   update(time: number) {
@@ -302,14 +399,8 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
 
     this.lifecycleManager.update(time);
 
-    // Background Stars movement
+    // Background Stars movement (disabled for Robinhood theme)
     this.starfield.clear();
-    const scrollOffset = this.cameras.main.scrollX * 0.05;
-    this.stars.forEach(star => {
-      const sx = (star.x - scrollOffset) % width;
-      this.starfield.fillStyle(0xffffff, star.alpha);
-      this.starfield.fillRect(sx < 0 ? sx + width : sx, star.y, 1.5, 1.5);
-    });
 
     if (this.lifecycleState !== 'playing') {
       this.player.setVelocityX(0);
@@ -354,34 +445,121 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     }).forEach(b => b.destroy());
 
     // --- PLAYER CONTROLS ---
-    let vx = 0;
-    const isGnd = this.player.body!.blocked.down || this.player.body!.touching.down;
-    const aimingDown = frame.actions.down.held || (frame.gestures.dragVectorY > 0.2);
+    this.virtualLeft = false;
+    this.virtualRight = false;
+    this.virtualUp = false;
+    this.virtualDown = false;
+    this.virtualJump = false;
+    this.virtualFire = false;
 
-    // Left/Right
-    if (aimingDown && isGnd) {
-      vx = 0;
-      this.player.stop();
-      this.player.setTexture('player-stand');
-    } else if (frame.actions.left.held) {
-      vx = -180;
-      this.faceDirection = -1;
-      this.player.setFlipX(true);
-      if (isGnd) this.player.play('run', true);
-    } else if (frame.actions.right.held) {
-      vx = 180;
-      this.faceDirection = 1;
-      this.player.setFlipX(false);
-      if (isGnd) this.player.play('run', true);
+    if (this.isMobile) {
+      const joyX = this.joystickOuter!.x;
+      const joyY = this.joystickOuter!.y;
+      const jumpX = this.jumpBtn!.x;
+      const jumpY = this.jumpBtn!.y;
+      const fireX = this.fireBtn!.x;
+      const fireY = this.fireBtn!.y;
+
+      let joystickTouched = false;
+      this.jumpBtn!.setAlpha(0.25);
+      this.fireBtn!.setAlpha(0.25);
+
+      const pointers = [
+        this.input.pointer1,
+        this.input.pointer2,
+        this.input.pointer3,
+        this.input.mousePointer
+      ].filter(p => p && p.isDown);
+
+      pointers.forEach(p => {
+        const dJoy = Phaser.Math.Distance.Between(p.x, p.y, joyX, joyY);
+        if (dJoy < 85) {
+          joystickTouched = true;
+          const dx = p.x - joyX;
+          const dy = p.y - joyY;
+          if (dJoy > 10) {
+            if (dx < -12) this.virtualLeft = true;
+            if (dx > 12) this.virtualRight = true;
+            if (dy < -12) this.virtualUp = true;
+            if (dy > 12) this.virtualDown = true;
+          }
+          const clampD = Math.min(dJoy, 35);
+          const angle = Math.atan2(dy, dx);
+          this.joystickKnob!.setPosition(joyX + Math.cos(angle) * clampD, joyY + Math.sin(angle) * clampD);
+        }
+
+        const dJump = Phaser.Math.Distance.Between(p.x, p.y, jumpX, jumpY);
+        if (dJump < 40) {
+          this.virtualJump = true;
+          this.jumpBtn!.setAlpha(0.5);
+        }
+
+        const dFire = Phaser.Math.Distance.Between(p.x, p.y, fireX, fireY);
+        if (dFire < 40) {
+          this.virtualFire = true;
+          this.fireBtn!.setAlpha(0.5);
+        }
+      });
+
+      if (!joystickTouched) {
+        this.joystickKnob!.setPosition(joyX, joyY);
+      }
+    }
+
+    const keyLeft = frame.actions.left.held || this.virtualLeft;
+    const keyRight = frame.actions.right.held || this.virtualRight;
+    const keyUp = frame.actions.up.held || this.virtualUp;
+    const keyDown = frame.actions.down.held || this.virtualDown;
+    const keyFire = frame.actions.fire.held || this.virtualFire;
+    const virtualJumpJustPressed = this.virtualJump && !this.virtualJumpPrev;
+    this.virtualJumpPrev = this.virtualJump;
+
+    let vx = this.player.body!.velocity.x;
+    const isGnd = this.player.body!.blocked.down || this.player.body!.touching.down;
+    const aimingDown = keyDown || (frame.gestures.dragVectorY > 0.2);
+
+    if (isGnd) {
+      if (aimingDown) {
+        vx = 0;
+        this.player.stop();
+        this.player.setTexture('player-stand');
+      } else if (keyLeft) {
+        vx = -180;
+        this.faceDirection = -1;
+        this.player.setFlipX(true);
+        this.player.play('run', true);
+      } else if (keyRight) {
+        vx = 180;
+        this.faceDirection = 1;
+        this.player.setFlipX(false);
+        this.player.play('run', true);
+      } else {
+        vx = 0;
+        this.player.stop();
+        this.player.setTexture('player-stand');
+      }
     } else {
-      this.player.stop();
-      if (isGnd) this.player.setTexture('player-stand');
+      if (keyLeft) {
+        vx = Phaser.Math.Linear(vx, -180, 0.15);
+        this.faceDirection = -1;
+        this.player.setFlipX(true);
+      } else if (keyRight) {
+        vx = Phaser.Math.Linear(vx, 180, 0.15);
+        this.faceDirection = 1;
+        this.player.setFlipX(false);
+      } else {
+        vx = vx * 0.92;
+        if (Math.abs(vx) < 5) {
+          vx = 0;
+        }
+      }
+      this.player.setTexture('player-jump');
     }
 
     this.player.setVelocityX(vx);
 
     // Jump
-    const justJump = frame.actions.jump.justPressed || frame.gestures.swipeUp;
+    const justJump = frame.actions.jump.justPressed || frame.gestures.swipeUp || virtualJumpJustPressed;
     if (justJump && isGnd) {
       this.player.setVelocityY(-350);
       this.player.setTexture('player-jump');
@@ -395,7 +573,7 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
 
     // Aim calculations
     let aim = 0; // 0 = straight, -1 = diagonal up, -2 = up, 1 = diagonal down, 2 = down
-    const aimingUp = frame.actions.up.held || (frame.gestures.dragVectorY < -0.2);
+    const aimingUp = keyUp || (frame.gestures.dragVectorY < -0.2);
     if (aimingUp) {
       aim = (vx !== 0) ? -1 : -2;
     } else if (aimingDown) {
@@ -405,7 +583,7 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     // Shoot
     if (this.fireCooldown > 0) this.fireCooldown--;
 
-    const isFiring = frame.actions.fire.held;
+    const isFiring = keyFire;
     if (isFiring && this.fireCooldown === 0) {
       this.fireWeapon(aim);
     }
@@ -431,21 +609,12 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
   }
 
   private createScenery() {
-    const { width, height } = this.scale;
+    const { height } = this.scale;
     this.starfield = this.add.graphics();
 
-    for (let i = 0; i < 40; i++) {
-      this.stars.push({
-        x: Math.random() * width,
-        y: Math.random() * (height - 200),
-        speed: 0.1 + Math.random() * 0.3,
-        alpha: 0.3 + Math.random() * 0.5
-      });
-    }
-
-    // Render retro hills graphics
+    // Render retro hills graphics (solid black/dark minimalist silhouette)
     const scenery = this.add.graphics();
-    scenery.fillStyle(0x0a0a20, 1);
+    scenery.fillStyle(0x000000, 1);
     scenery.beginPath();
     scenery.moveTo(0, height);
     for (let x = 0; x <= this.levelWidth; x += 30) {
@@ -456,8 +625,8 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     scenery.closePath();
     scenery.fill();
 
-    // Render tree clusters
-    scenery.fillStyle(0x061406, 0.4);
+    // Render tree clusters (dark grey silhouette)
+    scenery.fillStyle(0x050505, 0.4);
     for (let i = 0; i < 20; i++) {
       const tx = 300 + i * 200 + Math.random() * 100;
       scenery.fillCircle(tx, this.groundY - 30, 20 + Math.random() * 10);
@@ -517,23 +686,33 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     this.lifecycleState = "start";
     this.stateText.setText('CONTRA MISSION').setVisible(true);
     this.hintText.setVisible(true);
+    this.overlays.clear();
   }
 
   startGameplay(): void {
     this.lifecycleState = "playing";
     this.stateText.setVisible(false);
     this.hintText.setVisible(false);
+    this.overlays.clear();
   }
 
   pauseGameplay(): void {
     this.lifecycleState = "paused";
+    this.physics.pause();
+    this.overlays.showPause(
+      () => this.resumeGameplay(),
+      () => this.returnToHub()
+    );
   }
 
   resumeGameplay(): void {
     this.lifecycleState = "playing";
+    this.physics.resume();
+    this.overlays.clear();
   }
 
   resetGameplay(): void {
+    this.overlays.clear();
     this.scene.restart();
   }
 
@@ -755,8 +934,8 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     // Alert Text overlay
     this.bossWarningText = this.add.text(this.scale.width / 2, 100, '⚠️ WARNING: ALIEN MECH APPROACHING ⚠️', {
       fontSize: '14px',
-      fontFamily: 'monospace',
-      color: '#ff2222',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#00c805',
       fontStyle: 'bold'
     }).setOrigin(0.5).setScrollFactor(0);
 
@@ -905,8 +1084,8 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     // Float text Up
     const text = this.add.text(cap.x, cap.y - 10, 'SPREAD S!', {
       fontSize: '11px',
-      fontFamily: 'monospace',
-      color: '#ff5555',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#00c805',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
@@ -973,10 +1152,13 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     this.isGameOver = true;
     this.lifecycleState = "gameOver";
     this.player.setVisible(false);
-    this.stateText.setText('MISSION FAILED').setColor('#ff3333').setVisible(true);
-    this.hintText.setText('TAP TO RETRY').setVisible(true);
-
     if (this.bossHpBar) this.bossHpBar.clear();
+
+    this.overlays.showGameOver(
+      this.score,
+      () => this.resetGameplay(),
+      () => this.returnToHub()
+    );
   }
 
   private checkBossCollision(bullet: Phaser.Physics.Arcade.Image) {
@@ -1024,8 +1206,12 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
     this.score += 2000;
     this.scoreText.setText(`SCORE: ${this.score}`);
 
-    this.stateText.setText('🎉 VICTORY! 🎉').setColor('#55ff55').setVisible(true);
-    this.hintText.setText('Mission Complete!\n\nTAP TO REPLAY').setVisible(true);
+    this.overlays.showVictory(
+      '🎉 VICTORY! 🎉',
+      `Mission Complete!\nScore: ${this.score}`,
+      () => this.resetGameplay(),
+      () => this.returnToHub()
+    );
   }
 
   // Extend physics check update loops
@@ -1084,6 +1270,5 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
   }
 
   destroySceneResources(): void {
-    this.stars = [];
   }
 }

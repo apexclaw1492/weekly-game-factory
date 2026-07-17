@@ -11,7 +11,6 @@ import { SoundSynth } from '../utils/SoundSynth';
 
 export class HubScene extends Phaser.Scene {
   private starfield!: Phaser.GameObjects.Graphics;
-  private stars: Array<{ x: number; y: number; speed: number; alpha: number }> = [];
   private cards: Phaser.GameObjects.Container[] = [];
   private titleText!: Phaser.GameObjects.Text;
   private subtitleText!: Phaser.GameObjects.Text;
@@ -39,44 +38,35 @@ export class HubScene extends Phaser.Scene {
 
   create() {
     const { width, height } = this.scale;
-    this.stars = [];
     this.cardInputReadyAt = Math.max(
       performance.now() + 450,
       Number((window as any).__WGF_HUB_CARD_INPUT_BLOCKED_UNTIL) || 0
     );
 
-    // 1. Create starfield background
+    // 1. Create starfield background (empty for premium black minimalism)
     this.starfield = this.add.graphics();
-    for (let i = 0; i < 60; i++) {
-      this.stars.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        speed: 0.2 + Math.random() * 0.8,
-        alpha: 0.2 + Math.random() * 0.8
-      });
-    }
 
-    // 2. Draw modern backdrop gradient details
+    // 2. Draw modern backdrop details (deep black)
     this.bgGrad = this.add.graphics();
-    this.bgGrad.fillGradientStyle(0x020111, 0x020111, 0x0b092a, 0x0b092a, 1);
+    this.bgGrad.fillStyle(0x000000, 1);
     this.bgGrad.fillRect(0, 0, width, height);
     this.bgGrad.setDepth(-1);
 
-    // 3. Header Title (Glowing retro font)
+    // 3. Header Title (Glowing Robinhood green sans-serif)
     this.titleText = this.add.text(width / 2, 60, 'WEEKLY GAME FACTORY', {
       fontSize: width < 450 ? '24px' : '36px',
-      fontFamily: 'monospace',
-      color: '#00ccff',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#00c805',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
     // Subtle glow on title
-    this.titleText.setShadow(0, 0, '#00ccff', 8, true, true);
+    this.titleText.setShadow(0, 0, '#00c805', 8, true, true);
 
     this.subtitleText = this.add.text(width / 2, 95, this.getSubtitleText(width), {
       fontSize: width < 450 ? '10px' : '12px',
-      fontFamily: 'monospace',
-      color: '#8888a0',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#8e8e93',
       align: 'center',
       wordWrap: { width: Math.max(240, width - 32) }
     }).setOrigin(0.5);
@@ -137,8 +127,8 @@ export class HubScene extends Phaser.Scene {
 
     this.scrollIndicator = this.add.text(width / 2, height - 65, '', {
       fontSize: '12px',
-      fontFamily: 'monospace',
-      color: '#ffffff'
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#00c805'
     }).setOrigin(0.5).setDepth(10).setAlpha(0.6);
 
     // Handle screen resizing
@@ -151,17 +141,8 @@ export class HubScene extends Phaser.Scene {
   update() {
     const { width, height } = this.scale;
     
-    // Draw animated scrolling starfield
+    // Draw animated scrolling starfield (disabled for black minimalism)
     this.starfield.clear();
-    this.stars.forEach(star => {
-      star.y += star.speed;
-      if (star.y > height) {
-        star.y = 0;
-        star.x = Math.random() * width;
-      }
-      this.starfield.fillStyle(0xffffff, star.alpha);
-      this.starfield.fillRect(star.x, star.y, 1.5, 1.5);
-    });
 
     // Handle portrait scrolling
     const isPortrait = height > width;
@@ -248,16 +229,16 @@ export class HubScene extends Phaser.Scene {
   ): Phaser.GameObjects.Container {
     const container = this.add.container(x, y);
 
-    // Card background
-    const bg = this.add.rectangle(0, 0, w, h, 0x111126);
     const certified = game.certificationStatus === 'certified';
-    const baseAlpha = certified ? 0.4 : 0.18;
-    bg.setStrokeStyle(1.5, game.color, baseAlpha);
-    if (!certified) bg.setAlpha(0.58);
+
+    // Card background (glassmorphic layout)
+    const bg = this.add.rectangle(0, 0, w, h, certified ? 0x1a1a1a : 0x0e0e0e);
+    bg.setFillStyle(certified ? 0x1a1a1a : 0x0e0e0e, certified ? 0.75 : 0.4);
+    bg.setStrokeStyle(1.5, certified ? 0x00c805 : 0x333333, certified ? 0.2 : 0.08);
     container.add(bg);
 
-    // Glowing left border
-    const border = this.add.rectangle(-w / 2 + 2.5, 0, 5, h, game.color, certified ? 1 : 0.35);
+    // Glowing left border (Robinhood neon green)
+    const border = this.add.rectangle(-w / 2 + 2.5, 0, 5, h, certified ? 0x00c805 : 0x333333, certified ? 0.8 : 0.25);
     container.add(border);
 
     // Text & graphics inside card
@@ -269,20 +250,20 @@ export class HubScene extends Phaser.Scene {
       const title = this.add.text(-w / 2 + 55, -14, game.title, {
         fontSize: '14px',
         fontStyle: 'bold',
-        fontFamily: 'monospace',
+        fontFamily: "'Outfit', system-ui, sans-serif",
         color: '#ffffff'
       }).setOrigin(0, 0.5);
 
       const subtitle = this.add.text(-w / 2 + 55, 6, `${game.weekLabel} - TOUCH + MOTION`, {
         fontSize: '10px',
-        fontFamily: 'monospace',
-        color: '#00ccff'
+        fontFamily: "'Outfit', system-ui, sans-serif",
+        color: '#00c805'
       }).setOrigin(0, 0.5);
 
       const status = this.add.text(w / 2 - 12, 18, game.certificationLabel || 'CERTIFIED', {
         fontSize: '8px',
-        fontFamily: 'monospace',
-        color: certified ? '#74ffb4' : '#ffcc66',
+        fontFamily: "'Outfit', system-ui, sans-serif",
+        color: certified ? '#00c805' : '#8e8e93',
         fontStyle: 'bold'
       }).setOrigin(1, 0.5);
 
@@ -293,28 +274,28 @@ export class HubScene extends Phaser.Scene {
       const title = this.add.text(-w / 2 + 75, -28, game.title, {
         fontSize: '16px',
         fontStyle: 'bold',
-        fontFamily: 'monospace',
+        fontFamily: "'Outfit', system-ui, sans-serif",
         color: '#ffffff'
       }).setOrigin(0, 0.5);
 
       const weekText = this.add.text(-w / 2 + 75, -10, game.weekLabel, {
         fontSize: '10px',
-        fontFamily: 'monospace',
-        color: '#00ccff',
+        fontFamily: "'Outfit', system-ui, sans-serif",
+        color: '#00c805',
         fontStyle: 'bold'
       }).setOrigin(0, 0.5);
 
       const descText = this.add.text(-w / 2 + 15, 20, game.description, {
         fontSize: '11px',
-        fontFamily: 'monospace',
-        color: '#a0a0c0',
+        fontFamily: "'Outfit', system-ui, sans-serif",
+        color: '#8e8e93',
         wordWrap: { width: w - 30 }
       }).setOrigin(0, 0.5);
 
       const status = this.add.text(w / 2 - 15, -38, game.certificationLabel || 'CERTIFIED', {
         fontSize: '9px',
-        fontFamily: 'monospace',
-        color: certified ? '#74ffb4' : '#ffcc66',
+        fontFamily: "'Outfit', system-ui, sans-serif",
+        color: certified ? '#00c805' : '#8e8e93',
         fontStyle: 'bold'
       }).setOrigin(1, 0.5);
 
@@ -332,7 +313,7 @@ export class HubScene extends Phaser.Scene {
         scaleY: 1.03,
         duration: 150
       });
-      bg.setStrokeStyle(2, game.color, 0.9);
+      bg.setStrokeStyle(2, 0x00c805, 0.95);
       SoundSynth.playTone(600, 0.05, 'sine', 0.02);
     });
 
@@ -344,7 +325,7 @@ export class HubScene extends Phaser.Scene {
         scaleY: 1.0,
         duration: 150
       });
-      bg.setStrokeStyle(1.5, game.color, 0.4);
+      bg.setStrokeStyle(1.5, 0x00c805, 0.2);
     });
 
     bg.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
@@ -352,9 +333,9 @@ export class HubScene extends Phaser.Scene {
 
       if (!certified) {
         SoundSynth.playTone(220, 0.08, 'square', 0.025);
-        bg.setStrokeStyle(2, 0xffcc66, 0.7);
+        bg.setStrokeStyle(2, 0xff3b30, 0.7);
         this.time.delayedCall(180, () => {
-          bg.setStrokeStyle(1.5, game.color, baseAlpha);
+          bg.setStrokeStyle(1.5, 0x333333, 0.08);
         });
         return;
       }
@@ -362,7 +343,7 @@ export class HubScene extends Phaser.Scene {
       SoundSynth.playTone(800, 0.1, 'sine', 0.05);
 
       // Flash card background immediately (visual feedback)
-      bg.setFillStyle(game.color, 0.2);
+      bg.setFillStyle(0x00c805, 0.15);
 
       // Record pending tap — will execute on pointerup if not dragged
       this.pendingCardTap = {
@@ -370,9 +351,9 @@ export class HubScene extends Phaser.Scene {
         startY: pointer.y,
         game,
         bg,
-        baseAlpha,
+        baseAlpha: 0.2,
         certified,
-        color: game.color
+        color: 0x00c805
       };
     });
 
@@ -391,14 +372,14 @@ export class HubScene extends Phaser.Scene {
 
     const labelStyle = {
       fontSize: width < 450 ? '9px' : '11px',
-      fontFamily: 'monospace',
-      color: '#666688'
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#8e8e93'
     };
 
     const valueStyle = {
       fontSize: width < 450 ? '11px' : '14px',
-      fontFamily: 'monospace',
-      color: '#ffd700',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#00c805',
       fontStyle: 'bold'
     };
 
@@ -424,16 +405,12 @@ export class HubScene extends Phaser.Scene {
   private handleResize() {
     const { width, height } = this.scale;
 
-    // Reset background graphics limits
+    // Reset background graphics limits (empty for black minimalism)
     this.starfield.clear();
-    this.stars.forEach(star => {
-      star.x = Math.random() * width;
-      star.y = Math.random() * height;
-    });
 
-    // Reposition backdrop
+    // Reposition backdrop (solid black)
     this.bgGrad.clear();
-    this.bgGrad.fillGradientStyle(0x020111, 0x020111, 0x0b092a, 0x0b092a, 1);
+    this.bgGrad.fillStyle(0x000000, 1);
     this.bgGrad.fillRect(0, 0, width, height);
 
     // Reposition title and subtitle
@@ -462,7 +439,11 @@ export class HubScene extends Phaser.Scene {
       SoundSynth.playTone(180, 0.1, 'square', 0.03);
       return;
     }
-    window.location.assign(resolvedUrl);
+    if (typeof (window as any).launchGameIframe === 'function') {
+      (window as any).launchGameIframe(resolvedUrl);
+    } else {
+      window.location.assign(resolvedUrl);
+    }
   }
 
   private resolveCatalogUrl(rawUrl: string): string | null {

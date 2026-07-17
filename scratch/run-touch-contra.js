@@ -17,7 +17,7 @@ function cardPoint(viewport, index) {
     };
   }
 
-  const gameCount = 9;
+  const gameCount = 13;
   const columns = gameCount > 4 && viewport.width >= 760 ? 3 : 2;
   const rows = Math.ceil(gameCount / columns);
   const cardW = Math.min((viewport.width - 30 - (columns - 1) * 20) / columns, 340);
@@ -103,7 +103,7 @@ async function runScenario(viewport) {
     await delay(350);
     await page.touchscreen.tap(viewport.width / 2, viewport.height - 140);
     await delay(850);
-    const launchPoint = cardPoint(viewport, 2);
+    const launchPoint = cardPoint(viewport, 5);
     await page.touchscreen.tap(launchPoint.x, launchPoint.y);
     await delay(900);
     await page.touchscreen.tap(viewport.width / 2, viewport.height / 2);

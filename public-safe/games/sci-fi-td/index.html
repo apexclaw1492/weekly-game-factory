@@ -63,7 +63,7 @@
   
   <script>
     let scene, camera, renderer, composer, world;
-    let money = 100, lives = 10;
+    let money = 100, lives = 10, score = 0, isGameOver = false;
     let clock = new THREE.Clock();
     let towers = [], enemies = [], projectiles = [], particles = [];
     let gridGeometry, gridMaterial;
@@ -310,6 +310,7 @@
                 const idx = enemies.indexOf(closest);
                 if(idx > -1) enemies.splice(idx, 1);
                 money += 15;
+                score += 10; // 10 points per kill
                 document.getElementById('money').innerText = '$' + money;
               }
             }
@@ -344,6 +345,10 @@
         }
         
       } else {
+        if (!isGameOver) {
+          isGameOver = true;
+          window.parent.postMessage({ type: 'WGF_SCORE', gameId: 'sci-fi-td', score: score }, '*');
+        }
         document.querySelector('h1').innerText = "CORE BREACHED";
         document.querySelector('h1').style.color = "#f00";
         document.querySelector('h1').style.textShadow = "0 0 20px #f00";

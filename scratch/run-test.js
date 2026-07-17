@@ -15,13 +15,13 @@ function withQaMode(rawUrl) {
 }
 
 const GAMES = [
-  { id: 'f1', name: 'F1 Space Invaders', index: 0, sceneKey: 'SpaceInvadersScene', certified: true, keys: ['Space', 'ArrowLeft', 'ArrowRight', 'Space'] },
-  { id: 'cargo', name: 'Cosmic Cargo', index: 1, sceneKey: 'CosmicCargoScene', certified: true, keys: ['ArrowUp', 'ArrowLeft', 'Space'] },
-  { id: 'contra', name: 'Contra Bonus', index: 2, sceneKey: 'ContraScene', certified: true, keys: ['ArrowRight', 'Space', 'KeyX'] },
-  { id: 'asteroids', name: 'Asteroid Belt', index: 3, sceneKey: 'AsteroidsScene', certified: true, keys: ['ArrowUp', 'ArrowLeft', 'Space'] },
-  { id: 'pong', name: 'Red Bull Pong', index: 4, sceneKey: 'PongScene', certified: true, keys: ['ArrowLeft', 'ArrowRight'] }
+  { id: 'f1', name: 'F1 Space Invaders', index: 3, sceneKey: 'SpaceInvadersScene', certified: true, keys: ['Space', 'ArrowLeft', 'ArrowRight', 'Space'] },
+  { id: 'cargo', name: 'Cosmic Cargo', index: 4, sceneKey: 'CosmicCargoScene', certified: true, keys: ['ArrowUp', 'ArrowLeft', 'Space'] },
+  { id: 'contra', name: 'Contra Bonus', index: 5, sceneKey: 'ContraScene', certified: true, keys: ['ArrowRight', 'Space', 'KeyX'] },
+  { id: 'asteroids', name: 'Asteroid Belt', index: 6, sceneKey: 'AsteroidsScene', certified: true, keys: ['ArrowUp', 'ArrowLeft', 'Space'] },
+  { id: 'pong', name: 'Red Bull Pong', index: 7, sceneKey: 'PongScene', certified: true, keys: ['ArrowLeft', 'ArrowRight'] }
 ];
-const CATALOG_GAME_COUNT = 9;
+const CATALOG_GAME_COUNT = 13;
 
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 

@@ -19,15 +19,14 @@
       user-select: none;
       -webkit-user-select: none;
       -webkit-touch-callout: none;
-      touch-action: none;
     }
     html, body {
       width: 100%;
       height: 100%;
-      background-color: #03020b;
+      background-color: #000000;
       overflow: hidden;
       position: fixed;
-      font-family: 'Courier New', Courier, monospace;
+      font-family: 'Outfit', system-ui, sans-serif;
       -webkit-overflow-scrolling: none;
       -webkit-text-size-adjust: 100%;
       touch-action: none;
@@ -39,7 +38,7 @@
       display: flex;
       justify-content: center;
       align-items: center;
-      background-color: #03020b;
+      background-color: #000000;
     }
     canvas {
       display: block;
@@ -51,37 +50,391 @@
       transform: translateX(-50%);
       z-index: 1000;
       padding: 4px 8px;
-      border: 1px solid rgba(0, 204, 255, 0.45);
-      background: rgba(3, 2, 11, 0.72);
-      color: #00ccff;
-      font: 700 10px/1.2 'Courier New', Courier, monospace;
+      border: 1px solid rgba(0, 200, 5, 0.45);
+      background: rgba(0, 0, 0, 0.72);
+      color: #00c805;
+      font: 700 10px/1.2 'Outfit', system-ui, sans-serif;
       letter-spacing: 0;
       pointer-events: none;
       text-align: center;
       white-space: nowrap;
     }
+    /* Floating Menu Buttons */
+    #menu-buttons {
+      position: fixed;
+      top: max(12px, env(safe-area-inset-top));
+      left: 20px;
+      display: flex;
+      gap: 10px;
+      z-index: 1001;
+    }
+    .menu-btn {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(0, 0, 0, 0.6);
+      border: 1px dashed rgba(0, 200, 5, 0.45);
+      color: #00c805;
+      font-size: 18px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+      box-shadow: 0 0 10px rgba(0, 200, 5, 0.1);
+      transition: all 0.2s ease;
+      touch-action: auto;
+    }
+    .menu-btn:hover {
+      background: rgba(0, 200, 5, 0.15);
+      border-color: #00c805;
+      box-shadow: 0 0 15px rgba(0, 200, 5, 0.3);
+    }
+    /* Modals */
+    .modal {
+      display: none;
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      background: rgba(0, 0, 0, 0.85);
+      z-index: 10000;
+      align-items: center;
+      justify-content: center;
+      backdrop-filter: blur(8px);
+      touch-action: auto;
+    }
+    .modal-content {
+      background: rgba(20, 20, 30, 0.95);
+      border: 2px solid #00c805;
+      border-radius: 16px;
+      padding: 30px;
+      width: 90%;
+      max-width: 450px;
+      color: #fff;
+      box-shadow: 0 0 30px rgba(0, 200, 5, 0.25), inset 0 0 15px rgba(0, 200, 5, 0.1);
+      animation: modalFadeIn 0.3s ease;
+    }
+    @keyframes modalFadeIn {
+      from { opacity: 0; transform: scale(0.95); }
+      to { opacity: 1; transform: scale(1); }
+    }
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 20px;
+      border-bottom: 1px dashed rgba(0, 200, 5, 0.3);
+      padding-bottom: 10px;
+    }
+    .modal-header h2 {
+      font-size: 22px;
+      color: #00c805;
+      text-shadow: 0 0 10px rgba(0, 200, 5, 0.3);
+      letter-spacing: 1px;
+    }
+    .close-btn {
+      background: none;
+      border: none;
+      color: #8e8e93;
+      font-size: 24px;
+      cursor: pointer;
+    }
+    .close-btn:hover {
+      color: #fff;
+    }
+    /* Settings Options */
+    .setting-item {
+      margin-bottom: 20px;
+    }
+    .setting-item label {
+      display: block;
+      font-size: 14px;
+      color: #8e8e93;
+      margin-bottom: 8px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    .sound-packs {
+      display: flex;
+      gap: 10px;
+    }
+    .sound-pack-btn {
+      flex: 1;
+      padding: 10px;
+      background: rgba(0, 0, 0, 0.4);
+      border: 1px solid #333;
+      border-radius: 8px;
+      color: #ccc;
+      font-family: 'Outfit', sans-serif;
+      font-weight: bold;
+      font-size: 13px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .sound-pack-btn.active {
+      background: rgba(0, 200, 5, 0.15);
+      border-color: #00c805;
+      color: #00c805;
+      box-shadow: 0 0 10px rgba(0, 200, 5, 0.2);
+    }
+    .sound-pack-btn:hover {
+      border-color: #00c805;
+      color: #fff;
+    }
+    .setting-slider {
+      width: 100%;
+      accent-color: #00c805;
+      background: #333;
+      height: 6px;
+      border-radius: 3px;
+      outline: none;
+      margin-top: 5px;
+    }
+    /* Leaderboard Styles */
+    .leaderboard-list {
+      max-height: 250px;
+      overflow-y: auto;
+      margin-top: 10px;
+      padding-right: 5px;
+    }
+    .leaderboard-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 10px;
+      border-bottom: 1px solid rgba(255,255,255,0.05);
+      font-size: 14px;
+    }
+    .leaderboard-item:last-child {
+      border-bottom: none;
+    }
+    .leaderboard-name {
+      color: #fff;
+      font-weight: 500;
+    }
+    .leaderboard-score {
+      color: #00c805;
+      font-weight: bold;
+      text-shadow: 0 0 5px rgba(0, 200, 5, 0.2);
+    }
+    /* Custom Scrollbar for list */
+    .leaderboard-list::-webkit-scrollbar {
+      width: 4px;
+    }
+    .leaderboard-list::-webkit-scrollbar-track {
+      background: transparent;
+    }
+    .leaderboard-list::-webkit-scrollbar-thumb {
+      background: #333;
+      border-radius: 2px;
+    }
+    .leaderboard-list::-webkit-scrollbar-thumb:hover {
+      background: #00c805;
+    }
   </style>
   <!-- Basic Web App Manifest (PWA) -->
-  <!--
   <link rel="manifest" href="manifest.json">
-  -->
-  <!-- Service Worker registration comment:
-  <script>
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/sw.js').then(reg => {
-          console.log('SW registered!', reg);
-        }).catch(err => {
-          console.error('SW registration failed:', err);
-        });
-      });
-    }
-  </script>
-  -->
 </head>
 <body>
-  <div id="version-badge">v1.3.7 - Published 2026-06-03</div>
+  <div id="version-badge">v1.4.0 - Evolution Phase 2</div>
+
+  <!-- Floating Menu Buttons -->
+  <div id="menu-buttons">
+    <button class="menu-btn" id="scores-btn" title="Leaderboards">🏆</button>
+    <button class="menu-btn" id="settings-btn" title="Sound Pack Settings">⚙️</button>
+  </div>
+
+  <!-- Settings Modal -->
+  <div class="modal" id="settings-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>Sound Settings</h2>
+        <button class="close-btn" onclick="toggleModal('settings-modal', false)">&times;</button>
+      </div>
+      <div class="setting-item">
+        <label>Synth Sound Pack</label>
+        <div class="sound-packs">
+          <button class="sound-pack-btn" id="pack-retro" onclick="setSoundPack('retro')">Retro Synth</button>
+          <button class="sound-pack-btn" id="pack-lofi" onclick="setSoundPack('lofi')">Lofi</button>
+          <button class="sound-pack-btn" id="pack-arcade" onclick="setSoundPack('arcade')">Arcade</button>
+        </div>
+      </div>
+      <div class="setting-item">
+        <label>Master Synth Volume</label>
+        <input type="range" class="setting-slider" id="volume-slider" min="0" max="100" value="50" oninput="updateVolume(this.value)">
+      </div>
+    </div>
+  </div>
+
+  <!-- Leaderboard Modal -->
+  <div class="modal" id="scores-modal">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h2>High Scores</h2>
+        <button class="close-btn" onclick="toggleModal('scores-modal', false)">&times;</button>
+      </div>
+      <div class="leaderboard-list" id="leaderboard-container">
+        <!-- Dynamically filled -->
+      </div>
+    </div>
+  </div>
+
+  <!-- Fullscreen Game Iframe Overlay -->
+  <div id="game-overlay" style="display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; height: 100dvh; background: #000; z-index: 9999;">
+    <iframe id="game-iframe" style="width: 100%; height: 100%; border: none;" src="about:blank"></iframe>
+    <button id="exit-btn" style="position: fixed; top: 20px; right: 20px; z-index: 10000; background: rgba(0, 0, 0, 0.7); border: 2px solid #00c805; color: #00c805; padding: 10px 20px; border-radius: 8px; font-family: 'Outfit', sans-serif; font-weight: bold; font-size: 14px; cursor: pointer; backdrop-filter: blur(4px); box-shadow: 0 0 10px rgba(0, 200, 5, 0.3); transition: all 0.2s ease;" onmouseover="this.style.background='rgba(0, 200, 5, 0.15)'" onmouseout="this.style.background='rgba(0, 0, 0, 0.7)'" onclick="closeGameIframe()">Exit to Hub</button>
+  </div>
+
   <div id="game-container"></div>
   <script type="module" src="/src/main.ts"></script>
+
+  <!-- Hub / PostMessage / Bridge Logic -->
+  <script>
+    // Initial Setting values
+    if (!localStorage.getItem('wgf_soundpack')) {
+      localStorage.setItem('wgf_soundpack', 'retro');
+    }
+    if (!localStorage.getItem('wgf_volume')) {
+      localStorage.setItem('wgf_volume', '0.5');
+    }
+
+    // Modal helpers
+    window.toggleModal = function(id, show) {
+      const m = document.getElementById(id);
+      m.style.display = show ? 'flex' : 'none';
+      if (show && id === 'scores-modal') {
+        populateLeaderboard();
+      }
+    }
+
+    document.getElementById('settings-btn').addEventListener('click', () => {
+      toggleModal('settings-modal', true);
+      // Highlight active soundpack button
+      const pack = localStorage.getItem('wgf_soundpack') || 'retro';
+      document.querySelectorAll('.sound-pack-btn').forEach(btn => btn.classList.remove('active'));
+      const activeBtn = document.getElementById('pack-' + pack);
+      if (activeBtn) activeBtn.classList.add('active');
+      
+      const vol = parseFloat(localStorage.getItem('wgf_volume') || '0.5');
+      document.getElementById('volume-slider').value = Math.round(vol * 100);
+    });
+
+    document.getElementById('scores-btn').addEventListener('click', () => {
+      toggleModal('scores-modal', true);
+    });
+
+    window.setSoundPack = function(pack) {
+      localStorage.setItem('wgf_soundpack', pack);
+      document.querySelectorAll('.sound-pack-btn').forEach(btn => btn.classList.remove('active'));
+      document.getElementById('pack-' + pack).classList.add('active');
+    }
+
+    window.updateVolume = function(val) {
+      localStorage.setItem('wgf_volume', (val / 100).toString());
+    }
+
+    // Leaderboard management
+    const GAME_TITLES = {
+      'cyberpunk-runner': 'Cyberpunk Runner',
+      'sci-fi-td': 'Sci-Fi Voxel TD',
+      'minimalist-platformer': 'Minimalist Platformer',
+      'f1-space-invaders': 'F1 Space Invaders',
+      'cosmic-cargo': 'Cosmic Cargo',
+      'contra-bonus': 'Contra Bonus',
+      'asteroid-belt': 'Asteroid Belt',
+      'red-bull-pong': 'Red Bull Pong',
+      'aubreys-realm': "Aubrey's Realm",
+      'voxel-sandbox': 'Voxel Sandbox',
+      '2048': '2048',
+      'clumsy-bird': 'Clumsy Bird',
+      'hextris': 'Hextris',
+      'pac-man': 'Pac-Man'
+    };
+
+    function populateLeaderboard() {
+      const container = document.getElementById('leaderboard-container');
+      container.innerHTML = '';
+      
+      const scores = JSON.parse(localStorage.getItem('wgf_scores') || '{}');
+      
+      Object.keys(GAME_TITLES).forEach(gameId => {
+        const item = document.createElement('div');
+        item.className = 'leaderboard-item';
+        
+        const name = document.createElement('span');
+        name.className = 'leaderboard-name';
+        name.innerText = GAME_TITLES[gameId];
+        
+        const score = document.createElement('span');
+        score.className = 'leaderboard-score';
+        score.innerText = scores[gameId] !== undefined ? Math.round(scores[gameId]).toLocaleString() : 'No Score';
+        
+        item.appendChild(name);
+        item.appendChild(score);
+        container.appendChild(item);
+      });
+    }
+
+    // Fullscreen Overlay controls
+    window.launchGameIframe = function(url) {
+      const overlay = document.getElementById('game-overlay');
+      const iframe = document.getElementById('game-iframe');
+      
+      // Inject standard audio controls query parameters
+      const soundpack = localStorage.getItem('wgf_soundpack') || 'retro';
+      const volume = localStorage.getItem('wgf_volume') || '0.5';
+      const separator = url.includes('?') ? '&' : '?';
+      const fullUrl = `${url}${separator}soundpack=${soundpack}&volume=${volume}`;
+
+      iframe.src = fullUrl;
+      overlay.style.display = 'block';
+    };
+
+    window.closeGameIframe = function() {
+      const overlay = document.getElementById('game-overlay');
+      const iframe = document.getElementById('game-iframe');
+      iframe.src = 'about:blank';
+      overlay.style.display = 'none';
+
+      // Resume Hub cards active blocking inputs if any
+      window.__WGF_HUB_CARD_INPUT_BLOCKED_UNTIL = performance.now() + 500;
+    };
+
+    // postMessage API Receiver
+    window.addEventListener('message', (event) => {
+      if (event.data && event.data.type === 'WGF_SCORE') {
+        const { gameId, score } = event.data;
+        if (!gameId || score === undefined) return;
+        
+        // Save to LocalStorage
+        const scores = JSON.parse(localStorage.getItem('wgf_scores') || '{}');
+        const currentHighScore = scores[gameId] || 0;
+        
+        if (score > currentHighScore) {
+          scores[gameId] = score;
+          localStorage.setItem('wgf_scores', JSON.stringify(scores));
+          
+          // Audio feedback for high score
+          if (window.__WGF_INPUT_RUNTIME) {
+            try {
+              const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+              const osc = audioCtx.createOscillator();
+              const gain = audioCtx.createGain();
+              osc.connect(gain);
+              gain.connect(audioCtx.destination);
+              osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+              osc.frequency.exponentialRampToValueAtTime(1760, audioCtx.currentTime + 0.3);
+              gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
+              gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+              osc.start();
+              osc.stop(audioCtx.currentTime + 0.3);
+            } catch(e){}
+          }
+        }
+      }
+    });
+  </script>
 </body>
 </html>

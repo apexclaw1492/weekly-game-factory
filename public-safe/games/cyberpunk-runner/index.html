@@ -76,10 +76,80 @@
     let buildingsMesh;
     let clock = new THREE.Clock();
     
+    // Sound configuration (read from query parameters)
+    const urlParams = new URLSearchParams(window.location.search);
+    const soundPack = urlParams.get('soundpack') || 'retro';
+    const masterVolume = parseFloat(urlParams.get('volume') || '0.5');
+
+    function playTone(action) {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        const now = audioCtx.currentTime;
+        gain.gain.setValueAtTime(0, now);
+        
+        let duration = 0.15;
+        let volumeScale = masterVolume * 0.08;
+
+        if (soundPack === 'arcade') {
+          osc.type = 'sawtooth';
+          if (action === 'jump') {
+            osc.frequency.setValueAtTime(250, now);
+            osc.frequency.exponentialRampToValueAtTime(800, now + 0.12);
+          } else if (action === 'crash') {
+            osc.frequency.setValueAtTime(400, now);
+            osc.frequency.exponentialRampToValueAtTime(100, now + 0.15);
+          } else if (action === 'tick') {
+            osc.frequency.setValueAtTime(60, now);
+            duration = 0.05;
+          }
+        } else if (soundPack === 'lofi') {
+          osc.type = 'triangle';
+          volumeScale *= 1.5;
+          if (action === 'jump') {
+            osc.frequency.setValueAtTime(329.63, now); // E4
+            osc.frequency.linearRampToValueAtTime(440.00, now + 0.15); // A4
+          } else if (action === 'crash') {
+            osc.frequency.setValueAtTime(220.00, now); // A3
+            osc.frequency.linearRampToValueAtTime(110.00, now + 0.2); // A2
+          } else if (action === 'tick') {
+            osc.frequency.setValueAtTime(100, now);
+            duration = 0.08;
+          }
+        } else {
+          // Retro Synth (default)
+          osc.type = 'square';
+          if (action === 'jump') {
+            osc.frequency.setValueAtTime(440, now);
+            osc.frequency.setValueAtTime(880, now + 0.06);
+          } else if (action === 'crash') {
+            osc.frequency.setValueAtTime(500, now);
+            osc.frequency.setValueAtTime(150, now + 0.08);
+          } else if (action === 'tick') {
+            osc.frequency.setValueAtTime(150, now);
+            duration = 0.05;
+          }
+        }
+
+        gain.gain.linearRampToValueAtTime(volumeScale, now + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+        osc.start(now);
+        osc.stop(now + duration);
+      } catch(e) {}
+    }
+    
     // Particles
     const maxParticles = 30;
     let particleIndex = 0;
     let particleMeshes = [];
+
+    let beatTimer = 0;
 
     function init() {
       // Three.js Setup
@@ -186,12 +256,14 @@
       }
       scene.add(buildingsMesh);
 
-      // Events
       window.addEventListener('keydown', (e) => {
         if (isGameOver) return;
         if ((e.code === 'ArrowLeft' || e.code === 'KeyA') && currentLane > -1) currentLane--;
         if ((e.code === 'ArrowRight' || e.code === 'KeyD') && currentLane < 1) currentLane++;
-        if ((e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') && playerBody.position.y < 1.1) playerBody.velocity.y = 20; // Snappier jump
+        if ((e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') && playerBody.position.y < 1.1) {
+          playerBody.velocity.y = 20; // Snappier jump
+          playTone('jump');
+        }
       });
       
       window.addEventListener('touchstart', (e) => {
@@ -202,6 +274,7 @@
         
         if (touch.clientY < h / 3 && playerBody.position.y < 1.1) {
           playerBody.velocity.y = 20;
+          playTone('jump');
         } else if (touch.clientX < w / 2 && currentLane > -1) {
           currentLane--;
         } else if (touch.clientX > w / 2 && currentLane < 1) {
@@ -277,6 +350,12 @@
       document.querySelector('h1').style.color = "#f00";
       document.querySelector('h1').style.textShadow = "0 0 20px #f00, 0 0 10px #f00";
       document.querySelector('.controls').innerHTML = "Refresh the page to restart.";
+      
+      // Play crash sound
+      playTone('crash');
+
+      // Post score to WGF Hub
+      window.parent.postMessage({ type: 'WGF_SCORE', gameId: 'cyberpunk-runner', score: score }, '*');
     }
 
     let nextSpawn = 0;
@@ -333,6 +412,15 @@
 
         score += dt * SPEED;
         document.getElementById('score').innerText = Math.floor(score);
+        
+        // Play dynamic engine hum ticks
+        beatTimer -= dt;
+        if (beatTimer <= 0) {
+          playTone('tick');
+          // Speed up the tick rate as score increases!
+          const speedFactor = Math.min(1.5, 1.0 + score / 1000);
+          beatTimer = 0.4 / speedFactor;
+        }
       }
 
       playerMesh.position.copy(playerBody.position);

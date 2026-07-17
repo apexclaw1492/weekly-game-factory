@@ -4,6 +4,7 @@ import { LifecycleManager } from '../runtime/LifecycleManager';
 import { ArcadeInputFrame } from '../runtime/ArcadeInputFrame';
 import { InputRuntime } from '../runtime/InputRuntime';
 import { SoundSynth } from '../utils/SoundSynth';
+import { StandardOverlays } from '../utils/StandardOverlays';
 
 export class PongScene extends Phaser.Scene implements GameLifecycle {
   readonly sceneKey = 'PongScene';
@@ -15,7 +16,6 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
   private topPaddle!: Phaser.Physics.Arcade.Sprite;
   private starfield!: Phaser.GameObjects.Graphics;
   private courtGraphics!: Phaser.GameObjects.Graphics;
-  private stars: Array<{ x: number; y: number; speed: number; alpha: number }> = [];
 
   private scorePlayer = 0;
   private scoreAI = 0;
@@ -41,6 +41,7 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
   private stateText!: Phaser.GameObjects.Text;
   private hintText!: Phaser.GameObjects.Text;
   private backBtn!: Phaser.GameObjects.Text;
+  private overlays!: StandardOverlays;
   private overlayBg!: Phaser.GameObjects.Graphics;
   private funFactBox!: Phaser.GameObjects.Container;
   private funFactText!: Phaser.GameObjects.Text;
@@ -74,7 +75,6 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
   }
 
   init() {
-    this.stars = [];
     this.scorePlayer = 0;
     this.scoreAI = 0;
     this.level = 1;
@@ -87,22 +87,14 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
   create() {
     const { width, height } = this.scale;
 
-    // Background Gradient
+    // Background (Solid Black)
     const bgGraphics = this.add.graphics();
-    bgGraphics.fillGradientStyle(0x03020b, 0x03020b, 0x1a0030, 0x1a0030, 1);
+    bgGraphics.fillStyle(0x000000, 1);
     bgGraphics.fillRect(0, 0, width, height);
     bgGraphics.setScrollFactor(0);
 
-    // Starfield
+    // Starfield (empty for Robinhood theme black minimalism)
     this.starfield = this.add.graphics();
-    for (let i = 0; i < 40; i++) {
-      this.stars.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        speed: 0.5 + Math.random() * 1.5,
-        alpha: 0.3 + Math.random() * 0.7
-      });
-    }
 
     // Court Lines
     this.courtGraphics = this.add.graphics();
@@ -111,9 +103,9 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
     // Textures
     if (!this.textures.exists('paddle-red')) {
       const g = this.add.graphics();
-      // Red Bull red (#EE0000) with golden (#FFD700) border
-      g.lineStyle(2, 0xFFD700, 1);
-      g.fillStyle(0xEE0000, 1);
+      // Neon green (#00c805) with white border
+      g.lineStyle(2, 0xffffff, 1);
+      g.fillStyle(0x00c805, 1);
       g.fillRoundedRect(0, 0, 60, 14, 4);
       g.strokeRoundedRect(0, 0, 60, 14, 4);
       g.generateTexture('paddle-red', 60, 14);
@@ -131,7 +123,7 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
 
     if (!this.textures.exists('ball-glow')) {
       const g = this.add.graphics();
-      g.fillStyle(0xff0000, 0.3);
+      g.fillStyle(0x00c805, 0.3);
       g.fillCircle(8, 8, 8);
       g.generateTexture('ball-glow', 16, 16);
       g.destroy();
@@ -154,6 +146,8 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
     (this.bottomPaddle.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
     (this.topPaddle.body as Phaser.Physics.Arcade.Body).setImmovable(true);
     (this.topPaddle.body as Phaser.Physics.Arcade.Body).setAllowGravity(false);
+
+    this.updatePaddleScales();
 
     // Ball
     this.ball = this.physics.add.sprite(width / 2, height / 2, 'ball');
@@ -187,42 +181,43 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
     // HUD
     this.scoreText = this.add.text(width / 2, 40, 'PLAYER 0 - AI 0', {
       fontSize: '28px',
-      fontFamily: 'monospace',
-      color: '#FFD700',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#ffffff',
       fontStyle: 'bold'
     }).setOrigin(0.5, 0).setScrollFactor(0);
 
     this.levelText = this.add.text(20, 20, 'GRAND PRIX ROUND 1', {
       fontSize: '18px',
-      fontFamily: 'monospace',
-      color: '#FFD700'
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#8e8e93'
     }).setScrollFactor(0);
 
     this.livesText = this.add.text(width - 20, 20, 'LIVES: ❤️ ❤️ ❤️', {
       fontSize: '18px',
-      fontFamily: 'monospace',
-      color: '#FFD700'
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#00c805'
     }).setOrigin(1, 0).setScrollFactor(0);
 
     this.stateText = this.add.text(width / 2, height / 2 - 50, 'RED BULL PONG CHAMPIONSHIP', {
       fontSize: '32px',
-      fontFamily: 'monospace',
-      color: '#EE0000',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#00c805',
       fontStyle: 'bold',
       align: 'center'
     }).setOrigin(0.5).setScrollFactor(0);
+    this.stateText.setShadow(0, 0, '#00c805', 8, true, true);
 
     this.hintText = this.add.text(width / 2, height / 2 + 50, 'TAP TO START\n\nDRAG ON BOTTOM HALF TO MOVE\nARROWS LEFT/RIGHT ON DESKTOP', {
       fontSize: '16px',
-      fontFamily: 'monospace',
+      fontFamily: "'Outfit', system-ui, sans-serif",
       color: '#ffffff',
       align: 'center'
     }).setOrigin(0.5).setScrollFactor(0);
 
     this.backBtn = this.add.text(20, 4, '<- BACK TO HUB', {
       fontSize: '16px',
-      fontFamily: 'monospace',
-      color: '#ff4444',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#8e8e93',
       fontStyle: 'bold'
     }).setOrigin(0, 0.5).setScrollFactor(0);
 
@@ -268,6 +263,7 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
     }).setOrigin(0.5);
     this.funFactBox.add(tapContinue);
 
+    this.overlays = new StandardOverlays(this);
     const runtime = (window as any).__WGF_INPUT_RUNTIME as InputRuntime;
     this.lifecycleManager = new LifecycleManager(this, runtime);
 
@@ -284,12 +280,12 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
     this.courtGraphics.clear();
     
     // Side boundaries (gutters)
-    this.courtGraphics.lineStyle(4, 0xFFD700, 0.5);
+    this.courtGraphics.lineStyle(4, 0x00c805, 0.5);
     this.courtGraphics.lineBetween(10, 0, 10, height);
     this.courtGraphics.lineBetween(width - 10, 0, width - 10, height);
 
     // Dashed center line (horizontal)
-    this.courtGraphics.lineStyle(2, 0xFFD700, 0.3);
+    this.courtGraphics.lineStyle(2, 0x00c805, 0.3);
     const dashLength = 10;
     const gapLength = 10;
     for (let x = 10; x < width - 10; x += dashLength + gapLength) {
@@ -316,22 +312,14 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
     this.funFactBox.setPosition(width / 2, height / 2);
 
     this.physics.world.setBounds(20, 0, width - 40, height);
+    this.updatePaddleScales();
   }
 
   update(time: number) {
     const { width, height } = this.scale;
 
-    // Starfield animation
+    // Starfield animation (disabled for Robinhood theme)
     this.starfield.clear();
-    this.stars.forEach(star => {
-      star.y += star.speed;
-      if (star.y > height) {
-        star.y = 0;
-        star.x = Math.random() * width;
-      }
-      this.starfield.fillStyle(0xffffff, star.alpha);
-      this.starfield.fillRect(star.x, star.y, 1.5, 1.5);
-    });
 
     if (!this.lifecycleManager) return;
     const state = this.lifecycleManager.update(time);
@@ -347,7 +335,8 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
     
     if (isTouching && pointer.y > height / 2) {
       // Touch mode: move paddle to follow finger X position
-      this.bottomPaddle.x = Phaser.Math.Clamp(pointer.x, 30, width - 30);
+      const halfWidth = this.bottomPaddle.displayWidth / 2;
+      this.bottomPaddle.x = Phaser.Math.Clamp(pointer.x, halfWidth, width - halfWidth);
       this.bottomPaddle.setVelocityX(0);
     } else {
       // Keyboard mode: ArrowLeft / ArrowRight with smooth velocity
@@ -371,9 +360,29 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
     }
   }
 
+  private getDynamicPaddleScale(): number {
+    const { width, height } = this.scale;
+    const aspectRatio = width / height;
+    return aspectRatio > 0.6 ? Math.min(1.8, aspectRatio / 0.6) : 1.0;
+  }
+
+  private updatePaddleScales() {
+    const aspectScale = this.getDynamicPaddleScale();
+    
+    // Player paddle
+    this.bottomPaddle.setScale(aspectScale, 1);
+    (this.bottomPaddle.body as Phaser.Physics.Arcade.Body).setSize(this.bottomPaddle.displayWidth, 14);
+    
+    // AI paddle level factor
+    const aiLevelFactor = Math.max(0.6, 1 - (this.level - 1) * 0.05);
+    const aiScaleX = aspectScale * aiLevelFactor;
+    this.topPaddle.setScale(aiScaleX, 1);
+    (this.topPaddle.body as Phaser.Physics.Arcade.Body).setSize(this.topPaddle.displayWidth, 14);
+  }
+
   private updateAI(time: number) {
     const { width } = this.scale;
-    const delay = Math.max(40, this.aiReactionDelay - (this.level * 40));
+    const delay = Math.max(120, this.aiReactionDelay - (this.level * 40));
     const speed = this.aiBaseSpeed + (this.level * 20);
     
     if (time - this.lastAiUpdateTime > delay) {
@@ -386,7 +395,7 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
         let predictedX = this.ball.x + (ballBody.velocity.x * timeToHit);
         
         // Clamp prediction within playable bounds to account for wall bounces
-        const margin = 30;
+        const margin = this.topPaddle.displayWidth / 2;
         if (predictedX < margin) predictedX = margin;
         if (predictedX > width - margin) predictedX = width - margin;
         
@@ -397,7 +406,8 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
       }
 
       // AI error reduces with level (better accuracy), but remains beatable
-      const errorRange = Math.max(8, 70 - (this.level * 6));
+      const speedRatio = this.ballSpeed / this.ballInitialSpeed;
+      const errorRange = Math.max(8, 70 - (this.level * 6)) * speedRatio;
       this.aiError = (Math.random() - 0.5) * errorRange;
       this.lastAiUpdateTime = time;
     }
@@ -515,8 +525,6 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
 
   private setWon() {
     this.lifecycleState = 'levelComplete';
-    this.overlayBg.setVisible(true);
-    this.funFactBox.setVisible(true);
     
     let factIndex;
     if (this.usedFunFacts.size >= this.funFacts.length) {
@@ -528,34 +536,49 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
     } while (this.usedFunFacts.has(factIndex));
     
     this.usedFunFacts.add(factIndex);
-    this.funFactText.setText(this.funFacts[factIndex]);
+    const fact = this.funFacts[factIndex];
     
     SoundSynth.playLevelUp();
+
+    this.overlays.showVictory(
+      'SET WON!',
+      fact,
+      () => this.startGameplay(),
+      () => this.returnToHub()
+    );
   }
 
   private gameOver() {
     this.lifecycleState = 'gameOver';
-    this.stateText.setText('GAME OVER').setVisible(true);
-    this.hintText.setText('FINAL SCORE: ' + this.scorePlayer + '\nTAP TO RESTART').setVisible(true);
     this.ball.setVelocity(0, 0);
+    this.overlays.showGameOver(
+      this.scorePlayer,
+      () => this.resetGameplay(),
+      () => this.returnToHub()
+    );
   }
 
   private victory() {
     this.lifecycleState = 'gameOver'; // Use gameOver state for victory screen pattern
-    this.stateText.setText('WORLD CHAMPION!').setColor('#FFD700').setVisible(true);
-    this.hintText.setText('YOU BEAT ALL 10 ROUNDS!\nTAP TO PLAY AGAIN').setVisible(true);
     this.ball.setVelocity(0, 0);
     SoundSynth.playLevelUp();
+    this.overlays.showVictory(
+      'WORLD CHAMPION!',
+      'YOU BEAT ALL 10 ROUNDS!',
+      () => this.resetGameplay(),
+      () => this.returnToHub()
+    );
   }
 
   // GameLifecycle implementation
   public showStart(): void {
     this.lifecycleState = 'start';
-    this.stateText.setVisible(true).setText('RED BULL PONG CHAMPIONSHIP');
+    this.stateText.setVisible(true).setText('RED BULL PONG CHAMPIONSHIP').setColor('#00c805');
     this.hintText.setVisible(true).setText('TAP TO START\n\nDRAG ON BOTTOM HALF TO MOVE\nARROWS LEFT/RIGHT ON DESKTOP');
     this.overlayBg.setVisible(false);
     this.funFactBox.setVisible(false);
     this.ball.setVisible(false);
+    this.overlays.clear();
   }
 
   public startGameplay(): void {
@@ -570,7 +593,7 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
       this.scoreText.setText(`PLAYER ${this.scorePlayer} - AI ${this.scoreAI}`);
       this.levelText.setText(`GRAND PRIX ROUND ${this.level}`);
       // Scale AI difficulty (shrink paddle width)
-      this.topPaddle.setScale(Math.max(0.6, 1 - (this.level - 1) * 0.05), 1);
+      this.updatePaddleScales();
     }
     
     this.lifecycleState = 'playing';
@@ -580,22 +603,29 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
     this.funFactBox.setVisible(false);
     this.ball.setVisible(true);
     this.resetBall(true);
+    this.overlays.clear();
   }
 
   public pauseGameplay(): void {
     this.lifecycleState = 'paused';
+    this.overlays.showPause(
+      () => this.resumeGameplay(),
+      () => this.returnToHub()
+    );
   }
 
   public resumeGameplay(): void {
     this.lifecycleState = 'playing';
+    this.overlays.clear();
   }
 
   public resetGameplay(): void {
+    this.overlays.clear();
     this.init();
     this.updateLivesDisplay();
     this.scoreText.setText('PLAYER 0 - AI 0');
     this.levelText.setText('GRAND PRIX ROUND 1');
-    this.topPaddle.setScale(1, 1);
+    this.updatePaddleScales();
     this.showStart();
   }
 
@@ -609,7 +639,6 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
   }
 
   public destroySceneResources(): void {
-    this.stars = [];
   }
 
   public getGameplayStateForQA() {

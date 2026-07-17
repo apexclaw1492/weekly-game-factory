@@ -1,0 +1,603 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>Voxel Sandbox</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: #0d0e15;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      color: #fff;
+    }
+    #ui {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      z-index: 10;
+      pointer-events: none;
+      background: rgba(10, 10, 20, 0.7);
+      border: 2px solid #00c805;
+      padding: 15px 25px;
+      border-radius: 12px;
+      backdrop-filter: blur(8px);
+      box-shadow: 0 0 20px rgba(0, 200, 5, 0.2);
+    }
+    h1 {
+      margin: 0;
+      font-size: 24px;
+      color: #00c805;
+      text-shadow: 0 0 8px rgba(0, 200, 5, 0.4);
+      letter-spacing: 1px;
+      text-transform: uppercase;
+    }
+    p {
+      margin: 8px 0 0 0;
+      font-size: 13px;
+      color: #8e8e93;
+    }
+    /* Material Palette UI */
+    #palette {
+      position: absolute;
+      bottom: 30px;
+      left: 50%;
+      transform: translateX(-50%);
+      display: flex;
+      gap: 12px;
+      background: rgba(10, 10, 20, 0.85);
+      padding: 12px 20px;
+      border-radius: 16px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      z-index: 100;
+      box-shadow: 0 10px 35px rgba(0,0,0,0.5);
+      pointer-events: auto;
+    }
+    .palette-item {
+      width: 48px;
+      height: 48px;
+      border-radius: 8px;
+      cursor: pointer;
+      border: 3px solid transparent;
+      transition: all 0.15s ease;
+      position: relative;
+    }
+    .palette-item.active {
+      border-color: #00c805;
+      transform: scale(1.1) translateY(-4px);
+      box-shadow: 0 5px 15px rgba(0, 200, 5, 0.4);
+    }
+    .palette-item::after {
+      content: attr(data-name);
+      position: absolute;
+      bottom: -22px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 9px;
+      color: #aaa;
+      white-space: nowrap;
+      text-shadow: 0 1px 2px #000;
+    }
+    /* Mode Toggle */
+    #mode-toggle {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      z-index: 100;
+      background: rgba(10, 10, 20, 0.8);
+      border: 2px solid #00c805;
+      border-radius: 8px;
+      color: #00c805;
+      padding: 10px 18px;
+      font-weight: bold;
+      font-size: 14px;
+      cursor: pointer;
+      backdrop-filter: blur(4px);
+      transition: all 0.2s ease;
+      pointer-events: auto;
+    }
+    #mode-toggle.delete-mode {
+      border-color: #ff3b30;
+      color: #ff3b30;
+    }
+    /* Dev notes */
+    #dev-notes {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      background: rgba(10, 10, 20, 0.9);
+      border-top: 2px solid #00c805;
+      padding: 15px;
+      box-sizing: border-box;
+      z-index: 1000;
+      transition: transform 0.3s ease;
+      transform: translateY(calc(100% - 40px));
+    }
+    #dev-notes.open {
+      transform: translateY(0);
+    }
+    .toggle-btn {
+      background: #00c805;
+      color: #000;
+      border: none;
+      padding: 5px 15px;
+      font-weight: bold;
+      cursor: pointer;
+      display: block;
+      margin-bottom: 10px;
+      border-radius: 4px;
+    }
+    .notes-content {
+      max-height: 200px;
+      overflow-y: auto;
+      font-size: 13px;
+      line-height: 1.5;
+      color: #ccc;
+      pointer-events: auto;
+    }
+    .notes-content code {
+      background: #222;
+      color: #00c805;
+      padding: 2px 4px;
+      border-radius: 3px;
+    }
+  </style>
+</head>
+<body>
+  <div id="ui">
+    <h1>VOXEL SANDBOX</h1>
+    <p>Blocks Placed: <span id="blocks-count">0</span> | Mode: <span id="mode-text" style="color: #00c805; font-weight: bold;">PLACE</span></p>
+    <div style="font-size:11px; color:#666; margin-top:5px;">Rotate: Left Click + Drag | Pan: Right Click + Drag | Zoom: Scroll</div>
+  </div>
+
+  <button id="mode-toggle">Mode: PLACE</button>
+
+  <div id="palette">
+    <div class="palette-item active" style="background: #4caf50;" data-type="grass" data-name="Grass"></div>
+    <div class="palette-item" style="background: #9e9e9e;" data-type="stone" data-name="Stone"></div>
+    <div class="palette-item" style="background: #795548;" data-type="wood" data-name="Wood"></div>
+    <div class="palette-item" style="background: #00ffff; box-shadow: 0 0 10px #00ffff;" data-type="neon" data-name="Neon"></div>
+    <div class="palette-item" style="background: rgba(33, 150, 243, 0.7);" data-type="water" data-name="Water"></div>
+  </div>
+
+  <div id="dev-notes">
+    <button class="toggle-btn" onclick="document.getElementById('dev-notes').classList.toggle('open')">Developer Notes</button>
+    <div class="notes-content">
+      <p><strong>Technical Stack:</strong> Three.js + Raycasting + Web Audio Synthesizer.</p>
+      <ul>
+        <li><strong>Voxel Raycasting:</strong> Intersects the grid and placed cubes using the normalized grid normals to append/remove geometric meshes dynamically.</li>
+        <li><strong>Dynamic Materials:</strong> Incorporates a mix of Standard, Emissive, and Translucent materials with shadow mapping enabled for high fidelity.</li>
+        <li><strong>Local Persistence:</strong> Automatically serializes the layout coordinates and colors of the blocks in <code>localStorage</code> so worlds persist across reloads.</li>
+        <li><strong>Interactive Audio Synth:</strong> Generates satisfying sound sweeps on placements and block breaking by dynamically generating frequency envelopes.</li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Three.js and OrbitControls -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  
+  <script>
+    // Config and materials
+    const BLOCK_SIZE = 1;
+    const GRID_SIZE = 20;
+
+    let scene, camera, renderer, controls;
+    let plane;
+    let raycaster, mouse;
+    let currentMaterialType = 'grass';
+    let buildMode = 'place'; // 'place' or 'delete'
+    let blocks = []; // Array of mesh objects
+    let blocksCount = 0;
+    
+    // Particle system variables
+    let particleGeometry, particleSystem;
+    const maxParticles = 100;
+    let activeParticles = [];
+
+    // Sound configuration (read from query parameters)
+    const urlParams = new URLSearchParams(window.location.search);
+    const soundPack = urlParams.get('soundpack') || 'retro';
+    const masterVolume = parseFloat(urlParams.get('volume') || '0.5');
+
+    const MATERIALS = {
+      grass: new THREE.MeshStandardMaterial({ color: 0x4caf50, roughness: 0.6 }),
+      stone: new THREE.MeshStandardMaterial({ color: 0x9e9e9e, roughness: 0.8 }),
+      wood: new THREE.MeshStandardMaterial({ color: 0x795548, roughness: 0.7 }),
+      neon: new THREE.MeshStandardMaterial({ color: 0x000000, emissive: 0x00ffff, emissiveIntensity: 2.0 }),
+      water: new THREE.MeshPhysicalMaterial({
+        color: 0x2196f3,
+        roughness: 0.1,
+        transmission: 0.6,
+        thickness: 0.5,
+        transparent: true,
+        opacity: 0.8
+      })
+    };
+
+    function init() {
+      // Scene
+      scene = new THREE.Scene();
+      scene.background = new THREE.Color(0x0d0e15);
+      scene.fog = new THREE.Fog(0x0d0e15, 15, 60);
+
+      // Camera
+      camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
+      camera.position.set(15, 15, 25);
+
+      // Renderer
+      renderer = new THREE.WebGLRenderer({ antialias: true });
+      renderer.setSize(window.innerWidth, window.innerHeight);
+      renderer.shadowMap.enabled = true;
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+      document.body.appendChild(renderer.domElement);
+
+      // Controls
+      controls = new THREE.OrbitControls(camera, renderer.domElement);
+      controls.target.set(0, 0, 0);
+      controls.update();
+
+      // Lighting
+      const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+      scene.add(ambientLight);
+
+      const hemiLight = new THREE.HemisphereLight(0xffffff, 0x111122, 0.4);
+      scene.add(hemiLight);
+
+      const dirLight = new THREE.DirectionalLight(0xffeedd, 0.8);
+      dirLight.position.set(10, 20, 10);
+      dirLight.castShadow = true;
+      dirLight.shadow.mapSize.width = 1024;
+      dirLight.shadow.mapSize.height = 1024;
+      dirLight.shadow.camera.near = 0.5;
+      dirLight.shadow.camera.far = 40;
+      dirLight.shadow.camera.left = -15;
+      dirLight.shadow.camera.right = 15;
+      dirLight.shadow.camera.top = 15;
+      dirLight.shadow.camera.bottom = -15;
+      dirLight.shadow.bias = -0.0005;
+      scene.add(dirLight);
+
+      // Grid helper
+      const grid = new THREE.GridHelper(GRID_SIZE, GRID_SIZE, 0x00c805, 0x222233);
+      grid.position.y = -0.5;
+      scene.add(grid);
+
+      // Invisible plane for raycasting when no blocks exist
+      const planeGeo = new THREE.PlaneGeometry(GRID_SIZE, GRID_SIZE);
+      planeGeo.rotateX(-Math.PI / 2);
+      plane = new THREE.Mesh(planeGeo, new THREE.MeshBasicMaterial({ visible: false }));
+      plane.position.y = -0.5;
+      scene.add(plane);
+
+      // Raycaster & Mouse
+      raycaster = new THREE.Raycaster();
+      mouse = new THREE.Vector2();
+
+      // Setup placement particle systems
+      setupParticles();
+
+      // Load saved blocks from localStorage
+      loadWorld();
+
+      // Resize listener
+      window.addEventListener('resize', onWindowResize);
+
+      // Mouse/Pointer placement listeners
+      window.addEventListener('pointerdown', onPointerDown);
+
+      // Setup palette selectors
+      document.querySelectorAll('.palette-item').forEach(item => {
+        item.addEventListener('click', (e) => {
+          document.querySelectorAll('.palette-item').forEach(p => p.classList.remove('active'));
+          item.classList.add('active');
+          currentMaterialType = item.getAttribute('data-type');
+          // Automatically switch back to place mode when picking a material
+          setMode('place');
+        });
+      });
+
+      // Toggle Mode listener
+      const toggleBtn = document.getElementById('mode-toggle');
+      toggleBtn.addEventListener('click', () => {
+        setMode(buildMode === 'place' ? 'delete' : 'place');
+      });
+
+      // Bind shift/meta keys to toggle delete mode easily
+      window.addEventListener('keydown', (e) => {
+        if (e.shiftKey || e.code === 'KeyX') {
+          setMode('delete');
+        }
+      });
+      window.addEventListener('keyup', (e) => {
+        if (!e.shiftKey && e.code !== 'KeyX') {
+          setMode('place');
+        }
+      });
+
+      animate();
+    }
+
+    function setMode(mode) {
+      buildMode = mode;
+      const toggleBtn = document.getElementById('mode-toggle');
+      const textSpan = document.getElementById('mode-text');
+      
+      if (mode === 'delete') {
+        toggleBtn.innerText = 'Mode: REMOVE';
+        toggleBtn.classList.add('delete-mode');
+        textSpan.innerText = 'REMOVE';
+        textSpan.style.color = '#ff3b30';
+      } else {
+        toggleBtn.innerText = 'Mode: PLACE';
+        toggleBtn.classList.remove('delete-mode');
+        textSpan.innerText = 'PLACE';
+        textSpan.style.color = '#00c805';
+      }
+    }
+
+    function setupParticles() {
+      particleGeometry = new THREE.BufferGeometry();
+      const positions = new Float32Array(maxParticles * 3);
+      const colors = new Float32Array(maxParticles * 3);
+      particleGeometry.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+      particleGeometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+      const mat = new THREE.PointsMaterial({
+        size: 0.15,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.8
+      });
+
+      particleSystem = new THREE.Points(particleGeometry, mat);
+      scene.add(particleSystem);
+    }
+
+    function triggerParticles(position, colorHex) {
+      const positions = particleGeometry.attributes.position.array;
+      const colors = particleGeometry.attributes.color.array;
+      const color = new THREE.Color(colorHex);
+
+      for (let i = 0; i < 15; i++) {
+        // Spawn particles
+        const pIdx = activeParticles.length;
+        if (pIdx >= maxParticles) break;
+
+        const vx = (Math.random() - 0.5) * 1.5;
+        const vy = Math.random() * 2 + 0.5;
+        const vz = (Math.random() - 0.5) * 1.5;
+
+        activeParticles.push({
+          pos: new THREE.Vector3(position.x, position.y, position.z),
+          vel: new THREE.Vector3(vx, vy, vz),
+          life: 0.6,
+          idx: pIdx
+        });
+
+        positions[pIdx * 3] = position.x;
+        positions[pIdx * 3 + 1] = position.y;
+        positions[pIdx * 3 + 2] = position.z;
+
+        colors[pIdx * 3] = color.r;
+        colors[pIdx * 3 + 1] = color.g;
+        colors[pIdx * 3 + 2] = color.b;
+      }
+      particleGeometry.attributes.position.needsUpdate = true;
+      particleGeometry.attributes.color.needsUpdate = true;
+    }
+
+    function updateParticles(dt) {
+      const positions = particleGeometry.attributes.position.array;
+      for (let i = activeParticles.length - 1; i >= 0; i--) {
+        const p = activeParticles[i];
+        p.life -= dt;
+        if (p.life <= 0) {
+          activeParticles.splice(i, 1);
+          positions[p.idx * 3] = 9999;
+          positions[p.idx * 3 + 1] = 9999;
+          positions[p.idx * 3 + 2] = 9999;
+          continue;
+        }
+        p.pos.addScaledVector(p.vel, dt);
+        p.vel.y -= 9.8 * dt; // gravity
+
+        positions[p.idx * 3] = p.pos.x;
+        positions[p.idx * 3 + 1] = p.pos.y;
+        positions[p.idx * 3 + 2] = p.pos.z;
+      }
+      particleGeometry.attributes.position.needsUpdate = true;
+    }
+
+    // Audio synthesizer helper
+    function playTone(action) {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gain = audioCtx.createGain();
+
+        osc.connect(gain);
+        gain.connect(audioCtx.destination);
+
+        const now = audioCtx.currentTime;
+        gain.gain.setValueAtTime(0, now);
+        
+        let duration = 0.15;
+        let volumeScale = masterVolume * 0.1;
+
+        if (soundPack === 'arcade') {
+          osc.type = 'sawtooth';
+          if (action === 'place') {
+            osc.frequency.setValueAtTime(300, now);
+            osc.frequency.exponentialRampToValueAtTime(600, now + 0.12);
+          } else {
+            osc.frequency.setValueAtTime(500, now);
+            osc.frequency.exponentialRampToValueAtTime(150, now + 0.15);
+          }
+        } else if (soundPack === 'lofi') {
+          osc.type = 'triangle';
+          volumeScale *= 1.5; // Triangle is softer
+          if (action === 'place') {
+            osc.frequency.setValueAtTime(261.63, now); // C4
+            osc.frequency.linearRampToValueAtTime(329.63, now + 0.15); // E4
+          } else {
+            osc.frequency.setValueAtTime(392.00, now); // G4
+            osc.frequency.linearRampToValueAtTime(220.00, now + 0.18); // A3
+          }
+        } else {
+          // Retro Synth
+          osc.type = 'square';
+          if (action === 'place') {
+            osc.frequency.setValueAtTime(440, now);
+            osc.frequency.setValueAtTime(880, now + 0.06);
+          } else {
+            osc.frequency.setValueAtTime(600, now);
+            osc.frequency.setValueAtTime(200, now + 0.08);
+          }
+        }
+
+        gain.gain.linearRampToValueAtTime(volumeScale, now + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + duration);
+
+        osc.start(now);
+        osc.stop(now + duration);
+      } catch(e) {}
+    }
+
+    function onPointerDown(event) {
+      // Ignore click on UI
+      if (event.clientY > window.innerHeight - 100 && event.clientX > window.innerWidth / 2 - 150 && event.clientX < window.innerWidth / 2 + 150) return;
+      if (event.clientX > window.innerWidth - 150 && event.clientY < 80) return;
+      if (event.clientX < 200 && event.clientY < 120) return;
+
+      // Only respond to main clicks or touch downs
+      if (event.button !== 0 && event.type !== 'touchstart') return;
+
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      raycaster.setFromCamera(mouse, camera);
+
+      // Collect target objects
+      const targets = [plane, ...blocks];
+      const intersects = raycaster.intersectObjects(targets);
+
+      if (intersects.length > 0) {
+        const intersect = intersects[0];
+
+        if (buildMode === 'place') {
+          // Calculate grid placement coordinates
+          const position = new THREE.Vector3();
+          position.copy(intersect.point).add(intersect.face.normal);
+          position.divideScalar(BLOCK_SIZE).floor().multiplyScalar(BLOCK_SIZE).addScalar(BLOCK_SIZE / 2);
+          
+          // Prevent placing out of bounds
+          if (Math.abs(position.x) > GRID_SIZE / 2 || Math.abs(position.z) > GRID_SIZE / 2 || position.y < 0) return;
+
+          // Double check if space is already occupied
+          const occupied = blocks.some(b => b.position.distanceTo(position) < 0.1);
+          if (occupied) return;
+
+          // Create block mesh
+          const cubeGeo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+          const cube = new THREE.Mesh(cubeGeo, MATERIALS[currentMaterialType]);
+          cube.position.copy(position);
+          cube.castShadow = true;
+          cube.receiveShadow = true;
+          cube.userData = { materialType: currentMaterialType };
+          
+          scene.add(cube);
+          blocks.push(cube);
+
+          blocksCount++;
+          document.getElementById('blocks-count').innerText = blocksCount;
+
+          // Spark particles
+          const hex = MATERIALS[currentMaterialType].color ? MATERIALS[currentMaterialType].color.getHex() : 0x00ffff;
+          triggerParticles(position, hex);
+
+          // Audio
+          playTone('place');
+
+          // Save state
+          saveWorld();
+
+          // Report score to WGF Hub (every blocks placed increase highscore)
+          window.parent.postMessage({ type: 'WGF_SCORE', gameId: 'voxel-sandbox', score: blocksCount }, '*');
+
+        } else if (buildMode === 'delete') {
+          // If clicked block, remove it
+          if (intersect.object !== plane) {
+            scene.remove(intersect.object);
+            const idx = blocks.indexOf(intersect.object);
+            if (idx > -1) {
+              blocks.splice(idx, 1);
+            }
+
+            // Explosion particles
+            const hex = intersect.object.userData.materialType ? MATERIALS[intersect.object.userData.materialType].color.getHex() : 0xff3b30;
+            triggerParticles(intersect.object.position, hex);
+
+            // Audio
+            playTone('delete');
+
+            // Save state
+            saveWorld();
+          }
+        }
+      }
+    }
+
+    function saveWorld() {
+      const data = blocks.map(b => ({
+        x: b.position.x,
+        y: b.position.y,
+        z: b.position.z,
+        type: b.userData.materialType
+      }));
+      localStorage.setItem('wgf_voxel_world', JSON.stringify(data));
+    }
+
+    function loadWorld() {
+      const dataStr = localStorage.getItem('wgf_voxel_world');
+      if (!dataStr) return;
+      try {
+        const data = JSON.parse(dataStr);
+        data.forEach(item => {
+          const cubeGeo = new THREE.BoxGeometry(BLOCK_SIZE, BLOCK_SIZE, BLOCK_SIZE);
+          const cube = new THREE.Mesh(cubeGeo, MATERIALS[item.type] || MATERIALS.grass);
+          cube.position.set(item.x, item.y, item.z);
+          cube.castShadow = true;
+          cube.receiveShadow = true;
+          cube.userData = { materialType: item.type };
+
+          scene.add(cube);
+          blocks.push(cube);
+        });
+        blocksCount = blocks.length;
+        document.getElementById('blocks-count').innerText = blocksCount;
+      } catch(e) {
+        console.error('Failed to load world', e);
+      }
+    }
+
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const dt = clock.getDelta();
+      
+      updateParticles(dt);
+      renderer.render(scene, camera);
+    }
+
+    init();
+  </script>
+</body>
+</html>

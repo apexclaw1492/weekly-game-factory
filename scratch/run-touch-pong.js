@@ -92,8 +92,8 @@ async function run() {
     await page.touchscreen.tap(195, 700);
     await delay(1000);
     
-    // Tap the Pong card in the Hub. It is the fifth native card.
-    await page.touchscreen.tap(195, 493);
+    // Tap the Pong card in the Hub. It is the eighth card (index 7).
+    await page.touchscreen.tap(195, 754);
     await delay(1000);
     
     // Tap to start the game from 'start' state

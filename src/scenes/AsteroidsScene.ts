@@ -5,6 +5,7 @@ import { GameLifecycle, LifecycleState } from "../runtime/GameLifecycle";
 import { LifecycleManager } from "../runtime/LifecycleManager";
 import { ArcadeInputFrame } from "../runtime/ArcadeInputFrame";
 import { InputRuntime } from "../runtime/InputRuntime";
+import { StandardOverlays } from '../utils/StandardOverlays';
 
 export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
   readonly sceneKey = "AsteroidsScene";
@@ -51,16 +52,15 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
   private hintText!: Phaser.GameObjects.Text;
   private backBtn!: Phaser.GameObjects.Text;
   private backHitZone!: Phaser.GameObjects.Zone;
+  private overlays!: StandardOverlays;
 
   private starfield!: Phaser.GameObjects.Graphics;
-  private stars: Array<{ x: number; y: number; speed: number; alpha: number }> = [];
 
   constructor() {
     super('AsteroidsScene');
   }
 
   init() {
-    this.stars = [];
     this.score = 0;
     this.lives = 3;
     this.level = 1;
@@ -87,16 +87,8 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
   create() {
     const { width, height } = this.scale;
 
-    // 1. Scrolling star background
+    // 1. Scrolling star background (empty for Robinhood black minimalism)
     this.starfield = this.add.graphics();
-    for (let i = 0; i < 60; i++) {
-      this.stars.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        speed: 0.2 + Math.random() * 0.4,
-        alpha: 0.3 + Math.random() * 0.6
-      });
-    }
 
     // 2. Generate textures programmatically
     this.createGameTextures();
@@ -131,34 +123,34 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
     this.physics.add.overlap(this.ship, this.saucers, this.hitShip, undefined, this);
     this.physics.add.overlap(this.ship, this.saucerBullets, this.hitShip, undefined, this);
 
-    // 6. Shared Input Runtime
     const runtime = (window as any).__WGF_INPUT_RUNTIME as InputRuntime;
     if (runtime) {
       runtime.blockHubInputUntil(performance.now() + 100);
     }
+    this.overlays = new StandardOverlays(this);
     this.lifecycleManager = new LifecycleManager(this, runtime);
 
     // 7. HUD setup
-    this.scoreText = this.add.text(20, 20, 'SCORE: 0', { fontSize: '16px', fontFamily: 'monospace', color: '#00ccff' });
-    this.hiText = this.add.text(20, 42, `HI: ${this.hiScore}`, { fontSize: '11px', fontFamily: 'monospace', color: '#6666aa' });
-    this.levelText = this.add.text(width - 20, 20, 'LVL 1', { fontSize: '15px', fontFamily: 'monospace', color: '#8888a0' }).setOrigin(1, 0);
-    this.livesText = this.add.text(20, 60, '▲ ▲ ▲', { fontSize: '14px', fontFamily: 'monospace', color: '#00ccff' });
+    this.scoreText = this.add.text(20, 20, 'SCORE: 0', { fontSize: '16px', fontFamily: "'Outfit', system-ui, sans-serif", color: '#ffffff' });
+    this.hiText = this.add.text(20, 42, `HI: ${this.hiScore}`, { fontSize: '11px', fontFamily: "'Outfit', system-ui, sans-serif", color: '#8e8e93' });
+    this.levelText = this.add.text(width - 20, 20, 'LVL 1', { fontSize: '15px', fontFamily: "'Outfit', system-ui, sans-serif", color: '#8e8e93' }).setOrigin(1, 0);
+    this.livesText = this.add.text(20, 60, '▲ ▲ ▲', { fontSize: '14px', fontFamily: "'Outfit', system-ui, sans-serif", color: '#00c805' });
     
-    this.comboText = this.add.text(width / 2, 20, '', { fontSize: '14px', fontFamily: 'monospace', color: '#ffcc00', fontStyle: 'bold' }).setOrigin(0.5, 0);
+    this.comboText = this.add.text(width / 2, 20, '', { fontSize: '14px', fontFamily: "'Outfit', system-ui, sans-serif", color: '#00c805', fontStyle: 'bold' }).setOrigin(0.5, 0);
 
     // Overlay Game States
     this.stateText = this.add.text(width / 2, height / 2 - 60, 'ASTEROID BELT', {
       fontSize: '32px',
-      fontFamily: 'monospace',
-      color: '#00ccff',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#00c805',
       fontStyle: 'bold'
     }).setOrigin(0.5);
-    this.stateText.setShadow(0, 0, '#00ccff', 10, true, true);
+    this.stateText.setShadow(0, 0, '#00c805', 10, true, true);
 
     this.hintText = this.add.text(width / 2, height / 2 + 10, '', {
       fontSize: '13px',
-      fontFamily: 'monospace',
-      color: '#8888a0',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#8e8e93',
       align: 'center'
     }).setOrigin(0.5);
     this.showStart();
@@ -166,8 +158,8 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
     // Back to Hub Button
     this.backBtn = this.add.text(20, 20, '← BACK TO HUB', {
       fontSize: '14px',
-      fontFamily: 'monospace',
-      color: '#ff4444',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#8e8e93',
       fontStyle: 'bold'
     }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
 
@@ -214,10 +206,6 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
 
     // Update starfield
     this.starfield.clear();
-    this.stars.forEach(star => {
-      star.x = Math.random() * width;
-      star.y = Math.random() * height;
-    });
 
     // Center ship if waiting to start
     if (this.isWaitingToStart && this.ship) {
@@ -226,20 +214,10 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
   }
 
   update() {
-    const { width, height } = this.scale;
     this.frameCount++;
 
-    // Background Stars Scrolling
+    // Background Stars Scrolling (disabled for Robinhood theme)
     this.starfield.clear();
-    this.stars.forEach(star => {
-      star.y += star.speed;
-      if (star.y > height) {
-        star.y = 0;
-        star.x = Math.random() * width;
-      }
-      this.starfield.fillStyle(0xffffff, star.alpha);
-      this.starfield.fillRect(star.x, star.y, 1.5, 1.5);
-    });
 
     // Route through lifecycle manager
     if (!this.lifecycleManager) return;
@@ -523,8 +501,8 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
     // Floating text point rewards
     const float = this.add.text(px, py - 10, `+${award}`, {
       fontSize: '11px',
-      fontFamily: 'monospace',
-      color: '#ffd700',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#00c805',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
@@ -592,17 +570,69 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
     if (this.isInvulnerable) return;
 
     const { width, height } = this.scale;
-    this.ship.setPosition(Phaser.Math.Between(60, width - 60), Phaser.Math.Between(80, height - 80));
+    const targets = [
+      ...this.asteroids.getChildren(),
+      ...this.saucers.getChildren()
+    ] as (Phaser.Physics.Arcade.Sprite | Phaser.Physics.Arcade.Image)[];
+
+    let safeX = 0;
+    let safeY = 0;
+    let foundSafe = false;
+
+    // Pass 1: Try up to 150 times to find a coordinate >= 90 pixels away from all active asteroids and saucers
+    for (let i = 0; i < 150; i++) {
+      const px = Phaser.Math.Between(60, width - 60);
+      const py = Phaser.Math.Between(80, height - 80);
+
+      let safe = true;
+      for (const target of targets) {
+        const dist = Phaser.Math.Distance.Between(px, py, target.x, target.y);
+        if (dist < 90) {
+          safe = false;
+          break;
+        }
+      }
+
+      if (safe) {
+        safeX = px;
+        safeY = py;
+        foundSafe = true;
+        break;
+      }
+    }
+
+    // Pass 2 (Fallback): If no safe spot is found, generate 50 candidates and choose the one with the maximum distance to its nearest target
+    if (!foundSafe) {
+      let maxMinDist = -1;
+      for (let i = 0; i < 50; i++) {
+        const px = Phaser.Math.Between(60, width - 60);
+        const py = Phaser.Math.Between(80, height - 80);
+
+        let minDist = Infinity;
+        for (const target of targets) {
+          const dist = Phaser.Math.Distance.Between(px, py, target.x, target.y);
+          if (dist < minDist) {
+            minDist = dist;
+          }
+        }
+
+        if (targets.length === 0) {
+          minDist = 0;
+        }
+
+        if (minDist > maxMinDist) {
+          maxMinDist = minDist;
+          safeX = px;
+          safeY = py;
+        }
+      }
+    }
+
+    // Move the ship to the chosen spot, reset velocity to zero, and set ship invulnerability to 45 ticks.
+    this.ship.setPosition(safeX, safeY);
     this.ship.setVelocity(0, 0);
     this.isInvulnerable = true;
     this.invulnTimer = 45;
-
-    if (Math.random() < 0.12) {
-      this.time.delayedCall(250, () => {
-        this.isInvulnerable = false;
-        this.hitShip(this.ship, this.ship);
-      });
-    }
   }
 
   private awardExtraLifeIfNeeded() {
@@ -685,13 +715,14 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
     this.isWaitingToStart = true;
     this.lifecycleState = "start";
     this.stateText.setVisible(true);
-    this.stateText.setText("ASTEROID BELT").setColor("#00ccff");
+    this.stateText.setText("ASTEROID BELT").setColor("#00c805");
     this.hintText.setVisible(true);
     this.hintText.setText("TAP TO START\n\nPHONE: DRAG OR TILT TO STEER\nHOLD = THRUST + AUTO-FIRE\n\nDESKTOP: ARROWS + SPACE\nSHIFT = HYPERSPACE");
     if (this.ship) {
       this.ship.setVisible(true);
       this.ship.setPosition(this.scale.width / 2, this.scale.height / 2 - 20);
     }
+    this.overlays.clear();
   }
 
   startGameplay(): void {
@@ -701,13 +732,26 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
     this.hintText.setVisible(false);
     this.isInvulnerable = true;
     this.invulnTimer = 120;
+    this.overlays.clear();
   }
 
-  pauseGameplay(): void {}
+  pauseGameplay(): void {
+    this.lifecycleState = "paused";
+    this.physics.pause();
+    this.overlays.showPause(
+      () => this.resumeGameplay(),
+      () => this.returnToHub()
+    );
+  }
 
-  resumeGameplay(): void {}
+  resumeGameplay(): void {
+    this.lifecycleState = "playing";
+    this.physics.resume();
+    this.overlays.clear();
+  }
 
   resetGameplay(): void {
+    this.overlays.clear();
     this.scene.restart();
   }
 
@@ -719,7 +763,6 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
   handleArcadeInput(_frame: ArcadeInputFrame): void {}
 
   destroySceneResources(): void {
-    this.stars = [];
   }
 
   private nextLevel() {
@@ -729,22 +772,12 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
     this.levelText.setText(`LVL ${this.level}`);
     this.spawnAsteroids(Math.min(3 + this.level, 10), true);
 
-    // Floating Level Up Banner
-    const banner = this.add.text(this.scale.width / 2, 100, `LEVEL ${this.level} INCOMING`, {
-      fontSize: '14px',
-      fontFamily: 'monospace',
-      color: '#00ccff',
-      fontStyle: 'bold'
-    }).setOrigin(0.5);
-
-    this.tweens.add({
-      targets: banner,
-      y: banner.y + 40,
-      alpha: 0,
-      delay: 1000,
-      duration: 1000,
-      onComplete: () => banner.destroy()
-    });
+    this.overlays.showVictory(
+      'LEVEL CLEAR',
+      `Level ${this.level - 1} Cleared\nScore: ${this.score}`,
+      () => this.startGameplay(),
+      () => this.returnToHub()
+    );
   }
 
   private gameOver() {
@@ -759,8 +792,11 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
       this.hiText.setText(`HI: ${this.hiScore}`);
     }
 
-    this.stateText.setText('💀 GAME OVER').setColor('#ff4444').setVisible(true);
-    this.hintText.setText('TAP OR ENTER TO PLAY AGAIN').setVisible(true);
+    this.overlays.showGameOver(
+      this.score,
+      () => this.resetGameplay(),
+      () => this.returnToHub()
+    );
   }
 
   public getGameplayStateForQA() {

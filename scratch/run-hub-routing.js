@@ -10,13 +10,13 @@ function withQaMode(rawUrl) {
 }
 
 const CERTIFIED_CARDS = [
-  { name: 'F1 Space Invaders', sceneKey: 'SpaceInvadersScene', portrait: { x: 195, y: 145 }, landscape: { x: 232, y: 140 } },
-  { name: 'Cosmic Cargo', sceneKey: 'CosmicCargoScene', portrait: { x: 195, y: 232 }, landscape: { x: 612, y: 140 } },
-  { name: 'Contra Bonus', sceneKey: 'ContraScene', portrait: { x: 195, y: 319 }, landscape: { x: 232, y: 295 } },
-  { name: 'Asteroid Belt', sceneKey: 'AsteroidsScene', portrait: { x: 195, y: 406 }, landscape: { x: 612, y: 295 } },
-  { name: 'Red Bull Pong', sceneKey: 'PongScene', portrait: { x: 195, y: 493 }, landscape: { x: 232, y: 330 } }
+  { name: 'F1 Space Invaders', sceneKey: 'SpaceInvadersScene', index: 3 },
+  { name: 'Cosmic Cargo', sceneKey: 'CosmicCargoScene', index: 4 },
+  { name: 'Contra Bonus', sceneKey: 'ContraScene', index: 5 },
+  { name: 'Asteroid Belt', sceneKey: 'AsteroidsScene', index: 6 },
+  { name: 'Red Bull Pong', sceneKey: 'PongScene', index: 7 }
 ];
-const CATALOG_GAME_COUNT = 9;
+const CATALOG_GAME_COUNT = 13;
 
 function cardPoint(viewport, index) {
   if (viewport.height > viewport.width) {
@@ -95,9 +95,9 @@ async function run() {
     }
 
     const launchResults = [];
-    for (const [index, card] of CERTIFIED_CARDS.entries()) {
+    for (const card of CERTIFIED_CARDS) {
       await enterHub(page, portrait);
-      const point = cardPoint(portrait, index);
+      const point = cardPoint(portrait, card.index);
       await page.touchscreen.tap(point.x, point.y);
       await delay(800);
       launchResults.push({ viewport: 'phone-portrait', game: card.name, sceneKey: await sceneKey(page), expected: card.sceneKey });
@@ -105,9 +105,9 @@ async function run() {
 
     const landscape = { width: 844, height: 390 };
     await page.setViewport({ ...landscape, isMobile: true, hasTouch: true, deviceScaleFactor: 3 });
-    for (const [index, card] of CERTIFIED_CARDS.entries()) {
+    for (const card of CERTIFIED_CARDS) {
       await enterHub(page, landscape);
-      const point = cardPoint(landscape, index);
+      const point = cardPoint(landscape, card.index);
       await page.touchscreen.tap(point.x, point.y);
       await delay(800);
       launchResults.push({ viewport: 'phone-landscape', game: card.name, sceneKey: await sceneKey(page), expected: card.sceneKey });

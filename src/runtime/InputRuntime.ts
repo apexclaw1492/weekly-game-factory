@@ -21,6 +21,7 @@ interface TouchPoint {
   justStarted: boolean;
   justEnded: boolean;
   active: boolean;
+  hasSwiped?: boolean;
 }
 
 /**
@@ -162,7 +163,8 @@ export class InputRuntime implements InputRuntimeHandle {
         startTime: now,
         justStarted: true,
         justEnded: false,
-        active: true
+        active: true,
+        hasSwiped: false
       });
 
       if (this.primaryTouchId === null) {
@@ -174,7 +176,7 @@ export class InputRuntime implements InputRuntimeHandle {
   };
 
   private onTouchMove = (e: TouchEvent) => {
-    if (e.touches.length >= 2) e.preventDefault();
+    e.preventDefault();
     for (let i = 0; i < e.changedTouches.length; i++) {
       const t = e.changedTouches[i];
       const touch = this.touches.get(t.identifier);
@@ -182,6 +184,7 @@ export class InputRuntime implements InputRuntimeHandle {
         const coords = this.getCanvasCoords(t.clientX, t.clientY);
         touch.x = coords.x;
         touch.y = coords.y;
+        this.detectGesturesOnMove(touch);
       }
     }
   };
@@ -198,6 +201,7 @@ export class InputRuntime implements InputRuntimeHandle {
         touch.active = false;
         touch.justEnded = true;
         this.detectGesturesOnEnd(touch, now);
+        touch.hasSwiped = false;
       }
     }
   };
@@ -215,7 +219,8 @@ export class InputRuntime implements InputRuntimeHandle {
       startTime: now,
       justStarted: true,
       justEnded: false,
-      active: true
+      active: true,
+      hasSwiped: false
     });
     this.primaryTouchId = -1;
     this.previousTouchStartTime = this.lastTouchStartTime;
@@ -229,6 +234,7 @@ export class InputRuntime implements InputRuntimeHandle {
       const coords = this.getCanvasCoords(e.clientX, e.clientY);
       touch.x = coords.x;
       touch.y = coords.y;
+      this.detectGesturesOnMove(touch);
     }
   };
 
@@ -243,6 +249,7 @@ export class InputRuntime implements InputRuntimeHandle {
       touch.active = false;
       touch.justEnded = true;
       this.detectGesturesOnEnd(touch, now);
+      touch.hasSwiped = false;
     }
   };
 
@@ -287,6 +294,25 @@ export class InputRuntime implements InputRuntimeHandle {
     return { x, y };
   }
 
+  private detectGesturesOnMove(touch: TouchPoint) {
+    if (touch.hasSwiped) return;
+
+    const now = performance.now();
+    const duration = now - touch.startTime;
+    const dx = touch.x - touch.startX;
+    const dy = touch.y - touch.startY;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (duration < SWIPE_MAX_MS && dist > SWIPE_MIN_DIST) {
+      touch.hasSwiped = true;
+      if (Math.abs(dx) > Math.abs(dy)) {
+        this.pendingSwipe = dx > 0 ? 'right' : 'left';
+      } else {
+        this.pendingSwipe = dy > 0 ? 'down' : 'up';
+      }
+    }
+  }
+
   private detectGesturesOnEnd(touch: TouchPoint, now: number) {
     const duration = now - touch.startTime;
     const dx = touch.x - touch.startX;
@@ -299,7 +325,8 @@ export class InputRuntime implements InputRuntimeHandle {
         const inBackZone = touch.x >= this.canvas.width - BACK_ZONE_W && touch.y >= this.canvas.height - BACK_ZONE_H;
         if (!inBackZone) this.pendingStartIntent = true;
       }
-    } else if (duration < SWIPE_MAX_MS && dist > SWIPE_MIN_DIST) {
+    } else if (!touch.hasSwiped && duration < SWIPE_MAX_MS && dist > SWIPE_MIN_DIST) {
+      touch.hasSwiped = true;
       if (Math.abs(dx) > Math.abs(dy)) {
         this.pendingSwipe = dx > 0 ? 'right' : 'left';
       } else {

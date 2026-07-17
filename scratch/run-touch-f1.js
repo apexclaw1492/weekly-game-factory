@@ -93,7 +93,7 @@ async function run() {
     await delay(350);
     await page.touchscreen.tap(195, 700);
     await delay(900);
-    await page.touchscreen.tap(195, 145);
+    await page.touchscreen.tap(195, 406);
     await delay(1000);
     await page.touchscreen.tap(195, 500);
     await delay(400);

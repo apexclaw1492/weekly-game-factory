@@ -5,6 +5,7 @@ import { GameLifecycle, LifecycleState } from "../runtime/GameLifecycle";
 import { LifecycleManager } from "../runtime/LifecycleManager";
 import { ArcadeInputFrame } from "../runtime/ArcadeInputFrame";
 import { InputRuntime } from "../runtime/InputRuntime";
+import { StandardOverlays } from '../utils/StandardOverlays';
 
 enum GravityDir {
   UP = 0,
@@ -44,14 +45,16 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
   private hintText!: Phaser.GameObjects.Text;
   private hiScoreText!: Phaser.GameObjects.Text;
   private backBtn!: Phaser.GameObjects.Text;
+  private overlays!: StandardOverlays;
+  private fuelText!: Phaser.GameObjects.Text;
 
   private starfield!: Phaser.GameObjects.Graphics;
-  private stars: Array<{ x: number; y: number; speed: number; alpha: number }> = [];
 
   private isGameOver = false;
   private isLevelComplete = false;
   private lastBoostTime = 0;
   private lastTiltGravityTime = 0;
+  private lastGravityFlipTime = 0;
   private cargoCollected = 0;
   private cargoTotal = 0;
   private boostCount = 0;
@@ -80,7 +83,6 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
   }
 
   init() {
-    this.stars = [];
     this.level = 1;
     this.score = 0;
     this.comboCount = 0;
@@ -90,6 +92,7 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     this.nearMissFlash = 0;
     this.lastBoostTime = 0;
     this.lastTiltGravityTime = 0;
+    this.lastGravityFlipTime = 0;
     this.cargoCollected = 0;
     this.cargoTotal = 0;
     this.boostCount = 0;
@@ -107,16 +110,8 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
   create() {
     const { width, height } = this.scale;
 
-    // 1. Create starfield background
+    // 1. Create starfield background (empty for Robinhood black minimalism)
     this.starfield = this.add.graphics();
-    for (let i = 0; i < 50; i++) {
-      this.stars.push({
-        x: Math.random() * width,
-        y: Math.random() * height,
-        speed: 0.3 + Math.random() * 0.8,
-        alpha: 0.2 + Math.random() * 0.8
-      });
-    }
 
     // 2. Generate textures programmatically
     this.createGameTextures();
@@ -147,25 +142,26 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     // Keep asteroids colliding with each other and ship
     this.physics.add.collider(this.asteroids, this.asteroids);
     this.physics.add.collider(this.ship, this.asteroids, this.hitAsteroid, undefined, this);
+    this.physics.add.collider(this.asteroids, this.cargoPods, this.collideAsteroidCargo, undefined, this);
 
     // 9. UI setup
-    this.scoreText = this.add.text(20, 20, 'SCORE: 0', { fontSize: '16px', fontFamily: 'monospace', color: '#ffffff' });
-    this.levelText = this.add.text(width - 20, 20, 'LEVEL 1', { fontSize: '16px', fontFamily: 'monospace', color: '#8888a0' }).setOrigin(1, 0);
-    this.cargoText = this.add.text(20, 45, 'CARGO: 0/3', { fontSize: '12px', fontFamily: 'monospace', color: '#ffd700' });
-    this.gravityText = this.add.text(width / 2, 20, 'GRAVITY: DOWN', { fontSize: '12px', fontFamily: 'monospace', color: '#00ccff' }).setOrigin(0.5, 0);
-    this.portalText = this.add.text(width / 2, 42, 'PORTAL: LOCKED', { fontSize: '11px', fontFamily: 'monospace', color: '#ff8844' }).setOrigin(0.5, 0);
+    this.scoreText = this.add.text(20, 20, 'SCORE: 0', { fontSize: '16px', fontFamily: "'Outfit', system-ui, sans-serif", color: '#ffffff' });
+    this.levelText = this.add.text(width - 20, 20, 'LEVEL 1', { fontSize: '16px', fontFamily: "'Outfit', system-ui, sans-serif", color: '#8e8e93' }).setOrigin(1, 0);
+    this.cargoText = this.add.text(20, 45, 'CARGO: 0/3', { fontSize: '12px', fontFamily: "'Outfit', system-ui, sans-serif", color: '#00c805' });
+    this.gravityText = this.add.text(width / 2, 20, 'GRAVITY: DOWN', { fontSize: '12px', fontFamily: "'Outfit', system-ui, sans-serif", color: '#00c805' }).setOrigin(0.5, 0);
+    this.portalText = this.add.text(width / 2, 42, 'PORTAL: LOCKED', { fontSize: '11px', fontFamily: "'Outfit', system-ui, sans-serif", color: '#00c805' }).setOrigin(0.5, 0);
     
     // Fuel Bar
-    this.add.text(20, 70, 'FUEL:', { fontSize: '11px', fontFamily: 'monospace', color: '#888888' });
+    this.fuelText = this.add.text(20, 70, 'FUEL:', { fontSize: '11px', fontFamily: "'Outfit', system-ui, sans-serif", color: '#8e8e93' });
     this.fuelBar = this.add.graphics();
-
+ 
     // Tutorial Demo & Gameplay Visuals
     this.demoArrow = this.add.graphics();
     this.gravityArrow = this.add.graphics();
     this.demoCalloutText = this.add.text(width / 2, height / 2 + 60, "", {
       fontSize: "14px",
-      fontFamily: "monospace",
-      color: "#00ccff",
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: "#00c805",
       align: "center",
       fontStyle: "bold"
     }).setOrigin(0.5).setAlpha(0);
@@ -176,45 +172,46 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     // Main overlays
     this.stateText = this.add.text(width / 2, height / 2 - 50, 'COSMIC CARGO', {
       fontSize: '32px',
-      fontFamily: 'monospace',
-      color: '#ff6b35',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#00c805',
       fontStyle: 'bold'
     }).setOrigin(0.5);
-    this.stateText.setShadow(0, 0, '#ff6b35', 10, true, true);
-
+    this.stateText.setShadow(0, 0, '#00c805', 10, true, true);
+ 
     this.hintText = this.add.text(width / 2, height / 2 + 20, 'PHONE: TILT OR SWIPE TO FLIP GRAVITY\nHOLD TO BOOST, RELEASE TO DRIFT\nDESKTOP: ARROWS + SPACE\n\nTAP TO START', {
       fontSize: '13px',
-      fontFamily: 'monospace',
+      fontFamily: "'Outfit', system-ui, sans-serif",
       color: '#ffffff',
       align: 'center'
     }).setOrigin(0.5);
-
+ 
     // High Score
     const bestScore = readStoredNumber('cosmic_cargo_high');
     this.hiScoreText = this.add.text(width / 2, height / 2 + 100, `🏆 BEST SCORE: ${bestScore}`, {
       fontSize: '12px',
-      fontFamily: 'monospace',
-      color: '#ffd700'
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#00c805'
     }).setOrigin(0.5);
-
+ 
     // Exit Button
     this.backBtn = this.add.text(20, 20, '← BACK TO HUB', {
       fontSize: '14px',
-      fontFamily: 'monospace',
-      color: '#ff4444',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#8e8e93',
       fontStyle: 'bold'
     }).setOrigin(0, 0.5).setInteractive({ useHandCursor: true });
-
+ 
     this.backBtn.on('pointerdown', () => {
       SoundSynth.playTone(400, 0.1, 'sine', 0.05);
       this.scene.start('HubScene');
     });
-
+ 
     this.input.on('pointerdown', this.handleDirectPointerDown, this);
     this.input.on('pointermove', this.handleDirectPointerMove, this);
     this.input.on('pointerup', this.handleDirectPointerUp, this);
-
+ 
     // Shared Runtime Initialization
+    this.overlays = new StandardOverlays(this);
     const runtime = (window as any).__WGF_INPUT_RUNTIME as InputRuntime;
     if (runtime) runtime.blockHubInputUntil(performance.now() + 100);
     this.lifecycleManager = new LifecycleManager(this, runtime);
@@ -230,48 +227,62 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
 
     // Set initial gravity configuration
     this.updateGravity(GravityDir.DOWN);
+    this.handleResize();
     this.showStart();
+  }
+
+  private getSafeAreaInsets() {
+    const div = document.createElement('div');
+    div.style.position = 'fixed';
+    div.style.top = '0';
+    div.style.left = '0';
+    div.style.visibility = 'hidden';
+    div.style.paddingTop = 'env(safe-area-inset-top)';
+    div.style.paddingBottom = 'env(safe-area-inset-bottom)';
+    div.style.paddingLeft = 'env(safe-area-inset-left)';
+    div.style.paddingRight = 'env(safe-area-inset-right)';
+    document.body.appendChild(div);
+    const style = window.getComputedStyle(div);
+    const top = parseFloat(style.paddingTop) || 0;
+    const bottom = parseFloat(style.paddingBottom) || 0;
+    const left = parseFloat(style.paddingLeft) || 0;
+    const right = parseFloat(style.paddingRight) || 0;
+    document.body.removeChild(div);
+    return { top, bottom, left, right };
   }
 
   private handleResize() {
     const { width, height } = this.scale;
+    const { top, bottom, left, right } = this.getSafeAreaInsets();
 
     // Reposition UI
-    this.levelText.setPosition(width - 20, 20);
-    this.gravityText.setPosition(width / 2, 20);
-    this.portalText.setPosition(width / 2, 42);
+    this.scoreText.setPosition(left + 20, top + 20);
+    this.cargoText.setPosition(left + 20, top + 45);
+    if (this.fuelText) {
+      this.fuelText.setPosition(left + 20, top + 70);
+    }
+    this.levelText.setPosition(width - right - 20, top + 20);
+    this.gravityText.setPosition(width / 2, top + 20);
+    this.portalText.setPosition(width / 2, top + 42);
+    this.backBtn.setPosition(left + 20, top + 20);
+
     this.stateText.setPosition(width / 2, height / 2 - 50);
     this.hintText.setPosition(width / 2, height / 2 + 20);
     this.hiScoreText.setPosition(width / 2, height / 2 + 100);
-    this.backBtn.setPosition(20, 20);
 
     // Update starfield
     this.starfield.clear();
-    this.stars.forEach(star => {
-      star.x = Math.random() * width;
-      star.y = Math.random() * height;
-    });
 
     // Reposition Portal
     if (this.portal) {
-      this.portal.setPosition(width - 70, height - 70);
+      this.portal.setPosition(width - right - 70, height - bottom - 70);
     }
   }
 
   update() {
-    const { width, height } = this.scale;
 
-    // Scroll Background Stars
+    // Scroll Background Stars (disabled for Robinhood theme)
     this.starfield.clear();
-    this.stars.forEach(star => {
-      star.y += star.speed;
-      if (star.y > height) {
-        star.y = 0;
-        star.x = Math.random() * width;
-      }
-      this.starfield.fillStyle(0xffffff, star.alpha);
-      this.starfield.fillRect(star.x, star.y, 1.5, 1.5);
-    });
 
     // Render Fuel Bar
     this.drawFuelBar();
@@ -327,11 +338,12 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
   showStart() {
     this.lifecycleState = "start";
     this.stateText.setVisible(true);
-    this.stateText.setText("COSMIC CARGO").setColor("#ff6b35");
+    this.stateText.setText("COSMIC CARGO").setColor("#00c805");
     this.hintText.setVisible(true);
     this.hintText.setText("TAP TO START");
     this.demoPhase = 0;
     this.demoTimer = 0;
+    this.overlays.clear();
   }
 
   startGameplay() {
@@ -346,19 +358,26 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     this.demoCalloutText.setVisible(false);
     this.demoArrow.clear();
     this.hazardGraceUntil = this.time.now + 2600;
+    this.overlays.clear();
   }
 
   pauseGameplay() {
     this.lifecycleState = "paused";
     this.physics.pause();
+    this.overlays.showPause(
+      () => this.resumeGameplay(),
+      () => this.returnToHub()
+    );
   }
 
   resumeGameplay() {
     this.lifecycleState = "playing";
     this.physics.resume();
+    this.overlays.clear();
   }
 
   resetGameplay() {
+    this.overlays.clear();
     this.scene.restart();
   }
 
@@ -533,7 +552,14 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
   }
 
   private updateGravity(dir: GravityDir) {
+    if (this.lifecycleState === "playing") {
+      if (this.time.now - this.lastGravityFlipTime < 200) return;
+    }
     if (this.activeGravity === dir && this.lifecycleState !== "start") return;
+
+    if (this.lifecycleState === "playing") {
+      this.lastGravityFlipTime = this.time.now;
+    }
     this.activeGravity = dir;
 
     if (this.lifecycleState !== "start") {
@@ -703,8 +729,8 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     // Popup text floating
     const text = this.add.text(pod.x, pod.y - 15, `+${reward} (x${this.comboCount})`, {
       fontSize: '12px',
-      fontFamily: 'monospace',
-      color: '#ffd700',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#00c805',
       fontStyle: 'bold'
     }).setOrigin(0.5);
     
@@ -754,8 +780,8 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
 
         const floatText = this.add.text(this.ship.x, this.ship.y - 25, 'NEAR MISS +50', {
           fontSize: '11px',
-          fontFamily: 'monospace',
-          color: '#ffcc00',
+          fontFamily: "'Outfit', system-ui, sans-serif",
+          color: '#00c805',
           fontStyle: 'bold'
         }).setOrigin(0.5);
 
@@ -788,13 +814,16 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
 
   private drawFuelBar() {
     this.fuelBar.clear();
+    if (!this.fuelText) return;
+    const bx = this.fuelText.x + 40;
+    const by = this.fuelText.y + 2;
     // Border
     this.fuelBar.lineStyle(1, 0x555555, 1);
-    this.fuelBar.strokeRect(60, 72, 100, 10);
+    this.fuelBar.strokeRect(bx, by, 100, 10);
     // Fill
     const color = this.fuel > 30 ? 0x00ccff : 0xff4444;
     this.fuelBar.fillStyle(color, 1);
-    this.fuelBar.fillRect(61, 73, Math.max(0, this.fuel - 2), 8);
+    this.fuelBar.fillRect(bx + 1, by + 1, Math.max(0, this.fuel - 2), 8);
   }
 
   private createBoostParticles(x: number, y: number, color: number, count: number) {
@@ -872,20 +901,23 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
 
     SoundSynth.playLevelUp();
 
-    this.stateText.setText('LEVEL COMPLETE').setColor('#55ff55').setVisible(true);
-    this.hintText.setText(`FUEL BONUS: +${bonus}\n\nTAP TO CONTINUE`).setVisible(true);
-
     this.asteroids.clear(true, true);
     this.cargoPods.clear(true, true);
     this.tweens.killTweensOf(this.portal);
     this.portal.setScale(1);
+
+    this.overlays.showVictory(
+      'LEVEL COMPLETE',
+      `Fuel Bonus: +${bonus}\nScore: ${this.score}`,
+      () => this.startGameplay(),
+      () => this.returnToHub()
+    );
   }
 
   private nextLevel() {
     this.level++;
     this.isLevelComplete = false;
-    this.stateText.setVisible(false);
-    this.hintText.setVisible(false);
+    this.overlays.clear();
 
     this.fuel = 100;
     this.levelText.setText(`LEVEL ${this.level}`);
@@ -912,8 +944,11 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
       writeStoredNumber('cosmic_cargo_high', this.score);
     }
 
-    this.stateText.setText('MISSION FAILED').setColor('#ff4444').setVisible(true);
-    this.hintText.setText('TAP TO RETRY').setVisible(true);
+    this.overlays.showGameOver(
+      this.score,
+      () => this.resetGameplay(),
+      () => this.returnToHub()
+    );
   }
 
   private updateDemo() {
@@ -1000,5 +1035,14 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
     this.demoArrow.lineTo(endX - Math.sin(angle + 0.4) * headLen, endY - Math.cos(angle + 0.4) * headLen);
     this.demoArrow.closePath();
     this.demoArrow.fill();
+  }
+
+  private collideAsteroidCargo(asteroidObj: any, podObj: any) {
+    const asteroid = asteroidObj as Phaser.Physics.Arcade.Sprite;
+    const pod = podObj as Phaser.Physics.Arcade.Image;
+    const x = (asteroid.x + pod.x) / 2;
+    const y = (asteroid.y + pod.y) / 2;
+    SoundSynth.playTone(180, 0.08, 'sine', 0.03);
+    this.createBoostParticles(x, y, 0xffd700, 4);
   }
 }

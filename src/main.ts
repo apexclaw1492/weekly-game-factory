@@ -9,7 +9,7 @@ const config: Phaser.Types.Core.GameConfig = {
   width: 800,
   height: 600,
   parent: 'game-container',
-  backgroundColor: '#03020b',
+  transparent: true,
   pixelArt: false,
   antialias: true,
   roundPixels: false,
@@ -36,6 +36,28 @@ const config: Phaser.Types.Core.GameConfig = {
   ]
 };
 
+// Patch Phaser Scene manager to automatically submit scores on returning to Hub
+const originalStart = (Phaser.Scenes.ScenePlugin.prototype as any).start;
+(Phaser.Scenes.ScenePlugin.prototype as any).start = function(key: string, data?: any) {
+  if (key === 'HubScene') {
+    const activeScene = this.scene;
+    const sceneKey = activeScene.sys.settings.key;
+    const sceneToGameId: Record<string, string> = {
+      'SpaceInvadersScene': 'f1-space-invaders',
+      'CosmicCargoScene': 'cosmic-cargo',
+      'ContraScene': 'contra-bonus',
+      'AsteroidsScene': 'asteroid-belt',
+      'PongScene': 'red-bull-pong'
+    };
+    const catalogId = sceneToGameId[sceneKey];
+    if (catalogId) {
+      const score = activeScene.score !== undefined ? activeScene.score : (activeScene.scorePlayer !== undefined ? activeScene.scorePlayer : 0);
+      window.postMessage({ type: 'WGF_SCORE', gameId: catalogId, score }, '*');
+    }
+  }
+  return originalStart.call(this, key, data);
+};
+
 const game = new Phaser.Game(config);
 const isDevBuild = Boolean((import.meta as unknown as { env?: { DEV?: boolean } }).env?.DEV);
 if (isDevBuild || new URLSearchParams(window.location.search).has('qa')) {
@@ -58,3 +80,13 @@ if (isDevBuild || new URLSearchParams(window.location.search).has('qa')) {
   document.addEventListener('pointerdown', enableMotion);
   document.addEventListener('touchstart', enableMotion);
 })();
+
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('/sw.js').then(reg => {
+      console.log('SW registered!', reg);
+    }).catch(err => {
+      console.error('SW registration failed:', err);
+    });
+  });
+}
