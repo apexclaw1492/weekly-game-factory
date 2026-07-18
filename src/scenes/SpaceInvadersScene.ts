@@ -629,7 +629,8 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
     this.livesText.setText(`LIVES: ${this.lives}`);
     SoundSynth.playDeath();
     this.createExplosionParticles(this.player.x, this.player.y, 0xff0000);
-    this.cameras.main.shake(200, 0.01);
+    this.cameras.main.shake(200, 0.012);
+    this.cameras.main.flash(100, 255, 0, 0);
 
     if (this.lives <= 0) {
       this.gameOver();

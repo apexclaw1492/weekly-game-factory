@@ -471,11 +471,13 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
   private scorePoint(isPlayer: boolean) {
     if (isPlayer) {
       this.scorePlayer++;
+      this.cameras.main.flash(150, 0, 200, 5);
     } else {
       this.scoreAI++;
       this.lives--;
       this.updateLivesDisplay();
       SoundSynth.playDeath();
+      this.cameras.main.flash(150, 255, 0, 0);
     }
     
     this.rallyCount = 0;

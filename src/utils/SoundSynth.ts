@@ -24,6 +24,23 @@ export class SoundSynth {
     return ctx.state === 'running' ? ctx : null;
   }
 
+  private static getSelectedWaveType(): OscillatorType {
+    try {
+      const pack = localStorage.getItem('wgf_soundpack') || 'retro';
+      if (pack === 'arcade') return 'sawtooth';
+      if (pack === 'lofi') return 'triangle';
+    } catch {}
+    return 'square'; // default is retro
+  }
+
+  private static getVolumeScale(): number {
+    try {
+      const vol = parseFloat(localStorage.getItem('wgf_volume') || '0.5');
+      return isNaN(vol) ? 0.5 : vol;
+    } catch {}
+    return 0.5;
+  }
+
   static playTone(
     freq: number,
     duration: number,
@@ -36,10 +53,14 @@ export class SoundSynth {
       const osc = ctx.createOscillator();
       const gainNode = ctx.createGain();
 
-      osc.type = type;
+      const waveType = this.getSelectedWaveType();
+      const volScale = this.getVolumeScale();
+
+      // Keep sine as sine (soft), otherwise use selected soundpack waveform
+      osc.type = (type === 'sine') ? 'sine' : waveType;
       osc.frequency.setValueAtTime(freq, ctx.currentTime);
 
-      gainNode.gain.setValueAtTime(volume, ctx.currentTime);
+      gainNode.gain.setValueAtTime(volume * volScale, ctx.currentTime);
       gainNode.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + duration);
 
       osc.connect(gainNode);

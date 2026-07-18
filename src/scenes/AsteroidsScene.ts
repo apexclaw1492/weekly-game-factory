@@ -674,6 +674,7 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
 
     SoundSynth.playDeath();
     this.cameras.main.shake(150, 0.015);
+    this.cameras.main.flash(150, 255, 0, 0);
     this.createExplosion(this.ship.x, this.ship.y, 20, 0x00ccff);
 
     this.lives--;

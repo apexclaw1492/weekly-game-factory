@@ -270,12 +270,21 @@
 
   <!-- Leaderboard Modal -->
   <div class="modal" id="scores-modal">
-    <div class="modal-content">
+    <div class="modal-content" style="max-width: 450px;">
       <div class="modal-header">
-        <h2>High Scores</h2>
+        <h2>Records & Badges</h2>
         <button class="close-btn" onclick="toggleModal('scores-modal', false)">&times;</button>
       </div>
-      <div class="leaderboard-list" id="leaderboard-container">
+      <!-- Tab Header -->
+      <div style="display: flex; gap: 8px; margin-bottom: 16px; border-bottom: 1px solid rgba(255,255,255,0.08); padding-bottom: 10px;">
+        <button id="tab-leaderboard-btn" class="sound-pack-btn active" style="flex: 1; padding: 10px; font-size: 13px; font-weight: bold; border-radius: 6px;" onclick="switchScoresTab('leaderboard')">Leaderboards</button>
+        <button id="tab-badges-btn" class="sound-pack-btn" style="flex: 1; padding: 10px; font-size: 13px; font-weight: bold; border-radius: 6px;" onclick="switchScoresTab('badges')">Badges</button>
+      </div>
+      <!-- Tab Contents -->
+      <div id="tab-leaderboard-content" class="leaderboard-list" style="max-height: 380px; overflow-y: auto; padding-right: 4px;">
+        <!-- Dynamically filled -->
+      </div>
+      <div id="tab-badges-content" style="display: none; max-height: 380px; overflow-y: auto; padding-right: 4px;">
         <!-- Dynamically filled -->
       </div>
     </div>
@@ -300,14 +309,51 @@
       localStorage.setItem('wgf_volume', '0.5');
     }
 
+    // Achievements and Badges Definition
+    const ACHIEVEMENTS = [
+      { id: 'first_score', title: 'Rookie Score', desc: 'Score your first points in any game', check: (game, score) => score > 0 },
+      { id: 'invaders_elite', title: 'Galaxy Guard', desc: 'Reach 1,000 pts in Space Invaders', check: (game, score) => game === 'f1-space-invaders' && score >= 1000 },
+      { id: 'cyber_voyager', title: 'Neon Dasher', desc: 'Run 1,500 meters in Cyberpunk Runner', check: (game, score) => game === 'cyberpunk-runner' && score >= 1500 },
+      { id: 'td_commander', title: 'Voxel Architect', desc: 'Reach 300 score in Sci-Fi TD', check: (game, score) => game === 'sci-fi-td' && score >= 300 },
+      { id: 'cargo_pilot', title: 'Golden Hauler', desc: 'Restored 200 score in Cosmic Cargo', check: (game, score) => game === 'cosmic-cargo' && score >= 200 },
+      { id: 'pong_champ', title: 'Pong Master', desc: 'Reach 5 points in Red Bull Pong', check: (game, score) => game === 'red-bull-pong' && score >= 5 },
+      { id: 'realm_saver', title: 'Realm Awakener', desc: 'Restored all 5 star-seeds in Aubrey\'s Realm', check: (game, score) => game === 'aubreys-realm' && score >= 1000 },
+      { id: 'sandbox_architect', title: 'Grid Builder', desc: 'Placed blocks in Voxel Sandbox', check: (game, score) => game === 'voxel-sandbox' && score >= 1 },
+      { id: 'two_thousand', title: 'Merge Expert', desc: 'Reach 512 score in 2048', check: (game, score) => game === '2048' && score >= 512 },
+      { id: 'bird_wings', title: 'Pipe Dodger', desc: 'Score 10 in Clumsy Bird', check: (game, score) => game === 'clumsy-bird' && score >= 10 },
+      { id: 'hextris_spin', title: 'Combo Hex', desc: 'Reach 200 score in Hextris', check: (game, score) => game === 'hextris' && score >= 200 },
+      { id: 'pacman_ghost', title: 'Ghost Eater', desc: 'Reach 1,000 score in Pac-Man', check: (game, score) => game === 'pac-man' && score >= 1000 }
+    ];
+
     // Modal helpers
     window.toggleModal = function(id, show) {
       const m = document.getElementById(id);
       m.style.display = show ? 'flex' : 'none';
       if (show && id === 'scores-modal') {
-        populateLeaderboard();
+        switchScoresTab('leaderboard');
       }
     }
+
+    window.switchScoresTab = function(tab) {
+      const lbBtn = document.getElementById('tab-leaderboard-btn');
+      const bgBtn = document.getElementById('tab-badges-btn');
+      const lbCont = document.getElementById('tab-leaderboard-content');
+      const bgCont = document.getElementById('tab-badges-content');
+      
+      if (tab === 'leaderboard') {
+        lbBtn.classList.add('active');
+        bgBtn.classList.remove('active');
+        lbCont.style.display = 'block';
+        bgCont.style.display = 'none';
+        populateLeaderboard();
+      } else {
+        lbBtn.classList.remove('active');
+        bgBtn.classList.add('active');
+        lbCont.style.display = 'none';
+        bgCont.style.display = 'block';
+        populateBadges();
+      }
+    };
 
     document.getElementById('settings-btn').addEventListener('click', () => {
       toggleModal('settings-modal', true);
@@ -354,25 +400,122 @@
     };
 
     function populateLeaderboard() {
-      const container = document.getElementById('leaderboard-container');
+      const container = document.getElementById('tab-leaderboard-content');
       container.innerHTML = '';
       
-      const scores = JSON.parse(localStorage.getItem('wgf_scores') || '{}');
+      const history = JSON.parse(localStorage.getItem('wgf_scores_v2') || '{}');
+      const legacyScores = JSON.parse(localStorage.getItem('wgf_scores') || '{}');
       
       Object.keys(GAME_TITLES).forEach(gameId => {
         const item = document.createElement('div');
-        item.className = 'leaderboard-item';
+        item.style.marginBottom = '12px';
+        item.style.padding = '12px';
+        item.style.background = 'rgba(255,255,255,0.02)';
+        item.style.borderRadius = '8px';
+        item.style.border = '1px solid rgba(255,255,255,0.06)';
+        
+        const header = document.createElement('div');
+        header.style.display = 'flex';
+        header.style.justifyContent = 'space-between';
+        header.style.fontWeight = 'bold';
+        header.style.color = '#00c805';
+        header.style.fontSize = '14px';
         
         const name = document.createElement('span');
-        name.className = 'leaderboard-name';
         name.innerText = GAME_TITLES[gameId];
         
-        const score = document.createElement('span');
-        score.className = 'leaderboard-score';
-        score.innerText = scores[gameId] !== undefined ? Math.round(scores[gameId]).toLocaleString() : 'No Score';
+        const topScoreVal = history[gameId] && history[gameId].length > 0 
+          ? history[gameId][0].score 
+          : (legacyScores[gameId] || 0);
+          
+        const topScore = document.createElement('span');
+        topScore.innerText = topScoreVal > 0 ? Math.round(topScoreVal).toLocaleString() : 'No Score';
         
-        item.appendChild(name);
-        item.appendChild(score);
+        header.appendChild(name);
+        header.appendChild(topScore);
+        item.appendChild(header);
+        
+        // Show top-5 breakdown if history exists
+        if (history[gameId] && history[gameId].length > 0) {
+          const list = document.createElement('div');
+          list.style.marginTop = '8px';
+          list.style.fontSize = '11px';
+          list.style.color = '#8e8e93';
+          
+          history[gameId].forEach((entry, idx) => {
+            const dateStr = new Date(entry.timestamp).toLocaleDateString(undefined, {month: 'short', day: 'numeric'});
+            const row = document.createElement('div');
+            row.style.display = 'flex';
+            row.style.justifyContent = 'space-between';
+            row.style.padding = '4px 0';
+            row.style.borderTop = '1px solid rgba(255,255,255,0.03)';
+            row.innerHTML = `<span>#${idx+1} (${dateStr})</span><span>${Math.round(entry.score).toLocaleString()}</span>`;
+            list.appendChild(row);
+          });
+          item.appendChild(list);
+        }
+        
+        container.appendChild(item);
+      });
+    }
+
+    function populateBadges() {
+      const container = document.getElementById('tab-badges-content');
+      container.innerHTML = '';
+      
+      const unlocked = JSON.parse(localStorage.getItem('wgf_badges') || '[]');
+      
+      ACHIEVEMENTS.forEach(ach => {
+        const item = document.createElement('div');
+        item.style.display = 'flex';
+        item.style.alignItems = 'center';
+        item.style.gap = '15px';
+        item.style.padding = '10px 12px';
+        item.style.marginBottom = '8px';
+        item.style.borderRadius = '8px';
+        
+        const isUnlocked = unlocked.includes(ach.id);
+        
+        if (isUnlocked) {
+          item.style.background = 'rgba(0,200,5,0.06)';
+          item.style.border = '1px solid rgba(0,200,5,0.2)';
+        } else {
+          item.style.background = 'rgba(255,255,255,0.02)';
+          item.style.border = '1px solid rgba(255,255,255,0.05)';
+          item.style.opacity = '0.5';
+        }
+        
+        const badge = document.createElement('div');
+        badge.style.width = '32px';
+        badge.style.height = '32px';
+        badge.style.borderRadius = '50%';
+        badge.style.background = isUnlocked ? '#00c805' : '#333';
+        badge.style.display = 'flex';
+        badge.style.alignItems = 'center';
+        badge.style.justifyContent = 'center';
+        badge.style.fontSize = '16px';
+        badge.innerText = isUnlocked ? '★' : '☆';
+        badge.style.color = '#fff';
+        badge.style.boxShadow = isUnlocked ? '0 0 10px rgba(0,200,5,0.3)' : 'none';
+        
+        const info = document.createElement('div');
+        info.style.flex = '1';
+        
+        const title = document.createElement('div');
+        title.style.fontWeight = 'bold';
+        title.style.fontSize = '13px';
+        title.style.color = isUnlocked ? '#fff' : '#8e8e93';
+        title.innerText = ach.title;
+        
+        const desc = document.createElement('div');
+        desc.style.fontSize = '11px';
+        desc.style.color = '#8e8e93';
+        desc.innerText = ach.desc;
+        
+        info.appendChild(title);
+        info.appendChild(desc);
+        item.appendChild(badge);
+        item.appendChild(info);
         container.appendChild(item);
       });
     }
@@ -408,30 +551,58 @@
         const { gameId, score } = event.data;
         if (!gameId || score === undefined) return;
         
-        // Save to LocalStorage
+        // Save to legacy high scores
         const scores = JSON.parse(localStorage.getItem('wgf_scores') || '{}');
         const currentHighScore = scores[gameId] || 0;
+        let isNewRecord = false;
         
         if (score > currentHighScore) {
           scores[gameId] = score;
           localStorage.setItem('wgf_scores', JSON.stringify(scores));
-          
-          // Audio feedback for high score
-          if (window.__WGF_INPUT_RUNTIME) {
-            try {
-              const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-              const osc = audioCtx.createOscillator();
-              const gain = audioCtx.createGain();
-              osc.connect(gain);
-              gain.connect(audioCtx.destination);
-              osc.frequency.setValueAtTime(880, audioCtx.currentTime);
-              osc.frequency.exponentialRampToValueAtTime(1760, audioCtx.currentTime + 0.3);
-              gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-              gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
-              osc.start();
-              osc.stop(audioCtx.currentTime + 0.3);
-            } catch(e){}
+          isNewRecord = true;
+        }
+
+        // Save to top-5 history
+        const history = JSON.parse(localStorage.getItem('wgf_scores_v2') || '{}');
+        if (!history[gameId]) history[gameId] = [];
+        history[gameId].push({ score: Math.round(score), timestamp: Date.now() });
+        // Sort descending, keep top 5
+        history[gameId].sort((a, b) => b.score - a.score);
+        history[gameId] = history[gameId].slice(0, 5);
+        localStorage.setItem('wgf_scores_v2', JSON.stringify(history));
+
+        // Check achievements and unlock badges
+        const unlocked = JSON.parse(localStorage.getItem('wgf_badges') || '[]');
+        let unlockedNewBadge = false;
+        ACHIEVEMENTS.forEach(ach => {
+          if (!unlocked.includes(ach.id) && ach.check(gameId, score)) {
+            unlocked.push(ach.id);
+            unlockedNewBadge = true;
           }
+        });
+        if (unlockedNewBadge) {
+          localStorage.setItem('wgf_badges', JSON.stringify(unlocked));
+        }
+
+        // Audio feedback for high score or badge unlock
+        if (isNewRecord || unlockedNewBadge) {
+          try {
+            const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            
+            // Neon high pitch slide
+            osc.frequency.setValueAtTime(880, audioCtx.currentTime);
+            osc.frequency.exponentialRampToValueAtTime(unlockedNewBadge ? 2200 : 1760, audioCtx.currentTime + 0.3);
+            
+            gain.gain.setValueAtTime(0.08, audioCtx.currentTime);
+            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3);
+            
+            osc.start();
+            osc.stop(audioCtx.currentTime + 0.3);
+          } catch(e){}
         }
       }
     });

@@ -762,6 +762,8 @@ export class PacManScene extends Phaser.Scene implements GameLifecycle {
           SoundSynth.playTone(900, 0.2, 'sawtooth', 0.1);
           this.score += 200;
           this.scoreText.setText(`SCORE: ${this.score}`);
+          this.cameras.main.shake(100, 0.01);
+          this.cameras.main.flash(80, 0, 200, 255);
 
           // Reset ghost back to spawn
           g.gridX = g.spawnGridX;
@@ -787,6 +789,8 @@ export class PacManScene extends Phaser.Scene implements GameLifecycle {
     this.livesText.setText(`LIVES: ${this.lives}`);
     SoundSynth.playTone(300, 0.3, 'sawtooth', 0.12);
     SoundSynth.playTone(200, 0.3, 'sawtooth', 0.12);
+    this.cameras.main.shake(200, 0.015);
+    this.cameras.main.flash(150, 255, 0, 0);
 
     if (this.lives <= 0) {
       // Game Over

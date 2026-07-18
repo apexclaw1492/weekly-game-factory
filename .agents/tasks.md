@@ -1,11 +1,10 @@
 # Tasks Registry
 
-## Milestone 3: Usability & Compatibility Audit (Completed)
-- [x] Add `showInstructions` to `StandardOverlays.ts`
-- [x] Integrate instructions overlay into all 9 Phaser game scenes
-- [x] Add HTML/CSS instructions overlay template to the 5 HTML games
-- [x] Implement restart / play again loops for HTML games
-- [x] Write the game audit script `scratch/audit-games.mjs`
-- [x] Run the audit and resolve any console errors or broken assets
+## Milestone 4: Polish & Audio Integration (Completed)
+- [x] Modify `SoundSynth.ts` to bridge sound packs and volume levels
+- [x] Add screen shake and hit flash feedback to Space Invaders, Pong, Pac-Man, and Asteroids
+- [x] Implement top-5 score history and badge checks in `index.html` postMessage listener
+- [x] Refactor the High Scores modal in `index.html` to support a tabbed view (Leaderboards vs Badges)
+- [x] Run diagnostic script `scratch/test/audit-games.mjs` and resolve errors
 - [x] Verify build compiles cleanly (`npm run build`)
 - [x] Commit all changes and push to pages
