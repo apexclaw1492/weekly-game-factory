@@ -40,7 +40,10 @@
         • <b>Jump:</b> Press <b>Space</b>, <b>Up Arrow</b>, <b>W</b>, or tap the top third of the screen.<br>
         • <b>Goal:</b> Navigate the physics platforms and reach the green platform!
       </p>
-      <button id="wgf-start-btn" style="background: #335; border: none; color: #fff; padding: 12px 28px; font-weight: bold; font-size: 15px; border-radius: 8px; cursor: pointer; box-shadow: 0 0 15px rgba(50, 50, 80, 0.3); font-family: sans-serif; letter-spacing: 0.5px;">START GAME</button>
+      <div style="display: flex; flex-direction: column; gap: 10px;">
+        <button id="wgf-start-btn" style="background: #335; border: none; color: #fff; padding: 12px 28px; font-weight: bold; font-size: 15px; border-radius: 8px; cursor: pointer; box-shadow: 0 0 15px rgba(50, 50, 80, 0.3); font-family: sans-serif; letter-spacing: 0.5px;">START GAME</button>
+        <button id="wgf-editor-btn" style="background: #e67e22; border: none; color: #fff; padding: 12px 28px; font-weight: bold; font-size: 15px; border-radius: 8px; cursor: pointer; box-shadow: 0 0 15px rgba(230,126,34,0.3); font-family: sans-serif; letter-spacing: 0.5px;">LEVEL EDITOR</button>
+      </div>
     </div>
   </div>
 
@@ -52,6 +55,39 @@
       <div style="display: flex; gap: 15px; justify-content: center;">
         <button id="wgf-restart-btn" style="background: #00c805; border: none; color: #fff; padding: 12px 24px; font-weight: bold; font-size: 14px; border-radius: 8px; cursor: pointer; box-shadow: 0 0 15px rgba(0, 200, 5, 0.3);">PLAY AGAIN</button>
         <button style="background: rgba(0,0,0,0.08); border: 1px solid rgba(0,0,0,0.15); color: #666; padding: 12px 24px; font-weight: bold; font-size: 14px; border-radius: 8px; cursor: pointer;" onclick="window.parent.closeGameIframe()">RETURN TO HUB</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Level Editor Panel -->
+  <div id="editor-panel" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); background: rgba(10, 10, 20, 0.95); border: 2px solid #e67e22; border-radius: 12px; padding: 15px; z-index: 10000; box-shadow: 0 0 20px rgba(230,126,34,0.3); font-family: sans-serif; color: #fff; width: 90%; max-width: 500px; box-sizing: border-box;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+      <span style="font-weight: bold; color: #e67e22;">🔨 Level Editor Mode</span>
+      <button onclick="exitEditor()" style="background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.2); color: #fff; border-radius: 4px; padding: 4px 8px; font-size: 11px; cursor: pointer;">Exit</button>
+    </div>
+    <div style="display: flex; gap: 8px; margin-bottom: 10px;">
+      <button id="tool-platform" onclick="setEditorTool('platform')" class="sound-pack-btn active" style="flex: 1; padding: 8px; font-size: 11px; font-weight: bold; background: #e67e22; color: #000; border: none; border-radius: 4px; cursor: pointer;">Plat</button>
+      <button id="tool-springboard" onclick="setEditorTool('springboard')" class="sound-pack-btn" style="flex: 1; padding: 8px; font-size: 11px; font-weight: bold; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; cursor: pointer;">Spring</button>
+      <button id="tool-laser" onclick="setEditorTool('laser')" class="sound-pack-btn" style="flex: 1; padding: 8px; font-size: 11px; font-weight: bold; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; cursor: pointer;">Laser</button>
+    </div>
+    <div style="font-size: 11px; color: #8e8e93; text-align: center; margin-bottom: 10px;">
+      Left-click to place, Right-click to remove.
+    </div>
+    <div style="display: flex; gap: 8px;">
+      <button id="editor-playtest-btn" onclick="playtestLevel()" style="flex: 1; padding: 8px; font-weight: bold; background: #27ae60; color: #fff; border: none; border-radius: 4px; cursor: pointer;">Playtest</button>
+      <button onclick="exportLevel()" style="flex: 1; padding: 8px; font-weight: bold; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; cursor: pointer;">Export</button>
+      <button onclick="importLevel()" style="flex: 1; padding: 8px; font-weight: bold; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; cursor: pointer;">Import</button>
+    </div>
+  </div>
+
+  <!-- Export/Import Dialog -->
+  <div id="editor-dialog" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; z-index: 10001; backdrop-filter: blur(4px); font-family: sans-serif;">
+    <div style="background: rgba(10, 10, 20, 0.95); border: 2px solid #e67e22; border-radius: 12px; padding: 20px; width: 90%; max-width: 400px; text-align: center; box-sizing: border-box;">
+      <h3 id="dialog-title" style="margin: 0 0 10px; color: #e67e22; font-size: 16px;">Export Level</h3>
+      <textarea id="dialog-textarea" style="width: 100%; height: 150px; background: #1c1c1e; border: 1px solid rgba(255,255,255,0.1); color: #fff; padding: 10px; border-radius: 6px; font-family: monospace; font-size: 11px; box-sizing: border-box; resize: none; margin-bottom: 15px;"></textarea>
+      <div style="display: flex; gap: 10px; justify-content: center;">
+        <button id="dialog-confirm-btn" style="padding: 8px 16px; font-weight: bold; background: #e67e22; color: #000; border: none; border-radius: 4px; cursor: pointer;">Confirm</button>
+        <button onclick="document.getElementById('editor-dialog').style.display='none'" style="padding: 8px 16px; font-weight: bold; background: rgba(255,255,255,0.1); color: #fff; border: 1px solid rgba(255,255,255,0.2); border-radius: 4px; cursor: pointer;">Cancel</button>
       </div>
     </div>
   </div>
@@ -524,7 +560,8 @@
       }
 
       // Check win condition
-      const distToGoal = playerBody.position.distanceTo(new CANNON.Vec3(36, 8.0, 0));
+      const goalTarget = window.__WGF_CUSTOM_GOAL || new CANNON.Vec3(36, 8.0, 0);
+      const distToGoal = playerBody.position.distanceTo(goalTarget);
       if (distToGoal < 3.0 && !isWon) {
         isWon = true;
         const score = Math.max(100, Math.round(10000 - elapsed * 100));
@@ -557,6 +594,234 @@
         resetPlayer();
       }
     });
+
+    // Editor State
+    let isEditorMode = false;
+    let editorTool = 'platform';
+    let editorObjects = [];
+    let editorGridHelper;
+    let editorRaycaster = new THREE.Raycaster();
+    let editorMouse = new THREE.Vector2();
+
+    // Editor triggers
+    document.getElementById('wgf-editor-btn').addEventListener('click', () => {
+      document.getElementById('wgf-instructions-overlay').style.display = 'none';
+      isEditorMode = true;
+      document.getElementById('editor-panel').style.display = 'block';
+      enterEditorMode();
+    });
+
+    window.setEditorTool = function(tool) {
+      editorTool = tool;
+      document.querySelectorAll('#editor-panel button').forEach(btn => {
+        if (btn.id === 'tool-' + tool) {
+          btn.style.background = '#e67e22';
+          btn.style.color = '#000';
+        } else if (btn.id && btn.id.startsWith('tool-')) {
+          btn.style.background = 'rgba(255,255,255,0.1)';
+          btn.style.color = '#fff';
+        }
+      });
+    };
+
+    function enterEditorMode() {
+      clearPhysicsBodies();
+      
+      editorGridHelper = new THREE.GridHelper(100, 100, 0xe67e22, 0x444444);
+      editorGridHelper.rotation.x = Math.PI / 2;
+      editorGridHelper.position.set(0, 0, -0.5);
+      scene.add(editorGridHelper);
+      
+      playerMesh.visible = false;
+      playerBody.position.set(0, 100, 0);
+      
+      camera.position.set(0, 0, 15);
+      camera.lookAt(new THREE.Vector3(0, 0, 0));
+    }
+
+    function clearPhysicsBodies() {
+      platforms.forEach(p => {
+        scene.remove(p.mesh);
+        world.removeBody(p.body);
+      });
+      platforms.length = 0;
+
+      movingPlatforms.forEach(p => {
+        scene.remove(p.mesh);
+        world.removeBody(p.body);
+      });
+      movingPlatforms.length = 0;
+
+      springboards.forEach(p => {
+        scene.remove(p.mesh);
+        world.removeBody(p.body);
+      });
+      springboards.length = 0;
+
+      lasers.forEach(p => {
+        scene.remove(p.mesh);
+        world.removeBody(p.body);
+      });
+      lasers.length = 0;
+    }
+
+    window.addEventListener('mousedown', (e) => {
+      if (!isEditorMode) return;
+      if (e.target.tagName === 'BUTTON' || e.target.tagName === 'TEXTAREA') return;
+
+      editorMouse.x = (e.clientX / window.innerWidth) * 2 - 1;
+      editorMouse.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      
+      editorRaycaster.setFromCamera(editorMouse, camera);
+      
+      const planeZ = new THREE.Plane(new THREE.Vector3(0, 0, 1), 0);
+      const target = new THREE.Vector3();
+      editorRaycaster.ray.intersectPlane(planeZ, target);
+      
+      const gridX = Math.round(target.x);
+      const gridY = Math.round(target.y);
+      
+      if (e.button === 0) {
+        placeEditorObject(gridX, gridY, editorTool);
+      } else if (e.button === 2) {
+        removeEditorObject(gridX, gridY);
+      }
+    });
+
+    window.addEventListener('contextmenu', e => {
+      if (isEditorMode) e.preventDefault();
+    });
+
+    function placeEditorObject(x, y, type) {
+      removeEditorObject(x, y);
+      
+      let mesh;
+      if (type === 'platform') {
+        const geo = new THREE.BoxGeometry(2, 0.8, 2);
+        const mat = new THREE.MeshStandardMaterial({ color: 0x99bbff, roughness: 0.6 });
+        mesh = new THREE.Mesh(geo, mat);
+      } else if (type === 'springboard') {
+        const geo = new THREE.BoxGeometry(1.2, 0.2, 1.2);
+        const mat = new THREE.MeshStandardMaterial({ color: 0xffcc00, emissive: 0xffcc00, emissiveIntensity: 0.5 });
+        mesh = new THREE.Mesh(geo, mat);
+      } else if (type === 'laser') {
+        const geo = new THREE.CylinderGeometry(0.12, 0.12, 3.5, 12);
+        const mat = new THREE.MeshStandardMaterial({ color: 0xff0055, emissive: 0xff0055, emissiveIntensity: 1.5 });
+        mesh = new THREE.Mesh(geo, mat);
+      }
+      
+      mesh.position.set(x, y, 0);
+      scene.add(mesh);
+      editorObjects.push({ type, mesh, x, y });
+    }
+
+    function removeEditorObject(x, y) {
+      const idx = editorObjects.findIndex(o => Math.round(o.x) === x && Math.round(o.y) === y);
+      if (idx !== -1) {
+        scene.remove(editorObjects[idx].mesh);
+        editorObjects.splice(idx, 1);
+      }
+    }
+
+    window.exitEditor = function() {
+      isEditorMode = false;
+      document.getElementById('editor-panel').style.display = 'none';
+      if (editorGridHelper) scene.remove(editorGridHelper);
+      
+      editorObjects.forEach(o => scene.remove(o.mesh));
+      editorObjects.length = 0;
+      
+      playerMesh.visible = true;
+      resetPlayer();
+      
+      createPlatform(0, 0, 0, 8, 1, 8, 0xaabbcc);
+      createMovingPlatform(7, 1.5, 0, 3, 0.8, 3, 0x99bbff, 0, 1.5, 1.8);
+      createPlatform(14, 3, 0, 4, 1, 4, 0xaabbcc);
+      createLaser(14, 4.2, 0, 3.5, 2.0);
+      createPlatform(21, 2.5, 0, 3, 1, 3, 0xffdd88);
+      createSpringboard(21, 2.5, 0);
+      createPlatform(21, 9, 0, 4, 1, 4, 0xaabbcc);
+      createMovingPlatform(28, 8, 0, 3, 0.8, 3, 0x99bbff, 3.5, 0, 1.5);
+      createPlatform(36, 7.5, 0, 6, 1, 6, 0x66cc88);
+      
+      document.getElementById('wgf-instructions-overlay').style.display = 'flex';
+    };
+
+    window.playtestLevel = function() {
+      if (editorObjects.length === 0) return;
+      
+      clearPhysicsBodies();
+      
+      createPlatform(0, -0.5, 0, 4, 0.8, 4, 0xaabbcc);
+      
+      let maxX = 0;
+      let maxY = 0;
+      
+      editorObjects.forEach(o => {
+        if (o.x > maxX) { maxX = o.x; maxY = o.y; }
+        
+        if (o.type === 'platform') {
+          createPlatform(o.x, o.y, 0, 2, 0.8, 2, 0x99bbff);
+        } else if (o.type === 'springboard') {
+          createSpringboard(o.x, o.y - 0.4, 0, 1.2);
+        } else if (o.type === 'laser') {
+          createLaser(o.x, o.y, 0, 3.5, 2.0);
+        }
+      });
+      
+      const goalX = maxX + 4;
+      const goalY = maxY;
+      createPlatform(goalX, goalY - 0.5, 0, 4, 0.8, 4, 0x66cc88);
+      
+      window.__WGF_CUSTOM_GOAL = new THREE.Vector3(goalX, goalY, 0);
+      
+      if (editorGridHelper) scene.remove(editorGridHelper);
+      document.getElementById('editor-panel').style.display = 'none';
+      isEditorMode = false;
+      
+      playerMesh.visible = true;
+      playerBody.position.set(0, 2, 0);
+      playerBody.velocity.set(0,0,0);
+      playerBody.angularVelocity.set(0,0,0);
+      
+      isGameStarted = true;
+      clock = new THREE.Clock();
+    };
+
+    window.exportLevel = function() {
+      const exportData = editorObjects.map(o => ({ type: o.type, x: o.x, y: o.y }));
+      const json = JSON.stringify(exportData);
+      
+      document.getElementById('dialog-title').innerText = 'Export Custom Level';
+      document.getElementById('dialog-textarea').value = json;
+      document.getElementById('dialog-confirm-btn').onclick = () => {
+        document.getElementById('editor-dialog').style.display = 'none';
+      };
+      document.getElementById('editor-dialog').style.display = 'flex';
+    };
+
+    window.importLevel = function() {
+      document.getElementById('dialog-title').innerText = 'Import Custom Level';
+      document.getElementById('dialog-textarea').value = '';
+      document.getElementById('dialog-confirm-btn').onclick = () => {
+        try {
+          const json = document.getElementById('dialog-textarea').value.trim();
+          const list = JSON.parse(json);
+          
+          editorObjects.forEach(o => scene.remove(o.mesh));
+          editorObjects.length = 0;
+          
+          list.forEach(item => {
+            placeEditorObject(item.x, item.y, item.type);
+          });
+          
+          document.getElementById('editor-dialog').style.display = 'none';
+        } catch(e) {
+          alert('Invalid level JSON data');
+        }
+      };
+      document.getElementById('editor-dialog').style.display = 'flex';
+    };
 
     init();
   </script>
