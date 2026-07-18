@@ -337,13 +337,18 @@ export class CosmicCargoScene extends Phaser.Scene implements GameLifecycle {
 
   showStart() {
     this.lifecycleState = "start";
-    this.stateText.setVisible(true);
-    this.stateText.setText("COSMIC CARGO").setColor("#00c805");
-    this.hintText.setVisible(true);
-    this.hintText.setText("TAP TO START");
+    this.stateText.setVisible(false);
+    this.hintText.setVisible(false);
     this.demoPhase = 0;
     this.demoTimer = 0;
-    this.overlays.clear();
+    
+    this.overlays.showInstructions(
+      'Cosmic Cargo',
+      '• Fly Ship: Drag to steer / adjust height.\n• Boost: Press Spacebar or double-tap.\n• Goal: Collect gold cargo pods and deliver them safely to the space landing pad!',
+      () => {
+        this.startGameplay();
+      }
+    );
   }
 
   startGameplay() {

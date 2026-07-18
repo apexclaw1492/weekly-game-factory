@@ -573,12 +573,19 @@ export class PongScene extends Phaser.Scene implements GameLifecycle {
   // GameLifecycle implementation
   public showStart(): void {
     this.lifecycleState = 'start';
-    this.stateText.setVisible(true).setText('RED BULL PONG CHAMPIONSHIP').setColor('#00c805');
-    this.hintText.setVisible(true).setText('TAP TO START\n\nDRAG ON BOTTOM HALF TO MOVE\nARROWS LEFT/RIGHT ON DESKTOP');
+    this.stateText.setVisible(false);
+    this.hintText.setVisible(false);
     this.overlayBg.setVisible(false);
     this.funFactBox.setVisible(false);
     this.ball.setVisible(false);
-    this.overlays.clear();
+    
+    this.overlays.showInstructions(
+      'Red Bull Pong',
+      '• Move Paddle: Press Left/Right Arrow keys or drag on-screen.\n• Goal: Bounce the ball past the AI opponent paddle and win 10 rounds to become the Champion!',
+      () => {
+        this.startGameplay();
+      }
+    );
   }
 
   public startGameplay(): void {

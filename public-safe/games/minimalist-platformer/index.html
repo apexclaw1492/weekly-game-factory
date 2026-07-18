@@ -30,6 +30,32 @@
   </style>
 </head>
 <body>
+  <!-- Instructions Overlay -->
+  <div id="wgf-instructions-overlay" style="position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 99999; backdrop-filter: blur(8px); font-family: sans-serif;">
+    <div style="background: rgba(240, 245, 255, 0.95); border: 2px solid #335; border-radius: 16px; padding: 30px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 0 30px rgba(50, 50, 80, 0.2);">
+      <h2 style="margin: 0 0 10px; color: #335; font-size: 24px; text-transform: uppercase; letter-spacing: 1px;">Minimalist Platformer</h2>
+      <div style="font-size: 11px; color: #8e8e93; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px;">How to Play</div>
+      <p style="color: #444; font-size: 14px; line-height: 1.6; margin: 0 0 25px; text-align: left;">
+        • <b>Move Left/Right:</b> Press <b>A/D</b>, <b>Left/Right Arrows</b>, or tap the left/right halves of the screen.<br>
+        • <b>Jump:</b> Press <b>Space</b>, <b>Up Arrow</b>, <b>W</b>, or tap the top third of the screen.<br>
+        • <b>Goal:</b> Navigate the physics platforms and reach the green platform!
+      </p>
+      <button id="wgf-start-btn" style="background: #335; border: none; color: #fff; padding: 12px 28px; font-weight: bold; font-size: 15px; border-radius: 8px; cursor: pointer; box-shadow: 0 0 15px rgba(50, 50, 80, 0.3); font-family: sans-serif; letter-spacing: 0.5px;">START GAME</button>
+    </div>
+  </div>
+
+  <!-- Victory Overlay -->
+  <div id="wgf-victory-overlay" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; z-index: 99998; backdrop-filter: blur(8px); font-family: sans-serif;">
+    <div style="background: rgba(240, 255, 240, 0.95); border: 2px solid #00c805; border-radius: 16px; padding: 30px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 0 30px rgba(0, 200, 5, 0.25);">
+      <h2 style="margin: 0 0 10px; color: #00c805; font-size: 28px; text-transform: uppercase; letter-spacing: 1.5px;">GOAL REACHED!</h2>
+      <p id="wgf-victory-score" style="color: #333; font-size: 18px; font-weight: bold; margin: 0 0 25px;">Final Score: 0</p>
+      <div style="display: flex; gap: 15px; justify-content: center;">
+        <button id="wgf-restart-btn" style="background: #00c805; border: none; color: #fff; padding: 12px 24px; font-weight: bold; font-size: 14px; border-radius: 8px; cursor: pointer; box-shadow: 0 0 15px rgba(0, 200, 5, 0.3);">PLAY AGAIN</button>
+        <button style="background: rgba(0,0,0,0.08); border: 1px solid rgba(0,0,0,0.15); color: #666; padding: 12px 24px; font-weight: bold; font-size: 14px; border-radius: 8px; cursor: pointer;" onclick="window.parent.closeGameIframe()">RETURN TO HUB</button>
+      </div>
+    </div>
+  </div>
+
   <div id="ui">
     <h1>MINIMALIST PLATFORMER</h1>
     <p>A/D/Arrows or Tap Left/Right to Move.<br>Space/Tap Top to Jump.</p>
@@ -67,6 +93,7 @@
     const keys = { a: false, d: false, w: false, s: false, space: false };
     const platforms = [];
     let isWon = false;
+    let isGameStarted = false;
     
     // Trail system
     const trailLength = 20;
@@ -174,6 +201,7 @@
 
       // Input
       window.addEventListener('keydown', (e) => {
+        if (!isGameStarted) return;
         if(e.code === 'KeyA' || e.code === 'ArrowLeft') keys.a = true;
         if(e.code === 'KeyD' || e.code === 'ArrowRight') keys.d = true;
         if((e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') && !keys.space) {
@@ -182,12 +210,14 @@
         }
       });
       window.addEventListener('keyup', (e) => {
+        if (!isGameStarted) return;
         if(e.code === 'KeyA' || e.code === 'ArrowLeft') keys.a = false;
         if(e.code === 'KeyD' || e.code === 'ArrowRight') keys.d = false;
         if(e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW') keys.space = false;
       });
 
       window.addEventListener('touchstart', (e) => {
+        if (!isGameStarted) return;
         const touch = e.touches[0];
         const w = window.innerWidth;
         const h = window.innerHeight;
@@ -205,6 +235,7 @@
       });
 
       window.addEventListener('touchend', (e) => {
+        if (!isGameStarted) return;
         if (e.touches.length === 0) {
           keys.a = false;
           keys.d = false;
@@ -217,6 +248,27 @@
         renderer.setSize(window.innerWidth, window.innerHeight);
         composer.setSize(window.innerWidth, window.innerHeight);
       });
+
+      // Overlay Start Event
+      const startGame = () => {
+        if (isGameStarted) return;
+        isGameStarted = true;
+        document.getElementById('wgf-instructions-overlay').style.display = 'none';
+        clock = new THREE.Clock(); // restart clock on real game start
+      };
+      document.getElementById('wgf-start-btn').addEventListener('click', startGame);
+      window.addEventListener('keydown', (e) => {
+        if (!isGameStarted && (e.code === 'Space' || e.code === 'Enter')) {
+          startGame();
+        }
+      });
+
+      // Overlay Restart Event
+      const restartGame = () => {
+        document.getElementById('wgf-victory-overlay').style.display = 'none';
+        resetPlayer();
+      };
+      document.getElementById('wgf-restart-btn').addEventListener('click', restartGame);
 
       animate();
     }
@@ -280,6 +332,10 @@
 
     function animate() {
       requestAnimationFrame(animate);
+      if (!isGameStarted) {
+        composer.render();
+        return;
+      }
       const dt = Math.min(clock.getDelta(), 0.1);
 
       // Physics step
@@ -316,9 +372,11 @@
         isWon = true;
         const elapsed = clock.getElapsedTime();
         const score = Math.max(100, Math.round(10000 - elapsed * 100));
-        document.querySelector('h1').innerText = "GOAL REACHED!";
-        document.querySelector('h1').style.color = "#00c805";
-        document.querySelector('.info').innerHTML = `Time: ${elapsed.toFixed(1)}s | Score: ${score}<br>Press space or tap screen to restart.`;
+        
+        // Show Victory Overlay
+        document.getElementById('wgf-victory-score').innerText = `Final Score: ${score}`;
+        document.getElementById('wgf-victory-overlay').style.display = 'flex';
+        
         window.parent.postMessage({ type: 'WGF_SCORE', gameId: 'minimalist-platformer', score: score }, '*');
       }
 
@@ -333,20 +391,13 @@
       if (isWon) {
         isWon = false;
         clock = new THREE.Clock();
-        document.querySelector('h1').innerText = "MINIMALIST PLATFORMER";
-        document.querySelector('h1').style.color = "#335";
-        document.querySelector('.info').innerHTML = "Navigate the soft world and reach the green platform!";
+        document.getElementById('wgf-victory-overlay').style.display = 'none';
       }
     }
 
-    // Modify controls to trigger reset on action when won
+    // Trigger reset on Space or Enter when won
     window.addEventListener('keydown', (e) => {
-      if (isWon && (e.code === 'Space' || e.code === 'ArrowUp' || e.code === 'KeyW')) {
-        resetPlayer();
-      }
-    });
-    window.addEventListener('touchstart', () => {
-      if (isWon) {
+      if (isWon && (e.code === 'Space' || e.code === 'Enter')) {
         resetPlayer();
       }
     });

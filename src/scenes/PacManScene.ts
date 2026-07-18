@@ -857,13 +857,20 @@ export class PacManScene extends Phaser.Scene implements GameLifecycle {
   // --- GameLifecycle Interface Implementations ---
   public showStart(): void {
     this.lifecycleState = 'start';
-    this.titleText.setVisible(true).setText('PAC-MAN 3D').setColor('#00c805');
+    this.titleText.setVisible(false);
     this.scoreText.setVisible(false);
     this.livesText.setVisible(false);
     this.highScoreText.setVisible(false);
-    this.hintText.setVisible(true).setText('TAP SCREEN OR SPACE TO START\n\nSWIPE OR DRAG VECTOR ON SCREEN TO STEER');
+    this.hintText.setVisible(false);
     if (this.threeCanvas) this.threeCanvas.style.display = 'none';
-    this.overlays.clear();
+    
+    this.overlays.showInstructions(
+      'Pac-Man',
+      '• Move Pac-Man: Press WASD / Arrow keys or swipe to guide Pac-Man.\n• Goal: Eat all neon dots in the maze. Eat blue power-pellets to temporarily chase and eat ghosts!',
+      () => {
+        this.startGameplay();
+      }
+    );
   }
 
   public startGameplay(): void {

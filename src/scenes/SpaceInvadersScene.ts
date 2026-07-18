@@ -381,13 +381,18 @@ export class SpaceInvadersScene extends Phaser.Scene implements GameLifecycle {
   public showStart(): void {
     this.isWaitingToStart = true;
     this.lifecycleState = 'start';
-    this.stateText.setVisible(true);
-    this.stateText.setText('F1 SPACE INVADERS').setColor('#00c805');
-    this.hintText.setVisible(true);
-    this.hintText.setText('TAP OR SPACE TO START\n\nPHONE: DRAG TO MOVE, HOLD TO FIRE\nDESKTOP: LEFT / RIGHT + SPACE');
-    this.controlsText.setVisible(true);
-    this.hiScoreText.setVisible(true);
-    this.overlays.clear();
+    this.stateText.setVisible(false);
+    this.hintText.setVisible(false);
+    this.controlsText.setVisible(false);
+    this.hiScoreText.setVisible(false);
+    
+    this.overlays.showInstructions(
+      'Space Invaders',
+      '• Move: Press Left/Right Arrow keys or drag on-screen.\n• Shoot: Press Spacebar or hold touch.\n• Goal: Protect shields and blast all alien invaders!',
+      () => {
+        this.startGameplay();
+      }
+    );
   }
 
   public startGameplay(): void {

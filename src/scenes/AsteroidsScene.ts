@@ -714,15 +714,20 @@ export class AsteroidsScene extends Phaser.Scene implements GameLifecycle {
   showStart(): void {
     this.isWaitingToStart = true;
     this.lifecycleState = "start";
-    this.stateText.setVisible(true);
-    this.stateText.setText("ASTEROID BELT").setColor("#00c805");
-    this.hintText.setVisible(true);
-    this.hintText.setText("TAP TO START\n\nPHONE: DRAG OR TILT TO STEER\nHOLD = THRUST + AUTO-FIRE\n\nDESKTOP: ARROWS + SPACE\nSHIFT = HYPERSPACE");
+    this.stateText.setVisible(false);
+    this.hintText.setVisible(false);
     if (this.ship) {
       this.ship.setVisible(true);
       this.ship.setPosition(this.scale.width / 2, this.scale.height / 2 - 20);
     }
-    this.overlays.clear();
+    
+    this.overlays.showInstructions(
+      'Asteroids',
+      '• Steer: Press Left/Right Arrow keys or drag on-screen.\n• Thrust: Press Up Arrow or hold touch.\n• Fire: Press Spacebar.\n• Hyperspace: Press Shift key.\n• Goal: Blow up the asteroids and avoid collisions!',
+      () => {
+        this.startGameplay();
+      }
+    );
   }
 
   startGameplay(): void {

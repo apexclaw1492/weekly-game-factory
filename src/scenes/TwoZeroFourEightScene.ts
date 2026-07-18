@@ -694,12 +694,19 @@ export class TwoZeroFourEightScene extends Phaser.Scene implements GameLifecycle
   // --- GameLifecycle Interface Implementations ---
   public showStart(): void {
     this.lifecycleState = 'start';
-    this.titleText.setVisible(true).setText('2048 3D').setColor('#00c805');
+    this.titleText.setVisible(false);
     this.scoreText.setVisible(false);
     this.bestText.setVisible(false);
-    this.hintText.setVisible(true).setText('TAP SCREEN OR SPACE TO START\n\nSWIPE LEFT/RIGHT/UP/DOWN TO SLIDE\nARROWS/WASD ON DESKTOP');
+    this.hintText.setVisible(false);
     if (this.threeCanvas) this.threeCanvas.style.display = 'none';
-    this.overlays.clear();
+    
+    this.overlays.showInstructions(
+      '2048',
+      '• Slide Tiles: Press WASD / Arrow keys or swipe in any direction.\n• Goal: Merge identical tiles to double their value, and reach the 2048 tile!',
+      () => {
+        this.startGameplay();
+      }
+    );
   }
 
   public startGameplay(): void {

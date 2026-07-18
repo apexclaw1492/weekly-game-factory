@@ -30,6 +30,32 @@
   </style>
 </head>
 <body>
+  <!-- Instructions Overlay -->
+  <div id="wgf-instructions-overlay" style="position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 99999; backdrop-filter: blur(8px); font-family: sans-serif;">
+    <div style="background: rgba(10, 15, 25, 0.95); border: 2px solid #00aaff; border-radius: 16px; padding: 30px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 0 30px rgba(0, 170, 255, 0.25);">
+      <h2 style="margin: 0 0 10px; color: #00aaff; font-size: 24px; text-transform: uppercase; letter-spacing: 1.5px; text-shadow: 0 0 8px #00aaff;">Sci-Fi TD</h2>
+      <div style="font-size: 11px; color: #8e8e93; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px;">How to Play</div>
+      <p style="color: #fff; font-size: 14px; line-height: 1.6; margin: 0 0 25px; text-align: left;">
+        • <b>Deploy Towers:</b> Click/tap empty grid tiles to build Laser Towers ($50 each).<br>
+        • <b>Defend:</b> Stop incoming anomalies before they reach the core and deplete your integrity.<br>
+        • <b>Score:</b> Get credits ($15) and score (+10) for every anomaly destroyed!
+      </p>
+      <button id="wgf-start-btn" style="background: #00aaff; border: none; color: #000; padding: 12px 28px; font-weight: bold; font-size: 15px; border-radius: 8px; cursor: pointer; box-shadow: 0 0 15px rgba(0, 170, 255, 0.4); font-family: sans-serif; letter-spacing: 0.5px;">START DEFENSE</button>
+    </div>
+  </div>
+
+  <!-- Game Over Overlay -->
+  <div id="wgf-gameover-overlay" style="display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.85); align-items: center; justify-content: center; z-index: 99998; backdrop-filter: blur(8px); font-family: sans-serif;">
+    <div style="background: rgba(20, 10, 10, 0.95); border: 2px solid #ff3b30; border-radius: 16px; padding: 30px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 0 30px rgba(255, 59, 48, 0.25);">
+      <h2 style="margin: 0 0 10px; color: #ff3b30; font-size: 28px; text-transform: uppercase; text-shadow: 0 0 10px #ff3b30; letter-spacing: 1.5px;">CORE BREACH</h2>
+      <p id="wgf-gameover-score" style="color: #fff; font-size: 18px; font-weight: bold; margin: 0 0 25px;">Final Score: 0</p>
+      <div style="display: flex; gap: 15px; justify-content: center;">
+        <button id="wgf-restart-btn" style="background: #00c805; border: none; color: #fff; padding: 12px 24px; font-weight: bold; font-size: 14px; border-radius: 8px; cursor: pointer; box-shadow: 0 0 15px rgba(0, 200, 5, 0.3);">PLAY AGAIN</button>
+        <button style="background: rgba(255,255,255,0.08); border: 1px solid rgba(255,255,255,0.15); color: #8e8e93; padding: 12px 24px; font-weight: bold; font-size: 14px; border-radius: 8px; cursor: pointer;" onclick="window.parent.closeGameIframe()">RETURN TO HUB</button>
+      </div>
+    </div>
+  </div>
+
   <div id="ui">
     <h1>SCI-FI VOXEL TD</h1>
     <p>Credits: <span id="money" style="color:#0f0;">$100</span> | Core Integrity: <span id="lives" style="color:#f00;">10</span></p>
@@ -64,6 +90,7 @@
   <script>
     let scene, camera, renderer, composer, world;
     let money = 100, lives = 10, score = 0, isGameOver = false;
+    let isGameStarted = false;
     let clock = new THREE.Clock();
     let towers = [], enemies = [], projectiles = [], particles = [];
     let gridGeometry, gridMaterial;
@@ -144,10 +171,63 @@
         composer.setSize(window.innerWidth, window.innerHeight);
       });
 
+      // Overlay Start Event
+      const startGame = () => {
+        if (isGameStarted) return;
+        isGameStarted = true;
+        document.getElementById('wgf-instructions-overlay').style.display = 'none';
+      };
+      document.getElementById('wgf-start-btn').addEventListener('click', startGame);
+      window.addEventListener('keydown', (e) => {
+        if (!isGameStarted && (e.code === 'Space' || e.code === 'Enter')) {
+          startGame();
+        }
+      });
+
+      // Overlay Restart Event
+      const restartGame = () => {
+        document.getElementById('wgf-gameover-overlay').style.display = 'none';
+        
+        // Reset game variables
+        money = 100;
+        lives = 10;
+        score = 0;
+        isGameOver = false;
+        
+        document.getElementById('money').innerText = '$' + money;
+        document.getElementById('lives').innerText = lives;
+        
+        // Clear towers
+        towers.forEach(t => scene.remove(t.mesh));
+        towers = [];
+        
+        // Clear enemies
+        enemies.forEach(e => scene.remove(e.mesh));
+        enemies = [];
+        
+        // Clear projectiles
+        projectiles.forEach(p => scene.remove(p.mesh));
+        projectiles = [];
+        
+        // Clear particles
+        particles.forEach(p => scene.remove(p.mesh));
+        particles = [];
+        
+        enemyTimer = 0;
+        clock = new THREE.Clock();
+      };
+      document.getElementById('wgf-restart-btn').addEventListener('click', restartGame);
+      window.addEventListener('keydown', (e) => {
+        if (isGameOver && (e.code === 'Space' || e.code === 'Enter')) {
+          restartGame();
+        }
+      });
+
       animate();
     }
 
     function onMouseClick(event) {
+      if (!isGameStarted) return;
       mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
       mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
       raycaster.setFromCamera(mouse, camera);
@@ -231,6 +311,10 @@
 
     function animate() {
       requestAnimationFrame(animate);
+      if (!isGameStarted) {
+        composer.render();
+        return;
+      }
       const dt = Math.min(clock.getDelta(), 0.1);
       const time = clock.getElapsedTime();
 
@@ -347,11 +431,10 @@
       } else {
         if (!isGameOver) {
           isGameOver = true;
+          document.getElementById('wgf-gameover-score').innerText = `Final Score: ${score}`;
+          document.getElementById('wgf-gameover-overlay').style.display = 'flex';
           window.parent.postMessage({ type: 'WGF_SCORE', gameId: 'sci-fi-td', score: score }, '*');
         }
-        document.querySelector('h1').innerText = "CORE BREACHED";
-        document.querySelector('h1').style.color = "#f00";
-        document.querySelector('h1').style.textShadow = "0 0 20px #f00";
       }
 
       // renderer.render(scene, camera);

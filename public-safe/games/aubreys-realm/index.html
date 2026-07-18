@@ -17,7 +17,14 @@ html,body{margin:0;width:100%;height:100%;overflow:hidden;background:#d8c6ad;fon
   <div class="z" id="zone"></div>
   <div class="d" id="done"><h2>The realm awakens</h2><p>All star-seeds restored.</p><div class="small">Aubrey's Realm is whole again.</div></div>
 </div>
-<div class="l" id="load"><div class="c"><h1>Waking Aubrey's Realm</h1><p>Planting procedural structures and materials.</p><div class="row"><span id="loadN">Processing...</span><span id="file">Models compressed to 0MB.</span></div></div></div>
+<div class="l" id="load">
+  <div class="c">
+    <h1 id="loadTitle">Waking Aubrey's Realm</h1>
+    <p id="loadDesc">Planting procedural structures and materials.</p>
+    <div class="row" id="loadRow"><span id="loadN">Processing...</span><span id="file">Models compressed to 0MB.</span></div>
+    <button id="loadBtn" style="display: none; width: 100%; margin-top: 15px; background: #00c805; border: none; color: #fff; padding: 12px; font-weight: bold; border-radius: 8px; cursor: pointer; font-family: sans-serif; box-shadow: 0 0 15px rgba(0, 200, 5, 0.3);">START EXPLORATION</button>
+  </div>
+</div>
 <script type="module">
 import * as THREE from 'three';
 import * as CANNON from 'cannon-es';
@@ -201,7 +208,7 @@ function pathRun(asset,x1,z1,x2,z2,count=6,s=1,offset=.02){for(let i=0;i<=count;
 function fenceGate(x,z,ry=0,c=0xb38c64){const g=new THREE.Group();const m=new THREE.MeshStandardMaterial({color:c,roughness:.92});g.add(new THREE.Mesh(new THREE.BoxGeometry(.1,1.05,.1),m));g.add(new THREE.Mesh(new THREE.BoxGeometry(.1,1.05,.1),m));g.children[0].position.set(-.45,.52,0);g.children[1].position.set(.45,.52,0);const top=new THREE.Mesh(new THREE.BoxGeometry(1.06,.12,.12),m);top.position.set(0,1.02,0);g.add(top);g.position.set(x,.02,z);g.rotation.y=ry;g.traverse(o=>o.isMesh&&(o.castShadow=o.receiveShadow=true));scene.add(g);return g;}
 function beacon(x,z,c){const g=new THREE.Group();g.add(new THREE.Mesh(new THREE.CylinderGeometry(.08,.12,1.1,6),new THREE.MeshStandardMaterial({color:0x8d6a49,roughness:.92})));g.add(new THREE.Mesh(new THREE.SphereGeometry(.18,8,8),new THREE.MeshStandardMaterial({color:c,emissive:c,emissiveIntensity:1.25,roughness:.3})));g.children[1].position.y=.88;g.add(new THREE.PointLight(c,1.25,6,2));g.position.set(x,.02,z);scene.add(g);return g;}
 
-function build(){
+async function build(){
     // Village huts (procedural geometry)
     const hut=new THREE.Group();hut.add(new THREE.Mesh(new THREE.BoxGeometry(1.7,1,1.7),new THREE.MeshStandardMaterial({color:0xb98d67,roughness:.95})));const roof=new THREE.Mesh(new THREE.ConeGeometry(1.33,.9,4),new THREE.MeshStandardMaterial({color:0x7d4f34,roughness:.9}));roof.rotation.y=Math.PI/4;roof.position.y=1.08;hut.add(roof);hut.position.set(0,.52,0);hut.traverse(o=>o.isMesh&&(o.castShadow=o.receiveShadow=true));scene.add(hut);
     const hut2=new THREE.Group();hut2.add(new THREE.Mesh(new THREE.BoxGeometry(1.4,.8,1.4),new THREE.MeshStandardMaterial({color:0xcb9d72,roughness:.95})));const roof2=new THREE.Mesh(new THREE.ConeGeometry(1.15,.75,4),new THREE.MeshStandardMaterial({color:0x915f3e,roughness:.9}));roof2.rotation.y=Math.PI/3;roof2.position.y=.84;hut2.add(roof2);hut2.position.set(-3.5,.38,3.2);hut2.rotation.y=1.2;hut2.traverse(o=>o.isMesh&&(o.castShadow=o.receiveShadow=true));scene.add(hut2);
@@ -249,12 +256,28 @@ function build(){
     world.addBody(body);
     
     let target=new THREE.Vector3(player.position.x,0,player.position.z),zone=-1,lastZone=-1,camPos=new THREE.Vector3(-1.6,4.4,6.6),lastDir=new THREE.Vector3(0,0,1),keys={w:0,a:0,s:0,d:0},completed=false,collectFlash=0;
+    let isGameStarted=false;
     const ray=new THREE.Raycaster(), ptr=new THREE.Vector2(), plane=new THREE.Plane(new THREE.Vector3(0,1,0),0), tmp=new THREE.Vector3(), dir=new THREE.Vector3(), goalPos=new THREE.Vector3();
     
-    addEventListener('keydown',e=>{const k=e.key.toLowerCase();if(k==='w'||k==='arrowup')keys.w=1;if(k==='a'||k==='arrowleft')keys.a=1;if(k==='s'||k==='arrowdown')keys.s=1;if(k==='d'||k==='arrowright')keys.d=1;});
-    addEventListener('keyup',e=>{const k=e.key.toLowerCase();if(k==='w'||k==='arrowup')keys.w=0;if(k==='a'||k==='arrowleft')keys.a=0;if(k==='s'||k==='arrowdown')keys.s=0;if(k==='d'||k==='arrowright')keys.d=0;});
+    addEventListener('keydown',e=>{
+      if(!isGameStarted)return;
+      const k=e.key.toLowerCase();
+      if(k==='w'||k==='arrowup')keys.w=1;
+      if(k==='a'||k==='arrowleft')keys.a=1;
+      if(k==='s'||k==='arrowdown')keys.s=1;
+      if(k==='d'||k==='arrowright')keys.d=1;
+    });
+    addEventListener('keyup',e=>{
+      if(!isGameStarted)return;
+      const k=e.key.toLowerCase();
+      if(k==='w'||k==='arrowup')keys.w=0;
+      if(k==='a'||k==='arrowleft')keys.a=0;
+      if(k==='s'||k==='arrowdown')keys.s=0;
+      if(k==='d'||k==='arrowright')keys.d=0;
+    });
     
     renderer.domElement.addEventListener('pointerdown',e=>{
+      if(!isGameStarted)return;
       const r=renderer.domElement.getBoundingClientRect();
       ptr.x=((e.clientX-r.left)/r.width)*2-1;
       ptr.y=-((e.clientY-r.top)/r.height)*2+1;
@@ -285,11 +308,38 @@ function build(){
 
     function zoneAt(x,z){let best=-1,bd=1e9;for(let i=0;i<zones.length;i++){const d=(x-zones[i].x)**2+(z-zones[i].z)**2;if(d<zones[i].r*zones[i].r&&d<bd){bd=d;best=i}}return best}
     
-    setTheme(0);load.classList.add('hide');loadTxt.textContent='';camera.position.copy(camPos);camera.lookAt(-1.6,1.1,1.2);
+    setTheme(0);
+    $('loadTitle').textContent = "Aubrey's Realm";
+    $('loadDesc').innerHTML = `
+      • <b>Move Aubrey:</b> Use <b>W/A/S/D</b>, <b>Arrow keys</b>, or click/tap on the ground to walk.<br>
+      • <b>Objective:</b> Collect 5 glowing star-seeds hidden around the zone to restore the realm. Follow the yellow wisp to locate them!
+    `;
+    $('loadRow').style.display = 'none';
+    $('loadBtn').style.display = 'block';
+    
+    const startGame = () => {
+      if (isGameStarted) return;
+      isGameStarted = true;
+      load.classList.add('hide');
+      loadTxt.textContent = '';
+      clock.getDelta();
+    };
+    $('loadBtn').addEventListener('click', startGame);
+    addEventListener('keydown', (e) => {
+      if (!isGameStarted && (e.code === 'Space' || e.code === 'Enter')) {
+        startGame();
+      }
+    });
+
+    camera.position.copy(camPos);camera.lookAt(-1.6,1.1,1.2);
     
     const clock=new THREE.Clock();
     
     renderer.setAnimationLoop(()=>{
+      if(!isGameStarted) {
+        composer.render();
+        return;
+      }
       const dt=Math.min(clock.getDelta(),.033),t=clock.elapsedTime;
       world.step(1/60,dt,3);
       const ix=keys.d-keys.a,iz=keys.s-keys.w;

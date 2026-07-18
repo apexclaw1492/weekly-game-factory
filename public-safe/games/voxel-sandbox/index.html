@@ -146,6 +146,22 @@
   </style>
 </head>
 <body>
+  <!-- Instructions Overlay -->
+  <div id="wgf-instructions-overlay" style="position: fixed; inset: 0; background: rgba(0,0,0,0.85); display: flex; align-items: center; justify-content: center; z-index: 99999; backdrop-filter: blur(8px); font-family: sans-serif;">
+    <div style="background: rgba(20,20,30,0.95); border: 2px solid #00c805; border-radius: 16px; padding: 30px; width: 90%; max-width: 400px; text-align: center; box-shadow: 0 0 30px rgba(0, 200, 5, 0.25);">
+      <h2 style="margin: 0 0 10px; color: #00c805; font-size: 24px; text-transform: uppercase; letter-spacing: 1px;">Voxel Sandbox</h2>
+      <div style="font-size: 11px; color: #8e8e93; font-weight: bold; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px;">How to Play</div>
+      <p style="color: #fff; font-size: 14px; line-height: 1.6; margin: 0 0 25px; text-align: left;">
+        • <b>Place Blocks:</b> Select a material from the bottom palette and click/tap anywhere on the grid.<br>
+        • <b>Remove Blocks:</b> Click 'Mode: PLACE' button or hold <b>Shift/X</b> and click on placed blocks.<br>
+        • <b>Rotate View:</b> Left-click and drag (or drag with 1 finger).<br>
+        • <b>Move Grid:</b> Right-click and drag (or drag with 2 fingers).<br>
+        • <b>Zoom:</b> Scroll mouse wheel (or pinch-to-zoom).
+      </p>
+      <button id="wgf-start-btn" style="background: #00c805; border: none; color: #fff; padding: 12px 28px; font-weight: bold; font-size: 15px; border-radius: 8px; cursor: pointer; box-shadow: 0 0 15px rgba(0, 200, 5, 0.3); font-family: sans-serif; letter-spacing: 0.5px;">START GAME</button>
+    </div>
+  </div>
+
   <div id="ui">
     <h1>VOXEL SANDBOX</h1>
     <p>Blocks Placed: <span id="blocks-count">0</span> | Mode: <span id="mode-text" style="color: #00c805; font-weight: bold;">PLACE</span></p>
@@ -184,13 +200,14 @@
     const BLOCK_SIZE = 1;
     const GRID_SIZE = 20;
 
-    let scene, camera, renderer, controls;
+    let scene, camera, renderer, controls, clock;
     let plane;
     let raycaster, mouse;
     let currentMaterialType = 'grass';
     let buildMode = 'place'; // 'place' or 'delete'
     let blocks = []; // Array of mesh objects
     let blocksCount = 0;
+    let isGameStarted = false;
     
     // Particle system variables
     let particleGeometry, particleSystem;
@@ -222,6 +239,7 @@
       scene = new THREE.Scene();
       scene.background = new THREE.Color(0x0d0e15);
       scene.fog = new THREE.Fog(0x0d0e15, 15, 60);
+      clock = new THREE.Clock();
 
       // Camera
       camera = new THREE.PerspectiveCamera(45, window.innerWidth / window.innerHeight, 0.1, 100);
@@ -237,6 +255,7 @@
       // Controls
       controls = new THREE.OrbitControls(camera, renderer.domElement);
       controls.target.set(0, 0, 0);
+      controls.enabled = false; // Disable until game starts
       controls.update();
 
       // Lighting
@@ -314,6 +333,21 @@
       window.addEventListener('keyup', (e) => {
         if (!e.shiftKey && e.code !== 'KeyX') {
           setMode('place');
+        }
+      });
+      // Start Game Event
+      const startGame = () => {
+        if (isGameStarted) return;
+        isGameStarted = true;
+        controls.enabled = true;
+        document.getElementById('wgf-instructions-overlay').style.display = 'none';
+        playTone('place');
+      };
+      
+      document.getElementById('wgf-start-btn').addEventListener('click', startGame);
+      window.addEventListener('keydown', (e) => {
+        if (e.code === 'Space' || e.code === 'Enter') {
+          startGame();
         }
       });
 
@@ -467,6 +501,7 @@
     }
 
     function onPointerDown(event) {
+      if (!isGameStarted) return;
       // Ignore click on UI
       if (event.clientY > window.innerHeight - 100 && event.clientX > window.innerWidth / 2 - 150 && event.clientX < window.innerWidth / 2 + 150) return;
       if (event.clientX > window.innerWidth - 150 && event.clientY < 80) return;

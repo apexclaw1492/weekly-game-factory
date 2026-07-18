@@ -204,6 +204,85 @@ export class StandardOverlays {
   }
 
   /**
+   * Shows the Instructions / Start Game overlay.
+   */
+  public showInstructions(titleStr: string, controlsText: string, onStart: () => void): void {
+    this.clear();
+    const { width, height } = this.scene.scale;
+
+    this.container = this.scene.add.container(width / 2, height / 2).setScrollFactor(0).setDepth(2000);
+
+    const w = Math.min(width - 40, 360);
+    const h = 260;
+    const bg = this.scene.add.rectangle(0, 0, w, h, 0x1a1a1a);
+    bg.setFillStyle(0x1a1a1a, 0.85);
+    bg.setStrokeStyle(2, 0x00c805, 0.6);
+    this.container.add(bg);
+
+    const indicator = this.scene.add.rectangle(-w / 2 + 3, 0, 6, h, 0x00c805, 1);
+    this.container.add(indicator);
+
+    const title = this.scene.add.text(0, -75, titleStr.toUpperCase(), {
+      fontSize: '24px',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#00c805',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+    title.setShadow(0, 0, '#00c805', 6, true, true);
+    this.container.add(title);
+
+    const instTitle = this.scene.add.text(0, -35, 'HOW TO PLAY', {
+      fontSize: '12px',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#8e8e93',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+    this.container.add(instTitle);
+
+    const detailsText = this.scene.add.text(0, 15, controlsText, {
+      fontSize: '14px',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#ffffff',
+      align: 'center',
+      wordWrap: { width: w - 40 },
+      lineSpacing: 4
+    }).setOrigin(0.5);
+    this.container.add(detailsText);
+
+    const startBtn = this.scene.add.text(0, 85, 'START GAME', {
+      fontSize: '16px',
+      fontFamily: "'Outfit', system-ui, sans-serif",
+      color: '#ffffff',
+      fontStyle: 'bold',
+      backgroundColor: '#00c805',
+      padding: { x: 16, y: 8 }
+    }).setOrigin(0.5).setInteractive({ useHandCursor: true });
+
+    startBtn.on('pointerdown', () => {
+      this.clear();
+      onStart();
+    });
+    this.container.add(startBtn);
+
+    // Support Space or Enter to trigger start
+    if (this.scene.input && this.scene.input.keyboard) {
+      const spaceKey = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
+      const enterKey = this.scene.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.ENTER);
+      
+      const keyListener = () => {
+        if (this.container) {
+          this.clear();
+          onStart();
+          spaceKey.off('down', keyListener);
+          enterKey.off('down', keyListener);
+        }
+      };
+      spaceKey.on('down', keyListener);
+      enterKey.on('down', keyListener);
+    }
+  }
+
+  /**
    * Clears the overlay.
    */
   public clear(): void {

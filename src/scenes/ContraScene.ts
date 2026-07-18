@@ -684,9 +684,16 @@ export class ContraScene extends Phaser.Scene implements GameLifecycle {
 
   showStart(): void {
     this.lifecycleState = "start";
-    this.stateText.setText('CONTRA MISSION').setVisible(true);
-    this.hintText.setVisible(true);
-    this.overlays.clear();
+    this.stateText.setVisible(false);
+    this.hintText.setVisible(false);
+    
+    this.overlays.showInstructions(
+      'Contra Mission',
+      '• Move: Press A/D or Arrow keys (or drag joysticks).\n• Jump: Press W or Up Arrow.\n• Shoot: Press J key or tap Shoot.\n• Goal: Defeat alien guards, blow up pods, and reach the final base!',
+      () => {
+        this.startGameplay();
+      }
+    );
   }
 
   startGameplay(): void {

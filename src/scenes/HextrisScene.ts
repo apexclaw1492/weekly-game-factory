@@ -1094,11 +1094,18 @@ export class HextrisScene extends Phaser.Scene implements GameLifecycle {
   // --- GameLifecycle Implementation ---
   public showStart() {
     this.lifecycleState = 'start';
-    this.stateText.setVisible(true).setText('HEXTRIS');
-    this.hintText.setVisible(true);
+    this.stateText.setVisible(false);
+    this.hintText.setVisible(false);
     this.scoreText.setVisible(false);
     this.comboText.setVisible(false);
-    this.overlays.clear();
+    
+    this.overlays.showInstructions(
+      'Hextris',
+      '• Rotate Hexagon: Press A/D or Left/Right Arrow keys (or tap left/right screen edges).\n• Goal: Match 3 or more blocks of the same color in a row to clear them. Keep blocks from touching the grey grid boundary!',
+      () => {
+        this.startGameplay();
+      }
+    );
 
     if (this.threeRenderer) {
       this.threeRenderer.domElement.style.opacity = '1.0';

@@ -613,11 +613,18 @@ export class ClumsyBirdScene extends Phaser.Scene implements GameLifecycle {
   // --- GameLifecycle interface contract ---
   public showStart(): void {
     this.lifecycleState = 'start';
-    this.stateText.setVisible(true);
-    this.hintText.setVisible(true);
+    this.stateText.setVisible(false);
+    this.hintText.setVisible(false);
     this.scoreText.setVisible(false);
-    this.highScoreText.setVisible(true).setText(`BEST: ${this.highScore}`);
-    this.overlays.clear();
+    this.highScoreText.setVisible(false);
+    
+    this.overlays.showInstructions(
+      'Clumsy Bird',
+      '• Flap: Press Spacebar, Up Arrow, W, or tap screen.\n• Goal: Guide the clumsy bird safely through the gaps in the green pipes!',
+      () => {
+        this.startGameplay();
+      }
+    );
 
     // Reset positions for preview in menu state
     this.birdY = 0;
