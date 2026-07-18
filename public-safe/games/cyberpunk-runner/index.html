@@ -59,7 +59,21 @@
   <div id="ui">
     <h1>CYBERPUNK RUNNER</h1>
     <p>Score: <span id="score">0</span></p>
-    <div class="controls">A/D/Arrows or Tap Left/Right to Steer.<br>Space/Tap Top to Jump.</div>
+    <div id="powerups-ui" style="margin-top: 8px; display: flex; flex-direction: column; gap: 4px; font-size: 12px; font-family: monospace;">
+      <div id="shield-ui" style="display: none; align-items: center; gap: 8px;">
+        <span style="color: #0f0; font-weight: bold; width: 60px;">SHIELD:</span>
+        <div style="width: 100px; height: 8px; background: rgba(0,255,0,0.2); border: 1px solid #0f0; border-radius: 4px; overflow: hidden;">
+          <div id="shield-bar" style="width: 100%; height: 100%; background: #0f0;"></div>
+        </div>
+      </div>
+      <div id="slowmo-ui" style="display: none; align-items: center; gap: 8px;">
+        <span style="color: #ff0; font-weight: bold; width: 60px;">SLOW-MO:</span>
+        <div style="width: 100px; height: 8px; background: rgba(255,255,0,0.2); border: 1px solid #ff0; border-radius: 4px; overflow: hidden;">
+          <div id="slowmo-bar" style="width: 100%; height: 100%; background: #ff0;"></div>
+        </div>
+      </div>
+    </div>
+    <div class="controls" style="margin-top: 10px;">A/D/Arrows or Tap Left/Right to Steer.<br>Space/Tap Top to Jump.</div>
   </div>
 
   <div id="dev-notes">
@@ -100,6 +114,15 @@
     let isGameStarted = false;
     let currentLane = 0; // -1, 0, 1
     let obstacles = [], physicsObstacles = [];
+    let credits = [];
+    let powerups = [];
+    let activeShield = false;
+    let activeShieldTime = 0;
+    const SHIELD_DURATION = 8; // 8 seconds
+    let activeSlowMo = false;
+    let activeSlowMoTime = 0;
+    const SLOWMO_DURATION = 6; // 6 seconds
+    let playerShieldMesh = null;
     let buildingsMesh;
     let clock = new THREE.Clock();
     
@@ -312,7 +335,25 @@
       });
 
       playerBody.addEventListener('collide', (e) => {
-        if (e.body.userData && e.body.userData.isObstacle) gameOver();
+        if (e.body.userData && e.body.userData.isObstacle) {
+          if (activeShield) {
+            activeShield = false;
+            document.getElementById('shield-ui').style.display = 'none';
+            if (playerShieldMesh) {
+              playerMesh.remove(playerShieldMesh);
+              playerShieldMesh = null;
+            }
+            const idx = obstacles.findIndex(obs => obs.body === e.body);
+            if (idx !== -1) {
+              scene.remove(obstacles[idx].mesh);
+              world.removeBody(obstacles[idx].body);
+              obstacles.splice(idx, 1);
+            }
+            playTone('jump');
+          } else {
+            gameOver();
+          }
+        }
       });
 
       window.addEventListener('resize', () => {
@@ -340,7 +381,6 @@
       const restartGame = () => {
         document.getElementById('wgf-gameover-overlay').style.display = 'none';
         
-        // Reset game state
         score = 0;
         isGameOver = false;
         currentLane = 0;
@@ -348,12 +388,35 @@
         playerBody.velocity.set(0, 0, 0);
         playerBody.angularVelocity.set(0, 0, 0);
         
-        // Clear obstacles
+        activeShield = false;
+        activeShieldTime = 0;
+        document.getElementById('shield-ui').style.display = 'none';
+        if (playerShieldMesh) {
+          playerMesh.remove(playerShieldMesh);
+          playerShieldMesh = null;
+        }
+        
+        activeSlowMo = false;
+        activeSlowMoTime = 0;
+        document.getElementById('slowmo-ui').style.display = 'none';
+        
         for (let i = obstacles.length - 1; i >= 0; i--) {
           scene.remove(obstacles[i].mesh);
           world.removeBody(obstacles[i].body);
         }
         obstacles = [];
+
+        for (let i = credits.length - 1; i >= 0; i--) {
+          scene.remove(credits[i].mesh);
+          world.removeBody(credits[i].body);
+        }
+        credits = [];
+
+        for (let i = powerups.length - 1; i >= 0; i--) {
+          scene.remove(powerups[i].mesh);
+          world.removeBody(powerups[i].body);
+        }
+        powerups = [];
         
         playTone('jump');
       };
@@ -365,6 +428,43 @@
       });
 
       animate();
+    }
+
+    function spawnCredit(lane, zOffset = -120) {
+      const geo = new THREE.SphereGeometry(0.3, 16, 16);
+      const mat = new THREE.MeshStandardMaterial({ color: 0x00aaff, emissive: 0x00aaff, emissiveIntensity: 2.0 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.position.set(lane * LANE_WIDTH, 0.5, zOffset);
+      scene.add(mesh);
+
+      const body = new CANNON.Body({
+        mass: 0,
+        shape: new CANNON.Sphere(0.3),
+        position: new CANNON.Vec3(lane * LANE_WIDTH, 0.5, zOffset)
+      });
+      body.collisionResponse = false;
+      world.addBody(body);
+      credits.push({ mesh, body });
+    }
+
+    function spawnPowerUp(lane, zOffset = -120) {
+      const isShield = Math.random() > 0.5;
+      const geo = new THREE.CylinderGeometry(0.2, 0.2, 0.6, 12);
+      const color = isShield ? 0x00ff00 : 0xffff00;
+      const mat = new THREE.MeshStandardMaterial({ color: color, emissive: color, emissiveIntensity: 2.0 });
+      const mesh = new THREE.Mesh(geo, mat);
+      mesh.rotation.x = Math.PI / 2;
+      mesh.position.set(lane * LANE_WIDTH, 0.5, zOffset);
+      scene.add(mesh);
+
+      const body = new CANNON.Body({
+        mass: 0,
+        shape: new CANNON.Cylinder(0.2, 0.2, 0.6, 12),
+        position: new CANNON.Vec3(lane * LANE_WIDTH, 0.5, zOffset)
+      });
+      body.collisionResponse = false;
+      world.addBody(body);
+      powerups.push({ mesh, body, type: isShield ? 'shield' : 'slowmo' });
     }
 
     function spawnObstacle() {
@@ -386,6 +486,17 @@
       world.addBody(body);
 
       obstacles.push({ mesh, body });
+
+      // Spawn credit or powerup in a free lane
+      const otherLanes = [-1, 0, 1].filter(l => l !== lane);
+      const chosenLane = otherLanes[Math.floor(Math.random() * otherLanes.length)];
+      
+      const rand = Math.random();
+      if (rand < 0.08) {
+        spawnPowerUp(chosenLane);
+      } else if (rand < 0.45) {
+        spawnCredit(chosenLane);
+      }
     }
     
     function updateParticles() {
@@ -440,16 +551,18 @@
       const dt = Math.min(clock.getDelta(), 0.1);
 
       if (!isGameOver) {
+        const speedMult = activeSlowMo ? 0.5 : 1.0;
+        const currentSpeed = SPEED * speedMult;
+
         world.step(1/60, dt, 3);
         
-        // P-controller for lane switching (tighter)
         const targetX = currentLane * LANE_WIDTH;
         playerBody.velocity.x = (targetX - playerBody.position.x) * 15;
         
         // Move obstacles towards player
         for (let i = obstacles.length - 1; i >= 0; i--) {
           const obs = obstacles[i];
-          obs.body.position.z += SPEED * dt;
+          obs.body.position.z += currentSpeed * dt;
           obs.mesh.position.copy(obs.body.position);
           
           if (obs.body.position.z > 10) {
@@ -459,11 +572,98 @@
           }
         }
 
+        // Move credits and check collision
+        for (let i = credits.length - 1; i >= 0; i--) {
+          const c = credits[i];
+          c.body.position.z += currentSpeed * dt;
+          c.mesh.position.copy(c.body.position);
+          c.mesh.rotation.y += 2 * dt;
+          
+          const dist = playerBody.position.distanceTo(c.body.position);
+          if (dist < 0.9) {
+            scene.remove(c.mesh);
+            world.removeBody(c.body);
+            credits.splice(i, 1);
+            score += 50;
+            playTone('tick');
+            continue;
+          }
+          
+          if (c.body.position.z > 10) {
+            scene.remove(c.mesh);
+            world.removeBody(c.body);
+            credits.splice(i, 1);
+          }
+        }
+
+        // Move powerups and check collision
+        for (let i = powerups.length - 1; i >= 0; i--) {
+          const p = powerups[i];
+          p.body.position.z += currentSpeed * dt;
+          p.mesh.position.copy(p.body.position);
+          p.mesh.rotation.y += 2 * dt;
+          
+          const dist = playerBody.position.distanceTo(p.body.position);
+          if (dist < 0.9) {
+            scene.remove(p.mesh);
+            world.removeBody(p.body);
+            
+            if (p.type === 'shield') {
+              activeShield = true;
+              activeShieldTime = SHIELD_DURATION;
+              document.getElementById('shield-ui').style.display = 'flex';
+              if (!playerShieldMesh) {
+                const sGeo = new THREE.SphereGeometry(0.7, 16, 16);
+                const sMat = new THREE.MeshBasicMaterial({ color: 0x00ff00, transparent: true, opacity: 0.3, wireframe: true });
+                playerShieldMesh = new THREE.Mesh(sGeo, sMat);
+                playerMesh.add(playerShieldMesh);
+              }
+            } else if (p.type === 'slowmo') {
+              activeSlowMo = true;
+              activeSlowMoTime = SLOWMO_DURATION;
+              document.getElementById('slowmo-ui').style.display = 'flex';
+            }
+            
+            playTone('jump');
+            powerups.splice(i, 1);
+            continue;
+          }
+          
+          if (p.body.position.z > 10) {
+            scene.remove(p.mesh);
+            world.removeBody(p.body);
+            powerups.splice(i, 1);
+          }
+        }
+
+        // Update active powerups durations
+        if (activeShield) {
+          activeShieldTime -= dt;
+          document.getElementById('shield-bar').style.width = `${(activeShieldTime / SHIELD_DURATION) * 100}%`;
+          if (activeShieldTime <= 0) {
+            activeShield = false;
+            document.getElementById('shield-ui').style.display = 'none';
+            if (playerShieldMesh) {
+              playerMesh.remove(playerShieldMesh);
+              playerShieldMesh = null;
+            }
+          }
+        }
+        
+        if (activeSlowMo) {
+          activeSlowMoTime -= dt;
+          document.getElementById('slowmo-bar').style.width = `${(activeSlowMoTime / SLOWMO_DURATION) * 100}%`;
+          if (activeSlowMoTime <= 0) {
+            activeSlowMo = false;
+            document.getElementById('slowmo-ui').style.display = 'none';
+          }
+        }
+
         // Spawn logic
         nextSpawn -= dt;
         if (nextSpawn <= 0) {
           spawnObstacle();
-          nextSpawn = 0.3 + Math.random() * 1.2; // Spawn faster for more challenge
+          nextSpawn = 0.3 + Math.random() * 1.2;
         }
 
         // Animate Instanced Buildings
@@ -473,7 +673,7 @@
         for (let i = 0; i < NUM_BUILDINGS; i++) {
           buildingsMesh.getMatrixAt(i, mat);
           mat.decompose(dummy.position, dummy.quaternion, dummy.scale);
-          dummy.position.z += SPEED * dt;
+          dummy.position.z += currentSpeed * dt;
           if (dummy.position.z > 20) {
             dummy.position.z -= 200;
           }
@@ -485,18 +685,23 @@
         
         updateParticles();
 
-        score += dt * SPEED;
+        score += dt * currentSpeed;
         document.getElementById('score').innerText = Math.floor(score);
         
         // Play dynamic engine hum ticks
         beatTimer -= dt;
         if (beatTimer <= 0) {
           playTone('tick');
-          // Speed up the tick rate as score increases!
           const speedFactor = Math.min(1.5, 1.0 + score / 1000);
-          beatTimer = 0.4 / speedFactor;
+          beatTimer = (0.4 / speedFactor) / speedMult;
         }
       }
+
+      // Camera follow & sweep
+      const altitude = Math.max(0, playerBody.position.y - 0.5);
+      camera.position.y = 3 - altitude * 0.5;
+      camera.position.z = 8 + altitude * 0.8;
+      camera.lookAt(new THREE.Vector3(playerMesh.position.x * 0.6, playerMesh.position.y * 0.5, playerMesh.position.z - 4));
 
       playerMesh.position.copy(playerBody.position);
       playerMesh.quaternion.copy(playerBody.quaternion);

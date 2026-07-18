@@ -130,19 +130,6 @@ export const GAME_DEFINITIONS: readonly GameDefinition[] = [
     color: 0xEE0000,
     description: 'F1-inspired high-speed Pong! Beat the AI and win the set.'
   },
-
-  {
-    id: 'aubreys-realm',
-    title: "Aubrey's Realm",
-    icon: '🧝‍♀️',
-    weekLabel: 'Week 5',
-    weekNumber: 5,
-    url: './games/aubreys-realm/index.html',
-    color: 0xd4a843,
-    description: 'Explore a magical realm. Collect star-seeds to awaken the sleeping world.',
-    certificationStatus: 'certified',
-    certificationLabel: 'CERTIFIED TOUCH'
-  },
   {
     id: 'voxel-sandbox',
     title: 'Voxel Sandbox',
